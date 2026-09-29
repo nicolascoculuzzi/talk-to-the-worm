@@ -762,7 +762,7 @@ export function createWormServer(overrides = {}) {
     if (p === '/config.json') {
       return json(res, 200, {
         site: siteInfo(), params: PARAMS, wiringSha256: wiringHash, transmittersSha256: txHash, model: MODEL_V2.id, stepsPerSecond: STEPS_PER_SECOND,
-        features: { ots: !!(ledger && config.ots), chunkMinutes: config.chunkMinutes, twitch: twitch ? twitch.status().channel : null, publicUrl: config.publicUrl, spawn: spawn.open, spawnQuote: spawn.quote },
+        features: { ots: !!(ledger && config.ots), chunkMinutes: config.chunkMinutes, twitch: twitch ? twitch.status().channel : null, publicUrl: config.publicUrl, spawn: spawn.open, spawnQuote: spawn.pricedIn },
         calibration,
       });
     }

@@ -289,7 +289,8 @@ test('the server: SPAWN buys poke the worm at the coin\'s own spot, logged with 
     const pub = await (await fetch(base + '/spawn.json')).json();
     assert.equal(pub.open, true);
     assert.deepEqual(pub.coins.map((c) => c.symbol), ['GOOD']);
-    assert.equal((await (await fetch(base + '/config.json')).json()).features.spawn, true);
+    const features = (await (await fetch(base + '/config.json')).json()).features;
+    assert.deepEqual([features.spawn, features.spawnQuote], [true, '$BRAINWORM']);
     const bad = await post('/spawn/quote', { mint: addr(), side: 'buy', amount: 1 });
     assert.equal(bad.status, 400); assert.match((await bad.json()).error, /Not a SPAWN coin/);
     assert.deepEqual(await (await post('/spawn/confirm', { signature: S1 })).json(), { confirmed: true, failed: false });

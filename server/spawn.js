@@ -678,7 +678,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
 
   return {
     get open() { return canLaunch(); },
-    get quote() { return current() ? quoteName(current()) : null; },
+    get pricedIn() { return current() ? quoteName(current()) : null; },   // what new coins are priced in
     status: () => ({ open: canLaunch(), trading: canTrade(), hosting: canHost(), owner: opts.owner || null, configs: s.configs, current: current()?.address || null, pending: pendingConfig, burns: s.burns.slice(-20), burned: s.burns.reduce((n, b) => n + b.amount, 0), waiting: cache.waiting, waitingSol: cache.waitingSol, stuck: cache.stuck, coins: cache.coins.length, stream: !!stream, prices: cache.prices, caughtUpAt }),
     fresh, publicState, quote, swap, confirm, create, created, claimCreator, rootPrice, buildConfig, confirmConfig, buildClaimAndBurn, buildClaimGraduated, buildClaimSol, buyback, burnClaimed, burned, addReaction, metaFile,
     start() { if (s.configs.length || opts.owner) fresh().catch(() => {}); },
