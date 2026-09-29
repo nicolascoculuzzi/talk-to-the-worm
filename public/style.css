@@ -642,6 +642,9 @@ body.sp{min-height:100vh;background:radial-gradient(1200px 600px at 70% -10%,rgb
 .ownpics figure{margin:0;display:grid;gap:5px;min-width:0}
 .ownpics img{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:10px;background:var(--rule)}
 .ownpics figcaption{font:400 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.ownwatch{margin:0;display:grid;gap:6px}
+.ownwatch canvas{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:10px;background:#04070B}
+.ownwatch figcaption{font:400 10.5px var(--mono);letter-spacing:.06em;color:var(--mute)}
 #ownstats{margin:0;line-height:1.55}
 .ownrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .ownrow .ok{color:var(--green)} .ownrow .bad{color:var(--coral)}

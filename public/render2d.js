@@ -1,7 +1,8 @@
 // Fallback renderer for browsers without WebGL2: the same camera and colours on a 2D canvas.
 import { viewProj, deform } from '/gl.js';
 
-export function create2DRenderer(canvas, { D, colors, kinds }) {
+// dot and glow scale the cells' size and brightness (a small canvas, like a coin's worm on /spawn, wants both larger)
+export function create2DRenderer(canvas, { D, colors, kinds, dot = 1, glow = 0 }) {
   const cx = canvas.getContext('2d');
   const N = D.n.length, drawn = []; for (let i = 0; i < N; i++) if (D.n[i][5]) drawn.push(i);
   const sprites = {};
@@ -24,8 +25,8 @@ export function create2DRenderer(canvas, { D, colors, kinds }) {
       const [x, y, z] = deform(D.n[i][5], s.bend, s.st);
       const cw = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
       const sx = (vp[0] * x + vp[4] * y + vp[8] * z + vp[12]) / cw, sy = (vp[1] * x + vp[5] * y + vp[9] * z + vp[13]) / cw;
-      const a = s.act[i] / 255, k = kinds[i], sz = (base * (k === 'eye' ? 1.6 : 1) + a * base * 2.2) * 3.4 / cw;
-      cx.globalAlpha = Math.min(0.9, (k === 'eye' ? 0.5 : k === 'touch' ? 0.35 : 0.2) + a * 0.8);
+      const a = s.act[i] / 255, k = kinds[i], sz = dot * (base * (k === 'eye' ? 1.6 : 1) + a * base * 2.2) * 3.4 / cw;
+      cx.globalAlpha = Math.min(0.95, glow + (k === 'eye' ? 0.5 : k === 'touch' ? 0.35 : 0.2) + a * 0.8);
       cx.drawImage(sprites[k], (sx * 0.5 + 0.5) * W - sz / 2, (0.5 - sy * 0.5) * H - sz / 2, sz, sz);
     }
     cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';

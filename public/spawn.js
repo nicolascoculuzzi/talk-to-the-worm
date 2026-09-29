@@ -5,6 +5,7 @@ import { pixelWordmark } from '/pixel.js';
 import { connect, connected, signAndSend, short, noWallet } from '/wallet.js';
 import { mountLaunchForm, openInWallet } from '/launchform.js';
 import { coinCard, coinPicture, el, fmt, compact, sol, usd } from '/coincard.js';
+import { create2DRenderer } from '/render2d.js';
 
 const $ = (id) => document.getElementById(id);
 const api = async (path, body) => {
@@ -100,6 +101,7 @@ function renderCoins() {
 /* ---------- trading: one Jupiter transaction, signed in the visitor's wallet ---------- */
 let coin = null, side = 'buy', pay = 'sol', quote = null, quoteTimer = null;
 function openTrade(c) {
+  stopWatching();
   coin = c; quote = null;
   $('tradeh').textContent = '$' + c.symbol;
   const pic = coinPicture(c);
@@ -124,6 +126,64 @@ function showOwn(c) {
   $('ownstats').textContent = `Its worm has felt ${fmt(o.trades)} trade${o.trades === 1 ? '' : 's'} (${fmt(o.buys)} buys, ${fmt(o.sells)} sells), `
     + `lit ${fmt(o.cells)} cells in all (${fmt(o.best)} at most at once) and swum ${mm(o.swim)}. At its first sight, "$${c.symbol}", ${fmt(o.birth)} cells fired.`;
   $('owncheckout').textContent = ''; $('owncheckout').className = 'small';
+}
+/* watching its worm: its first sight and its latest trade, replayed step by step in this browser from its public record */
+const HEX = { eye: '#FFB84D', touch: '#FF9E7A', sn: '#7FC8FF', in: '#B9C9E8', mn: '#C49BFF', mus: '#FF6B5E', cil: '#56E6D2', other: '#6E7F8C' };
+const COLORS = Object.fromEntries(Object.entries(HEX).map(([k, h]) => [k, [1, 3, 5].map((o) => parseInt(h.slice(o, o + 2), 16))]));
+// the main page's colour key (app.js kindOf)
+const kindOf = (x) => (x[6] & 1 ? 'eye' : x[6] & 4 ? 'touch' : x[6] & 64 ? 'cil' : x[1] === 0 ? 'sn' : x[1] === 1 ? 'in' : x[1] === 2 ? 'mn' : x[1] === 3 && /^MUS/.test(x[0]) ? 'mus' : 'other');
+let wiring = null, watcher = null, watchId = 0, playing = 0;
+$('ownwatchbtn').addEventListener('click', () => {
+  if (playing) { stopWatching(); return; }
+  if (!coin) return;
+  const id = ++watchId, mint = coin.mint, out = $('owncheckout');
+  $('ownwatchbtn').disabled = true; out.className = 'small'; out.textContent = 'Hatching it again in your browser…';
+  wiring ||= fetch('/data/wiring.json').then((r) => r.json());
+  watcher ||= new Worker('/coinworm-worker.js', { type: 'module' });
+  watcher.onmessage = async (e) => {
+    const m = e.data;
+    if (m.id !== id) return;
+    if (m.t === 'progress') { out.textContent = m.total ? `Rebuilding it from its trades: ${fmt(m.done)} of ${fmt(m.total)}…` : 'Hatching it again in your browser…'; return; }
+    $('ownwatchbtn').disabled = false;
+    if (m.t === 'error') { out.textContent = m.message; return; }
+    if (coin?.mint !== mint || $('trade').hidden) return;
+    out.textContent = '';
+    play(await wiring, m);
+  };
+  watcher.postMessage({ id, mint, t: 'frames' });
+});
+function play(W, m) {
+  const cv = $('owncanvas'), R = create2DRenderer(cv, { D: W, colors: COLORS, kinds: W.n.map(kindOf), dot: 2.4, glow: 0.12 });
+  $('ownpics').hidden = true; $('ownwatch').hidden = false; $('ownwatchbtn').textContent = 'Stop';
+  const px = Math.round(cv.clientWidth * Math.min(2, devicePixelRatio || 1)) || 480;
+  R.resize(px, px);
+  // its first sight in its own time (30 steps a second); a trade's touch is over in a third of a second, so it plays slowed
+  const act = new Uint8Array(m.n), parts = [{ from: 0, to: m.birth, rate: 30, cap: `Its first sight: "$${m.ticker}"` }];
+  if (m.last) parts.push({ from: m.birth, to: m.count, rate: 8, cap: `Its latest trade, a ${m.last.side}: its ${m.last.side === 'buy' ? 'head' : 'tail'} touched (slowed down)` });
+  // each part ends a moment after its last cell stops firing (the steps after that are only quiet)
+  for (const p of parts) {
+    let end = p.from;
+    for (let f = p.from; f < p.to; f++) { const fr = m.buf.subarray(f * m.n, (f + 1) * m.n); if (fr.some((v) => v > 12)) end = f; }
+    p.to = Math.min(p.to, end + 1 + Math.round(p.rate * 0.8));
+  }
+  let part = 0, t0 = performance.now(), hold = 0;
+  const loop = (now) => {
+    if (!playing) return;
+    const p = parts[part], len = p.to - p.from, k = Math.min(len - 1, Math.floor(((now - t0) / 1000) * p.rate));
+    act.set(m.buf.subarray((p.from + k) * m.n, (p.from + k + 1) * m.n));
+    let firing = 0;
+    for (let i = 0; i < m.n; i++) if (act[i] > 12) firing++;
+    R.frame({ cam: { yaw: 0.35 + now / 9000, pitch: 0.12, dist: 4.4, ty: -0.16, fov: 0.55 }, bend: 0, st: 0, act });
+    $('owncap').textContent = `${p.cap} · ${fmt(firing)} cells firing`;
+    if (k >= len - 1) { hold ||= now + 1400; if (now >= hold) { part = (part + 1) % parts.length; t0 = now; hold = 0; } }
+    playing = requestAnimationFrame(loop);
+  };
+  playing = requestAnimationFrame(loop);
+}
+function stopWatching() {
+  if (playing) cancelAnimationFrame(playing);
+  playing = 0; watchId++;
+  $('ownwatch').hidden = true; $('ownpics').hidden = false; $('ownwatchbtn').textContent = 'Watch it'; $('ownwatchbtn').disabled = false;
 }
 let checker = null, checkId = 0;
 $('owncheck').addEventListener('click', () => {
@@ -180,7 +240,7 @@ $('tclaim').addEventListener('click', async () => {
 });
 $('tbuy').addEventListener('click', () => setSide('buy'));
 $('tsell').addEventListener('click', () => setSide('sell'));
-$('tclose').addEventListener('click', () => { $('trade').hidden = true; });
+$('tclose').addEventListener('click', () => { $('trade').hidden = true; stopWatching(); });
 // share a coin: its own link, whose preview is its worm
 $('tshare').addEventListener('click', async () => {
   if (!coin) return;
@@ -188,8 +248,8 @@ $('tshare').addEventListener('click', async () => {
   if (navigator.share) { try { await navigator.share({ title: '$' + coin.symbol, text, url }); return; } catch { /* cancelled */ } }
   open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'noopener');
 });
-$('trade').addEventListener('click', (e) => { if (e.target.id === 'trade') $('trade').hidden = true; });
-addEventListener('keydown', (e) => { if (e.key === 'Escape') $('trade').hidden = true; });
+$('trade').addEventListener('click', (e) => { if (e.target.id === 'trade') { $('trade').hidden = true; stopWatching(); } });
+addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('trade').hidden = true; stopWatching(); } });
 $('tamount').addEventListener('input', () => { clearTimeout(quoteTimer); quoteTimer = setTimeout(requote, 350); });
 
 async function requote() {

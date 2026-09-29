@@ -99,12 +99,13 @@
   <div class="sheet tradesheet">
     <div class="tradetop"><img id="timg" alt="" width="44" height="44"><div><h2 id="tradeh">$TICKER</h2><p class="small" id="tprice"></p></div><button type="button" class="x share" id="tshare" aria-label="Share this coin" title="Share this coin"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M6 7l4-4 4 4M4 12v4h12v-4"/></svg></button><button type="button" class="x" id="tclose" aria-label="Close">×</button></div>
     <section class="own" id="own" aria-label="Its own worm" hidden>
-      <div class="ownpics">
+      <div class="ownpics" id="ownpics">
         <figure><img id="ownbirth" alt="Its worm's activity at its first sight" width="192" height="192"><figcaption>First sight</figcaption></figure>
         <figure><img id="ownnow" alt="Its worm's activity at its latest trade" width="192" height="192"><figcaption>Its latest trade</figcaption></figure>
       </div>
+      <figure class="ownwatch" id="ownwatch" hidden><canvas id="owncanvas" width="480" height="480" aria-label="Its worm, replayed in your browser"></canvas><figcaption id="owncap"></figcaption></figure>
       <p class="small" id="ownstats"></p>
-      <div class="ownrow"><button type="button" class="btn-ghost" id="owncheck">Check it yourself</button><span class="small" id="owncheckout" role="status" aria-live="polite"></span></div>
+      <div class="ownrow"><button type="button" class="btn-amber" id="ownwatchbtn">Watch it</button><button type="button" class="btn-ghost" id="owncheck">Check it yourself</button><span class="small" id="owncheckout" role="status" aria-live="polite"></span></div>
     </section>
     <div class="tabs" role="tablist"><button type="button" role="tab" id="tbuy" aria-selected="true">Buy</button><button type="button" role="tab" id="tsell" aria-selected="false">Sell</button></div>
     <div class="paywith" id="paywith"><span id="paylabel">Pay with</span><div class="tabs" role="tablist" aria-label="Currency"><button type="button" role="tab" id="psol" aria-selected="true">SOL</button><button type="button" role="tab" id="proot" aria-selected="false">$BRAINWORM</button></div></div>
