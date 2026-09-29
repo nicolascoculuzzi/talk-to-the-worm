@@ -27,8 +27,10 @@ export async function connect(chain = 'solana:mainnet') {
   wallet = usable.length === 1 ? usable[0] : usable.find((w) => /phantom/i.test(w.name)) || usable[0];
   const { accounts } = await wallet.features['standard:connect'].connect();
   account = accounts[0];
+  dispatchEvent(new CustomEvent('wallet-connected', { detail: connected() }));   // every form on the page shows it
   return connected();
 }
+export const short = (a) => `${a.slice(0, 4)}…${a.slice(-4)}`;
 
 /** Ask the wallet to show, sign and send a base64 transaction. Returns the signature. */
 export async function signAndSend(txB64, chain = 'solana:mainnet') {

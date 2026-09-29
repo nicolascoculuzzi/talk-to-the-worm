@@ -41,6 +41,16 @@ export const config = {
     jupiterKey: env.JUPITER_API_KEY || '',
   },
 
+  // SPAWN, the launchpad
+  spawn: {
+    // the owner's wallet (a public address): it makes SPAWN's configs and claims their fees, and SPAWN finds its configs
+    // on the chain from it, so nothing is lost when LOG_DIR doesn't survive a restart
+    owner: (env.SPAWN_OWNER || '').trim(),
+    // coin pictures and metadata go to IPFS through PINATA_JWT; they are served from LOG_DIR only when it is set on
+    // purpose (a persistent disk) or SPAWN_LOCAL_META=1 says so: a coin's metadata address can never change
+    localMeta: !!env.LOG_DIR || bool(env.SPAWN_LOCAL_META),
+  },
+
   // the lab: registered experiments against randomly rewired worms, run once in a worker and cached (LAB=0 turns it off)
   lab: env.LAB !== '0',
 

@@ -18,6 +18,8 @@ import { createTank } from '/tank.js';
 import { BODY, UM_PER_UNIT } from '/shared/body.js';
 import { LAMP, lampLight } from '/shared/lamp.js';
 import { ciliaInputs, beats, meanArrestAll } from '/shared/cilia.js';
+import { mountLaunchForm } from '/launchform.js';
+import { coinCard, compact } from '/coincard.js';
 
 const $ = (id) => document.getElementById(id);
 const body = document.body;
@@ -321,14 +323,17 @@ function toast(text, ok = false) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.textContent = ''; }, 4200);
 }
 
-// composer
-const tabs = { say: $('tab-say'), tug: $('tab-tug'), lamp: $('tab-lamp') };
+// composer: launching a coin first, then what you can send the worm
+const tabs = { launch: $('tab-launch'), say: $('tab-say'), tug: $('tab-tug'), lamp: $('tab-lamp') };
 function setTab(which) {
-  if (!tabs[which]) which = 'say';
+  if (!tabs[which]) which = 'launch';
   for (const [k, b] of Object.entries(tabs)) b.setAttribute('aria-selected', String(k === which));
-  $('talk').hidden = which !== 'say'; $('tugform').hidden = which !== 'tug'; $('lampform').hidden = which !== 'lamp';
+  $('launchform').hidden = which !== 'launch'; $('talk').hidden = which !== 'say'; $('tugform').hidden = which !== 'tug'; $('lampform').hidden = which !== 'lamp';
   $('chips').hidden = which !== 'say';
+  $('dock').dataset.tab = which;   // the eye strip is for what you send it; launching doesn't need it
 }
+setTab('launch');
+tabs.launch.addEventListener('click', () => { setTab('launch'); $('lname').focus(); });
 tabs.say.addEventListener('click', () => { setTab('say'); $('msg').focus(); });
 tabs.tug.addEventListener('click', () => { setTab('tug'); $('tugwa').focus(); });
 tabs.lamp.addEventListener('click', () => setTab('lamp'));
@@ -349,7 +354,8 @@ for (const a of document.querySelectorAll('[data-go]')) {
     if (a.dataset.go === 'swim') { $('swim').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' }); $('swim').classList.remove('lit'); void $('swim').offsetWidth; $('swim').classList.add('lit'); return; }
     scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
     setTab(a.dataset.go);
-    setTimeout(() => (a.dataset.go === 'tug' ? $('tugwa') : a.dataset.go === 'lamp' ? $('lampform').querySelector('button') : $('msg')).focus({ preventScroll: true }), 500);
+    const go = a.dataset.go;
+    setTimeout(() => (go === 'tug' ? $('tugwa') : go === 'lamp' ? $('lampform').querySelector('button') : go === 'say' ? $('msg') : $('lname')).focus({ preventScroll: true }), 500);
   });
 }
 
@@ -947,11 +953,37 @@ function renderFeed(reset = false) {
   });
 }
 
-/* ---------- SPAWN: the three most active coins' own worms, on the SPAWN card ---------- */
-async function showSpawnCoins() {
-  const j = await fetch('/spawn.json').then((r) => r.json()).catch(() => null);
+/* ---------- SPAWN, the launchpad: the launch form, the newest coins, and the three busiest coins' own worms ---------- */
+const launchForm = mountLaunchForm($('launchform'), { onLaunched: () => { dismissCoach(); setTimeout(loadSpawn, 4000); } });
+$('launchform').addEventListener('focusin', () => dismissCoach());
+let spawnData = null;
+async function loadSpawn() {
+  const j = await fetch('/spawn.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!j) return;
+  spawnData = j;
+  launchForm.update(j);
+  for (const id of ['spawnpill', 'spawnopen']) { const p = $(id); p.textContent = j.open ? (j.quote === 'SOL' ? 'Open · priced in SOL' : 'Open') : 'Opening soon'; p.classList.toggle('live', !!j.open); }
+  renderHomeCoins(j);
+  showSpawnCoins(j);
+}
+function renderHomeCoins(j) {
+  const grid = $('homecoins'), coins = [...(j.coins || [])].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
+  grid.replaceChildren(...(coins.length ? coins.map((c) => coinCard(c)) : [el('p', 'empty', j.open ? 'No coins yet. Launch the first one from the panel above.' : 'Opening soon.')]));
+  const f = j.fee, r = j.root || {};
+  if (!f) return;
+  const protocol = Math.round(f.protocolShare * 100), creator = Math.round((1 - f.protocolShare) * f.creatorShare * 100), rest = 100 - protocol - creator;
+  const burned = r.burned ? ` ${compact(r.burned)} $BRAINWORM burned so far.` : '', waiting = r.waitingSol ? ` ${compact(r.waitingSol)} SOL waiting to buy $BRAINWORM when it launches.` : '';
+  $('homefee').textContent = `Each trade pays ${f.bps / 100}%: ${rest}% of it goes to $BRAINWORM's burn, ${creator}% to the coin's creator, ${protocol}% to Meteora.${burned}${waiting}`;
+}
+setInterval(() => { if (!document.hidden) loadSpawn(); }, 30_000);
+loadSpawn();
+// where the live readouts stack under the hero (phones, tablets), the coins come first
+const stacked = matchMedia('(max-width: 1199px)');
+const placeCoins = () => { if (stacked.matches) $('rail').before($('coins')); else document.querySelector('.page').prepend($('coins')); };
+placeCoins(); stacked.addEventListener?.('change', placeCoins);
+function showSpawnCoins(j) {
   const coins = (j?.coins || []).filter((c) => c.own).sort((a, b) => (b.own.cells - a.own.cells) || (b.createdAt - a.createdAt)).slice(0, 3);
-  if (!coins.length) { $('spawnnote').textContent = 'Open · no coins yet'; return; }
+  if (!coins.length) { $('spawnnote').textContent = j?.open ? 'Open · no coins yet' : 'Opening soon'; return; }
   const box = $('spawncoins'); box.replaceChildren();
   for (const c of coins) {
     const a = el('a', 'spawncoin'); a.href = '/spawn#coins';
@@ -1232,10 +1264,6 @@ fetch('/config.json').then((r) => r.json()).then((c) => {
   for (const l of site.links || []) { const a = el('a', null, l.label); a.href = l.url; a.target = '_blank'; a.rel = 'noopener'; fl.append(a); }
   if (calibration) renderCalibration();
   if (features.twitch && !twitch) twitch = { channel: features.twitch, prefix: '!worm' };
-  if (features.spawn && !$('navspawn')) { const a = el('a', null, 'SPAWN'); a.href = '/spawn'; a.id = 'navspawn'; $('navlinks').append(a); }
-  const spill = $('spawnpill');
-  if (spill) { spill.textContent = features.spawn ? 'Open' : 'After launch'; spill.classList.toggle('live', !!features.spawn); }
-  if (features.spawn) showSpawnCoins();
   renderTwitch();
 }).catch(() => {});
 
@@ -1339,7 +1367,7 @@ addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeClip(); clea
 
 /* ---------- share ---------- */
 $('sharebtn').addEventListener('click', async () => {
-  const data = { title: 'BRAINWORM', text: 'A real larva\'s wiring, exactly as published, simulated live. Everyone sees the same worm.', url: location.origin };
+  const data = { title: 'BRAINWORM', text: 'Launch a coin and it hatches its own worm: a copy of a real larva\'s wiring, simulated live.', url: location.origin };
   if (navigator.share) { try { await navigator.share(data); return; } catch { /* cancelled */ } }
   try { await navigator.clipboard.writeText(location.origin); toast('Link copied', true); } catch { toast(location.origin, true); }
 });

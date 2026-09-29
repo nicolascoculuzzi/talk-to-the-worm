@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
-<title>BRAINWORM · a real larva's wiring, simulated live</title>
-<meta name="description" content="A simulation of a real marine worm larva's nervous system, wired exactly as published and running live. Type a message it sees as light, poke it, or set two words against each other. Everyone watching sees the same worm.">
+<title>BRAINWORM · launch a coin, it hatches its own worm</title>
+<meta name="description" content="BRAINWORM is a launchpad on Solana. Launch a coin and it hatches its own worm: a copy of a real marine larva's nervous system, wired exactly as published, that feels every trade of it. Every buy also pokes the live worm everyone watches.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="BRAINWORM">
-<meta property="og:title" content="BRAINWORM">
-<meta property="og:description" content="A real larva's wiring diagram, simulated live: 2,675 cells, 26,881 synapses. Talk to it, poke it, watch it light up. Everyone sees the same worm.">
+<meta property="og:title" content="BRAINWORM · the launchpad where every coin hatches its own worm">
+<meta property="og:description" content="Launch a coin: it hatches its own copy of a real larva's wiring, 2,675 cells, which feels every trade of it. Every buy pokes the live worm too.">
 <meta property="og:url" content="%ORIGIN%/">
 <meta property="og:image" content="%ORIGIN%/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="BRAINWORM: a glowing map of a real larva's nervous system">
+<meta property="og:image:alt" content="BRAINWORM, the launchpad: a glowing map of a real larva's nervous system">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="BRAINWORM">
-<meta name="twitter:description" content="A real larva's wiring, exactly as published, simulated live. Everyone sees the same worm.">
+<meta name="twitter:title" content="BRAINWORM · the launchpad where every coin hatches its own worm">
+<meta name="twitter:description" content="Launch a coin: it hatches its own copy of a real larva's wiring, which feels every trade of it. Every buy pokes the live worm too.">
 <meta name="twitter:image" content="%ORIGIN%/og.png">
 <meta name="theme-color" content="#04070B">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -31,7 +31,7 @@
 <link rel="preload" href="/data/transmitters.json" as="fetch" crossorigin>
 </head>
 <body class="intro loading">
-<a class="skip" href="#msg">Skip to the message box</a>
+<a class="skip" href="#lname">Skip to launching a coin</a>
 
 <canvas id="brain" aria-hidden="true"></canvas>
 <canvas id="overlay" aria-hidden="true"></canvas>
@@ -41,12 +41,14 @@
 <nav class="nav" aria-label="Sections">
   <a class="wordmark" href="#top">BRAINWORM</a>
   <div class="navlinks" id="navlinks">
+    <a href="#coins">Coins</a>
     <a href="#experiments">Experiments</a>
     <a href="#board">Break the worm</a>
     <a href="#how">How it works</a>
     <a href="#proof">Proof</a>
     <a href="#plainly">Stated plainly</a>
     <a href="#coin" id="navcoin" hidden></a>
+    <a class="navcta" href="#top" data-go="launch">Launch<span class="opt"> a coin</span></a>
   </div>
 </nav>
 <div class="announce" id="announce" role="status" hidden><span class="dot"></span><span id="announcetext"></span><span class="left" id="announceleft"></span></div>
@@ -61,7 +63,7 @@
       </div>
       <header class="brand" id="brand">
         <h1 id="wordmark"><span class="sr">BRAINWORM</span></h1>
-        <p class="triplet">Real larva wiring, simulated live</p>
+        <p class="triplet">The launchpad where every coin hatches its own worm</p>
       </header>
     </div>
     <div class="hudr">
@@ -90,7 +92,7 @@
           <div class="rope"><i class="mid"></i><i class="knot" id="tugknot"></i></div>
           <div class="tugnote" id="tugnote">Each word goes to each eye in turn</div>
         </div>
-        <div class="coach" id="coach" hidden><b>Type anything.</b> It reaches the worm's eyes as light.</div>
+        <div class="coach" id="coach" hidden><b>Launch a coin here.</b> It hatches its own worm, which feels every trade of it.</div>
         <p class="hint" id="hint">Tap to poke · drag to turn</p>
       </div>
       <div class="dockhead"><span class="dot" id="nowdot"></span><span id="nowtext">Eyes · dark</span><span id="queuetext"></span></div>
@@ -99,12 +101,26 @@
         <span class="ledl">left eyes</span><span class="ledr">right eyes</span>
       </div>
       <div class="composer">
-        <div class="tabs" role="tablist" aria-label="What to send">
-          <button type="button" role="tab" id="tab-say" aria-selected="true" aria-controls="talk">Message</button>
+        <div class="tabs" role="tablist" aria-label="What to do">
+          <button type="button" role="tab" id="tab-launch" class="hot" aria-selected="true" aria-controls="launchform">Launch<span class="opt"> a coin</span></button>
+          <button type="button" role="tab" id="tab-say" aria-selected="false" aria-controls="talk">Message</button>
           <button type="button" role="tab" id="tab-tug" aria-selected="false" aria-controls="tugform">Tug</button>
           <button type="button" role="tab" id="tab-lamp" aria-selected="false" aria-controls="lampform">Lamp</button>
         </div>
-        <form id="talk" autocomplete="off" role="tabpanel" aria-labelledby="tab-say">
+        <form id="launchform" class="lf" autocomplete="off" role="tabpanel" aria-labelledby="tab-launch">
+          <label class="lfpic" title="Its picture: its worm's first sight, unless you pick one">
+            <input type="file" data-lf="pic" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Pick a picture (optional)">
+            <img data-lf="picimg" alt="Its picture" hidden>
+            <span class="ph" data-lf="picph" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 5v10M5 10h10"/></svg>Picture</span>
+            <button type="button" class="unpick" data-lf="unpick" aria-label="Use its worm's first sight instead" hidden>×</button>
+          </label>
+          <input type="text" data-lf="name" id="lname" maxlength="32" placeholder="Coin name" aria-label="Coin name" enterkeyhint="next">
+          <input type="text" data-lf="ticker" maxlength="10" placeholder="TICKER" aria-label="Ticker" autocapitalize="characters" spellcheck="false" enterkeyhint="next">
+          <label class="lfbuy"><input type="text" data-lf="buy" inputmode="decimal" placeholder="First buy" aria-label="First buy (optional)" enterkeyhint="go"><span data-lf="unit">SOL</span></label>
+          <button class="btn-amber" type="submit" data-lf="go" disabled>Opening soon</button>
+          <p class="lfnote" data-lf="note" role="status" aria-live="polite"></p>
+        </form>
+        <form id="talk" autocomplete="off" role="tabpanel" aria-labelledby="tab-say" hidden>
           <input type="text" id="msg" maxlength="40" placeholder="Say something to the worm" aria-label="Message to show the worm" enterkeyhint="send">
           <button class="btn-amber" type="submit">Shine it</button>
         </form>
@@ -188,6 +204,19 @@
 </main>
 
 <div class="page">
+  <section class="section wide homecoins" id="coins" data-scene="experiments" aria-labelledby="coinsh">
+    <div class="sectop">
+      <div>
+        <p class="eyebrow">SPAWN · the launchpad <span class="pill" id="spawnopen">Opening soon</span></p>
+        <h2 class="display" id="coinsh">Every coin hatches its own worm</h2>
+      </div>
+      <a class="btn-ghost" href="/spawn">All coins and trading →</a>
+    </div>
+    <p class="lede">Launch one from the panel above: free, a fixed billion coins, liquidity locked for good when it graduates. It hatches its own copy of this larva, whose first sight is its ticker; after that it feels every trade of its coin and nothing else, and every buy also pokes the worm above.</p>
+    <div class="spgrid" id="homecoins"><p class="empty">No coins yet.</p></div>
+    <p class="small homefee" id="homefee"></p>
+  </section>
+
   <section class="section story" id="what" data-scene="what">
     <div class="col">
       <p class="eyebrow">What it is</p>
@@ -261,14 +290,14 @@
       </article>
       <article class="exp wide">
         <div class="expcol">
-          <p class="exphead">SPAWN <span class="pill" id="spawnpill">After launch</span></p>
+          <p class="exphead">SPAWN <span class="pill" id="spawnpill">Opening soon</span></p>
           <h3>A launchpad where every coin hatches its own worm</h3>
-          <p>Every coin on SPAWN is priced in $BRAINWORM. Each one hatches its own copy of this larva, which feels that coin's trades and nothing else, and anyone can rebuild it and check. Every buy also pokes this worm at the coin's own spot, and most of every fee is burned.</p>
-          <p class="morelinks"><a class="more" href="/spawn">open SPAWN →</a></p>
+          <p>Each coin on SPAWN hatches its own copy of this larva, which feels that coin's trades and nothing else, and anyone can rebuild it and check. Every buy also pokes this worm at the coin's own spot. Coins are priced in SOL until $BRAINWORM launches, then in $BRAINWORM, and most of every fee goes to burning $BRAINWORM.</p>
+          <p class="morelinks"><a class="more" href="#top" data-go="launch">launch a coin →</a> <a class="more" href="/spawn">open SPAWN →</a></p>
         </div>
         <figure class="spawnfig">
           <div class="spawncoins" id="spawncoins"><img src="/spawn-logo.svg" alt="" width="112" height="112"></div>
-          <figcaption id="spawnnote">Opens when $BRAINWORM launches</figcaption>
+          <figcaption id="spawnnote">Opening soon</figcaption>
         </figure>
       </article>
     </div>
@@ -375,7 +404,8 @@
         <li><b>Some choices are ours.</b> The eye mapping, the light sensors' threshold, the poke cells, the swimming physics and the drawing.</li>
         <li><b>Positions are partly placed.</b> 1,199 cells at traced positions, 1,009 placed by segment and side, 467 fragments not drawn.</li>
         <li><b>The body is ours.</b> The glass outline, the swimming physics and the lamp are ours. Only the lamp feeds the body back into the brain.</li>
-        <li><b>Coins aren't the worm's.</b> A SPAWN coin's buys poke it at a spot we pick from the coin's address, and each coin's own worm is a copy fed only that coin's trades. The worm knows nothing about coins or prices.</li>
+        <li><b>Coins aren't the worm's.</b> A SPAWN coin's buys poke it at a spot we pick from the coin's address, and each coin's own worm is a copy fed only that coin's trades. The worm knows nothing about coins or prices, and it doesn't pick winners.</li>
+        <li><b>Where the fees go.</b> Every trade on SPAWN pays 1%. Meteora keeps a fifth, the coin's creator gets a fifth of the rest, and the rest goes to $BRAINWORM: burned when the coin is priced in it, and for coins priced in SOL, kept in their pools until $BRAINWORM launches, then used to buy it, and what that buys is burned. Every claim and burn is a public transaction.</li>
       </ul>
     </div>
   </section>

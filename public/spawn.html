@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>SPAWN · coins priced in $BRAINWORM</title>
-<meta name="description" content="A launchpad where every coin trades in $BRAINWORM: every trade burns it, and every buy pokes a simulation of a real larva's wiring.">
-<meta property="og:title" content="SPAWN · BRAINWORM">
-<meta property="og:description" content="Every coin here trades in $BRAINWORM. Every trade burns it. Every buy pokes the worm.">
+<title>SPAWN · the launchpad where every coin hatches its own worm</title>
+<meta name="description" content="SPAWN, the BRAINWORM launchpad: launch a coin and it hatches its own copy of a real larva's wiring, which feels every trade of it. Every buy pokes the live worm, and most of every fee goes to burning $BRAINWORM.">
+<meta property="og:title" content="SPAWN · every coin hatches its own worm">
+<meta property="og:description" content="Launch a coin: it hatches its own worm, which feels every trade of it. Every buy pokes the live worm. Most of every fee goes to burning $BRAINWORM.">
 <meta property="og:image" content="%ORIGIN%/spawn-og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#04070B">
@@ -20,46 +20,40 @@
 <body class="sp">
 <nav class="nav" aria-label="Site">
   <a class="wordmark" href="/">BRAINWORM</a>
-  <div class="navlinks"><a href="/">The worm</a><a href="#coins">Coins</a><a href="#spawn">Spawn one</a></div>
+  <div class="navlinks"><a href="/">The worm</a><a href="#coins">Coins</a><a class="navcta" href="#spawn">Launch<span class="opt"> a coin</span></a></div>
 </nav>
 
 <main class="spwrap">
   <header class="sphead">
-    <p class="eyebrow">Launchpad · priced in $BRAINWORM</p>
+    <p class="eyebrow">The BRAINWORM launchpad</p>
     <h1 id="spmark"><span class="sr">SPAWN</span></h1>
-    <p class="lede">Every coin here trades in $BRAINWORM. Every trade feeds the burn. Every buy pokes the worm.</p>
+    <p class="lede" id="splede">Launch a coin and it hatches its own worm. Every buy pokes the big one. Most of every fee goes to burning $BRAINWORM.</p>
     <p class="spstate" id="spstate" hidden></p>
     <dl class="spstats">
       <div><dt>Coins</dt><dd id="stcoins">0</dd></div>
       <div><dt>$BRAINWORM burned</dt><dd id="stburn">0</dd></div>
-      <div><dt>Waiting to burn</dt><dd id="stwait">0</dd></div>
+      <div><dt id="stwaitk">Waiting to burn</dt><dd id="stwait">0</dd></div>
       <div><dt>Worm pokes today</dt><dd id="stpokes">0</dd></div>
     </dl>
     <p class="small lastburn" id="lastburn" hidden></p>
   </header>
 
-  <section class="spsec" aria-labelledby="whyh">
-    <h2 id="whyh">What the worm has to do with it</h2>
-    <ol class="spwhy">
-      <li><span class="n">01</span><div><h3>The worm is real wiring</h3><p>BRAINWORM runs every cell and connection of a real three-day-old <i>Platynereis</i> larva: 2,675 cells, wired exactly as the lab published them. It runs live, the same for everyone, and anyone can replay its log to check it. <a href="/">Watch it</a>.</p></div></li>
-      <li><span class="n">02</span><div><h3>Spawning is how it began</h3><p><i>Platynereis</i> is known for its spawning: grown worms swim up to the surface in time with the moon, release their eggs and sperm, and die. A larva like ours is what comes of it. The coins here are $BRAINWORM's offspring.</p></div></li>
-      <li><span class="n">03</span><div><h3>Every coin hatches its own worm</h3><p>When a coin is spawned, a fresh copy of the same larva hatches for it, and the first thing it sees is the coin's ticker. From then on it feels that coin's trades and nothing else: a buy touches its head, a sell its tail. Anyone can rebuild a coin's worm from its trades and check it; the Check button on each coin does it in your browser.</p></div></li>
-      <li><span class="n">04</span><div><h3>Every coin feeds $BRAINWORM</h3><p>Every coin here is priced in $BRAINWORM, so buying one with SOL buys $BRAINWORM first, and every trade pays its 1% fee in $BRAINWORM, most of it burned.</p></div></li>
-      <li><span class="n">05</span><div><h3>Every buy touches the big worm too</h3><p>Each coin gets its own spot on the site's worm: three touch-sensing cells picked from its address, the same for every buy of it. A buy pokes that spot, and how far it spreads is up to the wiring. The list below ranks coins by the cells their buys lit today, and every poke is in the public log with its transaction.</p></div></li>
-    </ol>
-    <p class="small spnote">The worm doesn't know what a coin is and doesn't pick winners. Which cells a coin touches is our mapping, published in the <a href="/manifest.json">manifest</a>; what the poke does next is the wiring's.</p>
-  </section>
-
-  <section class="spsec" aria-labelledby="feeh">
-    <h2 id="feeh">Where each trade's <span id="feepct">1%</span> fee goes</h2>
-    <div class="squares" id="squares" aria-hidden="true"></div>
-    <ul class="feekey" id="feekey"></ul>
-    <p class="small">Buying a coin here buys $BRAINWORM first, in the same transaction. The burn share waits in each coin's pool until the owner claims it, and it is burned in that same transaction: both totals are above, and every burn is public on Solana. Once a coin graduates, its Meteora pool charges 1% in $BRAINWORM too: Meteora keeps 20%, and the rest goes to the pool's two locked positions, about half to the coin's creator and half to the launchpad, whose half is claimed and burned.</p>
-  </section>
-
-  <section class="spsec" id="movers" aria-labelledby="movh">
-    <h2 id="movh">Moves the worm <span>today</span></h2>
-    <ol class="movelist" id="movelist"><li class="empty">No trades yet.</li></ol>
+  <section class="spsec spform" id="spawn" aria-labelledby="spawnh">
+    <h2 id="spawnh">Launch a coin</h2>
+    <form id="spawnform" class="lf lfpage" autocomplete="off">
+      <label class="lfpic" title="Its picture: its worm's first sight, unless you pick one">
+        <input type="file" data-lf="pic" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Pick a picture (optional)">
+        <img data-lf="picimg" alt="Its picture" hidden>
+        <span class="ph" data-lf="picph" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 5v10M5 10h10"/></svg>Picture</span>
+        <button type="button" class="unpick" data-lf="unpick" aria-label="Use its worm's first sight instead" hidden>×</button>
+      </label>
+      <input type="text" data-lf="name" id="lname" maxlength="32" placeholder="Coin name" aria-label="Coin name" enterkeyhint="next">
+      <input type="text" data-lf="ticker" maxlength="10" placeholder="TICKER" aria-label="Ticker" autocapitalize="characters" spellcheck="false" enterkeyhint="next">
+      <label class="lfbuy"><input type="text" data-lf="buy" inputmode="decimal" placeholder="First buy" aria-label="First buy (optional)" enterkeyhint="go"><span data-lf="unit">SOL</span></label>
+      <button class="btn-amber" type="submit" data-lf="go" disabled>Opening soon</button>
+      <p class="lfnote" data-lf="note" role="status" aria-live="polite"></p>
+    </form>
+    <p class="small" id="spawnnote">Free to launch. No mint or freeze authority, and nothing held back for anyone: all 1,000,000,000 coins are on the curve or go to the graduated pool. It graduates to Meteora DAMM v2 with its liquidity locked for good. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.</p>
   </section>
 
   <section class="spsec" id="coins" aria-labelledby="coinh">
@@ -76,26 +70,28 @@
     <div class="spgrid" id="spgrid"><p class="empty">No coins yet.</p></div>
   </section>
 
-  <section class="spsec spform" id="spawn" aria-labelledby="spawnh">
-    <h2 id="spawnh">Spawn a coin</h2>
-    <form id="spawnform" autocomplete="off">
-      <div class="picside">
-        <label class="pic" for="pic"><input type="file" id="pic" accept="image/png,image/jpeg,image/webp,image/gif"><span id="pictext">Picture</span><img id="picprev" alt="" hidden></label>
-        <button type="button" class="btn-ghost wormpick" id="wormpick" aria-pressed="false">Use its worm's first sight</button>
-        <p class="small hatchnote" id="hatchnote"></p>
-      </div>
-      <div class="fields">
-        <label>Name <input id="cname" maxlength="32" required></label>
-        <label>Ticker <input id="csym" maxlength="10" required></label>
-        <label>First buy in $BRAINWORM <input id="cbuy" inputmode="decimal" placeholder="optional"></label>
-      </div>
-      <div class="formrow">
-        <button type="button" class="btn-ghost" id="wconnect">Connect wallet</button>
-        <button type="submit" class="btn-amber" id="spawnbtn" disabled>Spawn</button>
-      </div>
-      <p class="small" id="spawnlog" role="status" aria-live="polite"></p>
-    </form>
-    <p class="small" id="spawnnote">No mint or freeze authority, and nothing held back for anyone: all 1,000,000,000 coins are on the curve or go to the graduated pool. It graduates to Meteora DAMM v2 with its liquidity locked for good. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.</p>
+  <section class="spsec" id="movers" aria-labelledby="movh">
+    <h2 id="movh">Moves the worm <span>today</span></h2>
+    <ol class="movelist" id="movelist"><li class="empty">No trades yet.</li></ol>
+  </section>
+
+  <section class="spsec" aria-labelledby="feeh">
+    <h2 id="feeh">Where each trade's <span id="feepct">1%</span> fee goes</h2>
+    <div class="squares" id="squares" aria-hidden="true"></div>
+    <ul class="feekey" id="feekey"></ul>
+    <p class="small" id="feetext">The burn share waits in each coin's pool until the owner claims it. For a coin priced in $BRAINWORM it is burned in that same transaction. For a coin priced in SOL it waits until $BRAINWORM has launched, then buys $BRAINWORM, and exactly what that bought is burned. Both totals are above, and every claim and burn is public on Solana. Once a coin graduates, its Meteora pool charges 1% in the coin's quote token too: Meteora keeps 20%, and the rest goes to the pool's two locked positions, about half to the coin's creator and half to the launchpad, whose half goes the same way.</p>
+  </section>
+
+  <section class="spsec" aria-labelledby="whyh">
+    <h2 id="whyh">What the worm has to do with it</h2>
+    <ol class="spwhy">
+      <li><span class="n">01</span><div><h3>The worm is real wiring</h3><p>BRAINWORM runs every cell and connection of a real three-day-old <i>Platynereis</i> larva: 2,675 cells, wired exactly as the lab published them. It runs live, the same for everyone, and anyone can replay its log to check it. <a href="/">Watch it</a>.</p></div></li>
+      <li><span class="n">02</span><div><h3>Spawning is how it began</h3><p><i>Platynereis</i> is known for its spawning: grown worms swim up to the surface in time with the moon, release their eggs and sperm, and die. A larva like ours is what comes of it. The coins here are $BRAINWORM's offspring.</p></div></li>
+      <li><span class="n">03</span><div><h3>Every coin hatches its own worm</h3><p>When a coin is spawned, a fresh copy of the same larva hatches for it, and the first thing it sees is the coin's ticker. From then on it feels that coin's trades and nothing else: a buy touches its head, a sell its tail. Anyone can rebuild a coin's worm from its trades and check it; the Check button on each coin does it in your browser.</p></div></li>
+      <li><span class="n">04</span><div><h3>Every coin feeds $BRAINWORM</h3><p>Once $BRAINWORM has launched, coins here are priced in it: buying one with SOL buys $BRAINWORM first, and every trade pays its 1% fee in $BRAINWORM, most of it burned. Coins launched before that are priced in SOL, and the launchpad's share of their fees waits in their pools until $BRAINWORM launches, then buys it to burn.</p></div></li>
+      <li><span class="n">05</span><div><h3>Every buy touches the big worm too</h3><p>Each coin gets its own spot on the site's worm: three touch-sensing cells picked from its address, the same for every buy of it. A buy pokes that spot, and how far it spreads is up to the wiring. The list above ranks coins by the cells their buys lit today, and every poke is in the public log with its transaction.</p></div></li>
+    </ol>
+    <p class="small spnote">The worm doesn't know what a coin is and doesn't pick winners. Which cells a coin touches is our mapping, published in the <a href="/manifest.json">manifest</a>; what the poke does next is the wiring's.</p>
   </section>
 </main>
 
@@ -111,7 +107,7 @@
       <div class="ownrow"><button type="button" class="btn-ghost" id="owncheck">Check it yourself</button><span class="small" id="owncheckout" role="status" aria-live="polite"></span></div>
     </section>
     <div class="tabs" role="tablist"><button type="button" role="tab" id="tbuy" aria-selected="true">Buy</button><button type="button" role="tab" id="tsell" aria-selected="false">Sell</button></div>
-    <div class="paywith"><span id="paylabel">Pay with</span><div class="tabs" role="tablist" aria-label="Currency"><button type="button" role="tab" id="psol" aria-selected="true">SOL</button><button type="button" role="tab" id="proot" aria-selected="false">$BRAINWORM</button></div></div>
+    <div class="paywith" id="paywith"><span id="paylabel">Pay with</span><div class="tabs" role="tablist" aria-label="Currency"><button type="button" role="tab" id="psol" aria-selected="true">SOL</button><button type="button" role="tab" id="proot" aria-selected="false">$BRAINWORM</button></div></div>
     <label class="amt"><span id="tunit">SOL</span><input id="tamount" inputmode="decimal" placeholder="0.1"></label>
     <dl class="kv quote" id="tquote"></dl>
     <div class="formrow"><button type="button" class="btn-ghost" id="twallet">Connect wallet</button><button type="button" class="btn-amber" id="tgo" disabled>Buy</button></div>

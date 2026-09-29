@@ -1,14 +1,12 @@
-// SPAWN: the launchpad page. Every coin trades in $BRAINWORM; buying goes SOL → $BRAINWORM → coin in
-// one Jupiter transaction that the visitor's own wallet signs. The server only builds transactions.
+// SPAWN: the launchpad page. Coins trade on their own curves (in SOL, or in $BRAINWORM once it has launched); buying a
+// coin priced in $BRAINWORM with SOL goes SOL → $BRAINWORM → coin through Jupiter. The visitor's own wallet signs
+// every transaction; the server only builds them.
 import { pixelWordmark } from '/pixel.js';
-import { connect, connected, signAndSend } from '/wallet.js';
+import { connect, connected, signAndSend, short } from '/wallet.js';
+import { mountLaunchForm } from '/launchform.js';
+import { coinCard, coinPicture, el, fmt, compact, sol, usd } from '/coincard.js';
 
 const $ = (id) => document.getElementById(id);
-const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const fmt = (n, d = 0) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: 0 });
-const compact = (n) => Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(n || 0);
-const sol = (n) => (n >= 1 ? fmt(n, 2) : n >= 0.001 ? fmt(n, 4) : n > 0 ? n.toExponential(2) : '0') + ' SOL';
-const usd = (n) => (n > 0 ? '$' + (n >= 1 ? fmt(n, 2) : n >= 0.0001 ? fmt(n, 6) : n.toExponential(2)) : '');
 const api = async (path, body) => {
   const r = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
   const j = await r.json().catch(() => ({}));
@@ -17,11 +15,15 @@ const api = async (path, body) => {
 };
 
 $('spmark').append(pixelWordmark([{ text: 'SPAWN', cls: 'amber', glow: true }]));
+const launchForm = mountLaunchForm($('spawnform'), { onLaunched: () => setTimeout(load, 4000) });
 
 /* ---------- live data ---------- */
-let data = null, sort = 'new';
+let data = null, sort = 'new', linked = new URLSearchParams(location.search).get('coin');
 async function load() {
-  try { data = await api('/spawn.json'); render(); } catch (e) { $('spstate').hidden = false; $('spstate').textContent = 'Could not reach the launchpad. Retrying…'; }
+  try { data = await api('/spawn.json'); render(); } catch (e) { $('spstate').hidden = false; $('spstate').textContent = 'Could not reach the launchpad. Retrying…'; return; }
+  // /spawn?coin=<mint> opens that coin's trade window
+  const c = linked && data.coins.find((x) => x.mint === linked);
+  if (c) { linked = null; openTrade(c); }
 }
 setInterval(load, 15000);
 load();
@@ -31,13 +33,19 @@ function render() {
   st.hidden = !!data.open; st.textContent = data.open ? '' : data.reason || 'Opens when $BRAINWORM launches.';
   $('stcoins').textContent = fmt(data.coins.length);
   $('stburn').textContent = compact(data.root?.burned || 0);
-  $('stwait').textContent = compact(data.root?.waiting || 0);
+  // before $BRAINWORM, what waits is SOL for buying it
+  const inSol = !data.root?.mint || data.quote === 'SOL';
+  $('stwaitk').textContent = inSol ? 'SOL for buybacks' : 'Waiting to burn';
+  $('stwait').textContent = inSol ? compact(data.root?.waitingSol || 0) : compact(data.root?.waiting || 0);
+  $('splede').textContent = data.quote === '$BRAINWORM'
+    ? 'Launch a coin and it hatches its own worm. Every coin here is priced in $BRAINWORM, most of every fee is burned, and every buy pokes the big worm.'
+    : 'Launch a coin and it hatches its own worm. Every buy pokes the big one. Coins are priced in SOL until $BRAINWORM launches, and most of every fee goes to burning it.';
+  launchForm.update(data);
   const lb = data.root?.burns?.[0], lbp = $('lastburn');
   lbp.hidden = !lb;
   if (lb) lbp.replaceChildren(`Last burn: ${compact(lb.amount)} $BRAINWORM · `, link(lb.signature));
-  if (data.graduationQuote) $('spawnnote').textContent = `No mint or freeze authority, and nothing held back for anyone: all 1,000,000,000 coins are on the curve or go to the graduated pool. It graduates to Meteora DAMM v2 once buyers have put in ${compact(data.graduationQuote)} $BRAINWORM, with its liquidity locked for good. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.`;
+  if (data.graduationQuote) $('spawnnote').textContent = `Free to launch. No mint or freeze authority, and nothing held back for anyone: all 1,000,000,000 coins are on the curve or go to the graduated pool. It graduates to Meteora DAMM v2 once buyers have put in ${compact(data.graduationQuote)} ${data.quote || 'SOL'}, with its liquidity locked for good. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.`;
   $('stpokes').textContent = fmt(data.pokesToday || 0);
-  $('spawnbtn').disabled = !data.open || !connected();
   renderFee(data.fee);
   renderMovers(data.movers || []);
   renderCoins();
@@ -53,7 +61,8 @@ function renderFee(f) {
     for (let i = 0; i < 100; i++) sq.append(el('i', i < burn ? 'burn' : i < burn + creator ? 'creator' : 'meteora'));
   }
   const key = $('feekey'); key.replaceChildren();
-  for (const [cls, pct, text] of [['burn', burn, 'burns $BRAINWORM for good'], ['creator', creator, "to the coin's creator"], ['meteora', protocol, 'kept by Meteora']]) {
+  const burnText = data?.quote === '$BRAINWORM' ? 'burns $BRAINWORM for good' : 'buys $BRAINWORM to burn, once it launches';
+  for (const [cls, pct, text] of [['burn', burn, burnText], ['creator', creator, "to the coin's creator"], ['meteora', protocol, 'kept by Meteora']]) {
     const li = el('li'); li.append(el('i', cls), el('b', null, `${pct}%`), ` ${text}`); key.append(li);
   }
 }
@@ -83,21 +92,8 @@ function renderCoins() {
   const coins = [...(data?.coins || [])].sort(SORTS[sort]);
   $('coincount').textContent = coins.length ? fmt(coins.length) : '';
   grid.replaceChildren();
-  if (!coins.length) { grid.append(el('p', 'empty', data?.open ? 'No coins yet. Spawn the first one.' : 'No coins yet.')); return; }
-  for (const c of coins) {
-    const card = el('article', 'coin');
-    const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.width = 56; img.height = 56;
-    img.src = c.image || (c.own ? `/spawn/worm/${c.mint}.png?t=${c.own.trades}` : '');
-    const head = el('div', 'ch'); const t = el('div'); t.append(el('b', null, '$' + c.symbol), el('span', null, c.name)); head.append(img, t);
-    const stats = el('dl', 'cs');
-    for (const [k, v] of [['Price', c.priceUsd ? usd(c.priceUsd) : sol(c.priceSol)], ['Mcap', sol(c.mcapSol)], ['Its worm', c.own ? `${fmt(c.own.trades)} trades` : 'hatching']]) { const d = el('div'); d.append(el('dt', null, k), el('dd', null, v)); stats.append(d); }
-    const prog = el('div', 'prog'); const fill = el('i'); fill.style.transform = `scaleX(${Math.min(1, c.progress || 0)})`; prog.append(fill);
-    const foot = el('div', 'cf'); foot.append(el('span', null, c.stage === 'graduating' ? 'Graduating to its Meteora pool…' : c.graduated ? 'Graduated · LP locked' : `${Math.round((c.progress || 0) * 100)}% to graduation`));
-    const buy = el('button', 'btn-amber', 'Buy'); buy.type = 'button'; buy.disabled = c.stage === 'graduating'; buy.addEventListener('click', () => openTrade(c));
-    foot.append(buy);
-    card.append(head, stats, prog, foot);
-    grid.append(card);
-  }
+  if (!coins.length) { grid.append(el('p', 'empty', data?.open ? 'No coins yet. Launch the first one.' : 'No coins yet.')); return; }
+  for (const c of coins) grid.append(coinCard(c, { onBuy: openTrade }));
 }
 
 /* ---------- trading: one Jupiter transaction, signed in the visitor's wallet ---------- */
@@ -105,9 +101,12 @@ let coin = null, side = 'buy', pay = 'sol', quote = null, quoteTimer = null;
 function openTrade(c) {
   coin = c; quote = null;
   $('tradeh').textContent = '$' + c.symbol;
-  const pic = c.image || (c.own ? `/spawn/worm/${c.mint}.png?t=${c.own.trades}` : '');
+  const pic = coinPicture(c);
   $('timg').hidden = !pic; if (pic) $('timg').src = pic;
-  $('tprice').textContent = `${c.priceUsd ? usd(c.priceUsd) + ' · ' : ''}${sol(c.priceSol)} · priced in $BRAINWORM`;
+  $('tprice').textContent = `${c.priceUsd ? usd(c.priceUsd) + ' · ' : ''}${sol(c.priceSol)} · priced in ${c.quote || '$BRAINWORM'}`;
+  // a coin priced in SOL trades in SOL only; one priced in $BRAINWORM in either
+  $('paywith').hidden = c.quote === 'SOL';
+  if (c.quote === 'SOL') pay = 'sol';
   setSide('buy'); $('tamount').value = ''; $('tquote').replaceChildren(); $('tlog').textContent = '';
   showClaim(); showOwn(c);
   $('trade').hidden = false; $('tamount').focus();
@@ -162,7 +161,7 @@ $('proot').addEventListener('click', () => setPay('root'));
 function showClaim() {
   const b = $('tclaim'), me = connected()?.address;
   b.hidden = !(coin && me && coin.creator === me && (coin.creatorFees > 0 || coin.stage === 'graduated'));
-  if (!b.hidden) b.textContent = coin.stage === 'graduated' ? 'Claim your creator fees' : `Claim your ${compact(coin.creatorFees)} $BRAINWORM in creator fees`;
+  if (!b.hidden) b.textContent = coin.stage === 'graduated' ? 'Claim your creator fees' : `Claim your ${compact(coin.creatorFees)} ${coin.quote || '$BRAINWORM'} in creator fees`;
 }
 $('tclaim').addEventListener('click', async () => {
   const log = $('tlog');
@@ -204,9 +203,10 @@ async function requote() {
   } catch (e) { const d = el('div'); d.append(el('dt', null, 'Quote'), el('dd', null, e.message)); q.append(d); }
 }
 $('twallet').addEventListener('click', async () => {
-  try { const w = await connect(); $('twallet').textContent = short(w.address); $('wconnect').textContent = short(w.address); $('tgo').disabled = !quote; $('spawnbtn').disabled = !data?.open; showClaim(); }
-  catch (e) { $('tlog').textContent = e.message; }
+  try { await connect(); } catch (e) { $('tlog').textContent = e.message; }
 });
+// whichever form connected it, the trade window shows it
+addEventListener('wallet-connected', (e) => { $('twallet').textContent = short(e.detail.address); $('tgo').disabled = !quote; showClaim(); });
 $('tgo').addEventListener('click', async () => {
   if (!quote || !connected()) return;
   const log = $('tlog'), q = quote, many = q.steps > 1;
@@ -235,68 +235,4 @@ async function landed(sig) {
   }
   throw new Error('The first step has not landed yet. Check your wallet before trying again.');
 }
-const short = (a) => `${a.slice(0, 4)}…${a.slice(-4)}`;
 const link = (sig) => { const a = el('a', null, 'View on Solscan'); a.href = `https://solscan.io/tx/${sig}`; a.target = '_blank'; a.rel = 'noopener'; return a; };
-
-/* ---------- spawning a coin ---------- */
-let picData = null;
-$('pic').addEventListener('change', async () => {
-  const f = $('pic').files[0]; if (!f) return;
-  try { picData = await shrink(f); $('wormpick').setAttribute('aria-pressed', 'false'); showPic(picData); }
-  catch { $('spawnlog').textContent = 'That picture could not be read.'; }
-});
-/** Downscale to at most 512 px and re-encode, so uploads stay small. GIFs are kept as they are (up to 1 MB). */
-async function shrink(file) {
-  if (file.type === 'image/gif') { if (file.size > 1e6) throw new Error('big gif'); return await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); }); }
-  const bmp = await createImageBitmap(file);
-  const s = Math.min(1, 512 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
-  c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
-  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
-  return c.toDataURL('image/webp', 0.9);
-}
-$('csym').addEventListener('input', () => { $('csym').value = $('csym').value.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); hatchPreview(); });
-$('cname').addEventListener('input', () => { if (!$('csym').dataset.touched) { $('csym').value = $('cname').value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10); hatchPreview(); } });
-// what the coin's worm will see first: its ticker, shown to a fresh worm; the preview is the same picture it will get
-let hatchTimer = null;
-function hatchPreview() {
-  clearTimeout(hatchTimer);
-  hatchTimer = setTimeout(async () => {
-    const t = $('csym').value, note = $('hatchnote');
-    if (!/^[A-Z0-9]{1,10}$/.test(t)) { note.textContent = ''; if (picData === 'worm') showPic(null); return; }
-    try {
-      const j = await api(`/spawn/hatch/${t}.json`);
-      if (t !== $('csym').value) return;
-      note.textContent = `Its worm's first sight, "$${t}": ${fmt(j.peak)} cells fire.`;
-      if (picData === 'worm') showPic(`/spawn/hatch/${t}.png`);
-    } catch { note.textContent = ''; }
-  }, 350);
-}
-function showPic(src) { $('picprev').hidden = !src; $('pictext').hidden = !!src; if (src) $('picprev').src = src; }
-$('wormpick').addEventListener('click', () => {
-  const on = picData !== 'worm';
-  picData = on ? 'worm' : null;
-  $('wormpick').setAttribute('aria-pressed', String(on));
-  $('pic').value = '';
-  showPic(on && /^[A-Z0-9]{1,10}$/.test($('csym').value) ? `/spawn/hatch/${$('csym').value}.png` : null);
-  if (on) hatchPreview();
-});
-$('csym').addEventListener('keydown', () => { $('csym').dataset.touched = '1'; });
-$('wconnect').addEventListener('click', async () => {
-  try { const w = await connect(); $('wconnect').textContent = short(w.address); $('twallet').textContent = short(w.address); $('spawnbtn').disabled = !data?.open; }
-  catch (e) { $('spawnlog').textContent = e.message; }
-});
-$('spawnform').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const log = $('spawnlog');
-  if (!connected()) { log.textContent = 'Connect a wallet first.'; return; }
-  if (!picData) { log.textContent = 'Add a picture, or use its worm\'s first sight.'; return; }
-  try {
-    $('spawnbtn').disabled = true; log.textContent = 'Uploading and building the transaction…';
-    const j = await api('/spawn/create', { creator: connected().address, name: $('cname').value.trim(), symbol: $('csym').value.trim(), image: picData, firstBuy: $('cbuy').value.trim() || '0' });
-    log.textContent = j.firstBuy ? `Check your wallet. Your first buy gets about ${compact(j.firstBuy.coins)} $${$('csym').value}.` : 'Check your wallet.';
-    const sig = await signAndSend(j.tx);
-    await api('/spawn/created', { mint: j.mint, signature: sig }).catch(() => {});
-    log.replaceChildren(`Spawned $${$('csym').value}. `, link(sig));
-    setTimeout(load, 4000);
-  } catch (err) { log.textContent = err.message; $('spawnbtn').disabled = false; }
-});

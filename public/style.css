@@ -49,7 +49,11 @@ body:not(.loading) .loader{opacity:0;visibility:hidden}
 .navlinks::-webkit-scrollbar{display:none}
 .navlinks a{font:400 10.5px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--mute);text-decoration:none;white-space:nowrap;padding:14px 0;transition:color .15s ease}
 .navlinks a:hover{color:var(--bright)}
-@media (max-width:760px){.navlinks a:not(#navcoin):not(#navspawn):not([href="#board"]):not([href="#proof"]){display:none}.navlinks{gap:16px}.navlinks:has(#navspawn) a[href="#board"]{display:none}}
+.navlinks a.navcta{align-self:center;font-weight:600;color:#1A1204;background:var(--amber);border-radius:999px;padding:7px 12px;letter-spacing:.14em;transition:transform .16s var(--ease-out),box-shadow .2s ease,background-color .15s ease}
+.navlinks a.navcta:active{transform:scale(.97)}
+@media (hover:hover) and (pointer:fine){.navlinks a.navcta:hover{color:#1A1204;background:#FFC874;box-shadow:0 0 22px rgba(255,184,77,.4)}}
+@media (max-width:760px){.navlinks a:not(#navcoin):not(.navcta):not([href="#coins"]):not([href="#proof"]){display:none}.navlinks{gap:14px}}
+@media (max-width:520px){.opt{display:none}.navlinks a[href="#proof"]{display:none}}
 .announce{position:fixed;top:var(--nav);inset-inline:0;z-index:29;display:flex;gap:10px;align-items:center;justify-content:center;padding:8px var(--gutter);
   font:500 12.5px var(--mono);color:#140e02;background:var(--amber)}
 .announce .dot{width:7px;height:7px;border-radius:50%;background:#140e02;animation:breathe 1.2s infinite}
@@ -131,10 +135,38 @@ body.intro .brand{transform:translate(var(--ix,0px),var(--iy,0px)) scale(var(--i
 #eyeview{width:100%;height:auto;aspect-ratio:7.5/1;display:block;border-radius:11px;background:#020406;border:1px solid var(--rule)}
 .ledwrap span{position:absolute;bottom:6px;font:500 9px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:rgba(130,152,166,.7);pointer-events:none}
 .ledl{left:10px}.ledr{right:10px}
-.composer{display:flex;gap:8px;align-items:center}
+.composer{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .tabs{display:grid;grid-auto-flow:column;border:1px solid var(--rule2);border-radius:11px;padding:3px;gap:2px;flex:none}
-.tabs button{font:500 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);background:transparent;border:0;border-radius:8px;padding:9px 10px;transition:color .15s ease,background-color .15s ease}
+.composer .tabs{display:flex}
+.composer .tabs button{flex:1 1 auto}
+.composer .tabs button.hot{flex-grow:1.6}
+.tabs button{font:500 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--mute);background:transparent;border:0;border-radius:8px;padding:9px 10px;white-space:nowrap;transition:color .15s ease,background-color .15s ease}
 .tabs button[aria-selected="true"]{background:var(--rule2);color:var(--bright)}
+.tabs button.hot{color:var(--amber)}
+.tabs button.hot[aria-selected="true"]{background:rgba(255,184,77,.15);color:var(--amber)}
+.dock[data-tab="launch"] .ledwrap{display:none}
+
+/* the launch form: in the dock, and larger on /spawn */
+.lf{display:grid;grid-template-columns:88px minmax(0,1fr) 136px;grid-template-areas:"pic name ticker" "pic buy go" "note note note";gap:8px;align-items:stretch}
+.lf input[type=text]{padding:9px 12px}
+.lf [data-lf=name]{grid-area:name}
+.lf [data-lf=ticker]{grid-area:ticker;letter-spacing:.06em}
+.lf [data-lf=go]{grid-area:go}
+.lfpic{grid-area:pic;position:relative;display:grid;place-items:center;border:1px dashed var(--rule3);border-radius:12px;overflow:hidden;cursor:pointer;background:rgba(2,4,6,.7);transition:border-color .15s ease}
+@media (hover:hover) and (pointer:fine){.lfpic:hover{border-color:rgba(255,184,77,.6)}}
+.lfpic:focus-within{border-color:rgba(255,184,77,.7)}
+.lfpic input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.lfpic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.lfpic .ph{display:grid;justify-items:center;gap:3px;font:500 9px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);pointer-events:none}
+.lfpic .ph svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+.lfpic .unpick{position:absolute;top:4px;right:4px;z-index:1;width:24px;height:24px;padding:0;border:1px solid var(--rule2);border-radius:50%;background:rgba(4,7,11,.85);color:var(--ink);font:500 15px/1 var(--sans)}
+.lfbuy{grid-area:buy;display:flex;align-items:center;min-width:0;background:rgba(2,4,6,.7);border:1px solid var(--rule2);border-radius:11px;padding-right:12px;transition:border-color .15s ease,box-shadow .15s ease}
+.lfbuy:focus-within{border-color:rgba(255,184,77,.7);box-shadow:0 0 0 3px rgba(255,184,77,.14)}
+.lfbuy input[type=text],.lfbuy input[type=text]:focus{border:0;background:transparent;box-shadow:none}
+.lfbuy span{font:500 11px var(--mono);letter-spacing:.06em;color:var(--mute);white-space:nowrap}
+.lfnote{grid-area:note;margin:0;min-height:1.5em;font:400 11.5px/1.5 var(--mono);color:var(--mute);overflow-wrap:anywhere}
+.lfnote.bad{color:var(--coral)}
+.lfnote a{color:var(--amber)}
 form{display:flex;gap:8px;align-items:center;margin:0;flex:1;min-width:0}
 input[type=text]{flex:1;min-width:0;background:rgba(2,4,6,.7);border:1px solid var(--rule2);border-radius:11px;color:var(--bright);font:500 15px var(--mono);padding:11px 13px;transition:border-color .15s ease,box-shadow .15s ease}
 input[type=text]:focus{border-color:rgba(255,184,77,.7);outline:none;box-shadow:0 0 0 3px rgba(255,184,77,.14)}
@@ -418,9 +450,10 @@ code{font:400 12.5px var(--mono);color:var(--ink)}
   .count output{font-size:clamp(40px,12vw,56px)}
   .count span{font-size:9px}
   .dock{bottom:max(10px,env(safe-area-inset-bottom));padding:10px;border-radius:18px;gap:8px}
-  .composer{flex-wrap:wrap}
-  .tabs{width:100%;grid-template-columns:1fr 1fr}
-  .tabs button{padding:8px}
+  .tabs button{padding:8px 6px}
+  .lf{grid-template-columns:88px minmax(0,1fr) 112px;grid-template-areas:"pic name name" "pic ticker ticker" "buy buy go" "note note note"}
+  .lf input[type=text]{font-size:16px}
+  .lf [data-lf=go]{padding:12px}
   .coach{max-width:calc(100vw - 40px);font-size:12.5px}
   .exps,.boards{grid-template-columns:1fr}
   .exp.wide{grid-template-columns:1fr}
@@ -435,7 +468,7 @@ code{font:400 12.5px var(--mono);color:var(--ink)}
 
 /* ---------- /stream: a 16:9 layout for OBS ---------- */
 body.stream{overflow:hidden}
-body.stream .nav,body.stream .rail,body.stream .page,body.stream .foot,body.stream .skip,body.stream .hint,body.stream .coach,body.stream .dockhead,body.stream .ledwrap,body.stream .composer,body.stream .dockfoot,body.stream .toast,body.stream .modstate{display:none!important}
+body.stream .nav,body.stream .rail,body.stream .page,body.stream .homecoins,body.stream .foot,body.stream .skip,body.stream .hint,body.stream .coach,body.stream .dockhead,body.stream .ledwrap,body.stream .composer,body.stream .dockfoot,body.stream .toast,body.stream .modstate{display:none!important}
 body.stream .dock{background:none;border:0;box-shadow:none;padding:0;bottom:170px;backdrop-filter:none;-webkit-backdrop-filter:none}
 body.stream .instrument{height:100vh}
 body.stream .hero{right:0;cursor:default}
@@ -528,6 +561,7 @@ body.lp{background:radial-gradient(ellipse at 70% -10%,#0E1C27,transparent 60%),
 .lprow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .lprow input[type=text]{flex:1 1 180px}
 .lprow label input{width:80px;margin-left:6px;flex:none}
+.lprow select{margin-left:6px;background:rgba(2,4,6,.7);border:1px solid var(--rule2);border-radius:9px;color:var(--bright);font:500 13px var(--mono);padding:8px 10px}
 #lplock input{flex:1;min-width:0;background:rgba(2,4,6,.7);border:1px solid var(--rule2);border-radius:11px;color:var(--bright);font:500 15px var(--mono);padding:11px 13px}
 .lplog{margin:0;min-height:120px;white-space:pre-wrap;font:400 12px/1.6 var(--mono);color:var(--ink)}
 @media (max-width:760px){.lpmoment{grid-template-columns:1fr}}
@@ -580,8 +614,8 @@ body.sp{min-height:100vh;background:radial-gradient(1200px 600px at 70% -10%,rgb
 .sorts button[aria-selected="true"]{color:var(--bright);border-color:var(--rule3);background:var(--rule)}
 .spgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
 .spgrid .empty{color:var(--faint);font:400 13px var(--mono);margin:0}
-.coin{background:rgba(7,12,18,.96);border:1px solid var(--rule);border-radius:12px;padding:16px;display:grid;gap:14px;transition:border-color .15s ease}
-@media (hover:hover) and (pointer:fine){.coin:hover{border-color:var(--rule3)}}
+.spcoin{background:rgba(7,12,18,.96);border:1px solid var(--rule);border-radius:12px;padding:16px;display:grid;gap:14px;transition:border-color .15s ease}
+@media (hover:hover) and (pointer:fine){.spcoin:hover{border-color:var(--rule3)}}
 .ch{display:flex;gap:12px;align-items:center;min-width:0}
 .ch img{width:56px;height:56px;border-radius:10px;object-fit:cover;background:var(--rule);flex:none}
 .ch div{display:grid;min-width:0}
@@ -594,16 +628,12 @@ body.sp{min-height:100vh;background:radial-gradient(1200px 600px at 70% -10%,rgb
 .prog{height:6px;border-radius:3px;background:rgba(2,4,6,.8);border:1px solid var(--rule2);overflow:hidden}
 .prog i{display:block;height:100%;background:var(--green);transform-origin:left}
 .cf{display:flex;justify-content:space-between;align-items:center;gap:10px;font:400 11px var(--mono);color:var(--mute)}
-.cf .btn-amber{padding:8px 16px;font-size:13px}
-.spform form{display:grid;grid-template-columns:140px minmax(0,1fr);gap:18px;align-items:start;max-width:760px;background:rgba(7,12,18,.96);border:1px solid var(--rule);border-radius:12px;padding:18px}
-.pic{position:relative;display:grid;place-items:center;aspect-ratio:1;border:1px dashed var(--rule3);border-radius:12px;cursor:pointer;overflow:hidden;font:400 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
-.pic input{position:absolute;inset:0;opacity:0;cursor:pointer}
-.pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.fields{display:grid;gap:10px}
-.picside{display:grid;gap:8px;align-content:start}
-.wormpick{font-size:11px;padding:8px 10px;line-height:1.3}
-.wormpick[aria-pressed="true"]{border-color:var(--amber);color:var(--amber)}
-.hatchnote{margin:0;font-size:11px;line-height:1.5}
+.cf .btn-amber{padding:8px 16px;font-size:13px;text-decoration:none}
+.spform .lf{max-width:760px;background:rgba(7,12,18,.96);border:1px solid var(--rule);border-radius:12px;padding:18px;gap:10px;
+  grid-template-columns:152px minmax(0,1fr) minmax(0,1fr);grid-template-areas:"pic name name" "pic ticker buy" "pic go go" "note note note"}
+.spform .lf .btn-amber{padding:12px 18px}
+.spform .lf input[type=text]{padding:11px 13px}
+#spawnnote{max-width:760px;margin:12px 0 0}
 .own{display:grid;gap:10px;padding:12px;border:1px solid var(--rule2);border-radius:12px;background:rgba(2,4,6,.5)}
 .ownpics{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ownpics figure{margin:0;display:grid;gap:5px;min-width:0}
@@ -613,11 +643,7 @@ body.sp{min-height:100vh;background:radial-gradient(1200px 600px at 70% -10%,rgb
 .ownrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .ownrow .ok{color:var(--green)} .ownrow .bad{color:var(--coral)}
 .tradesheet{max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain}
-.fields label{display:grid;gap:5px;font:400 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
-.fields input{background:rgba(2,4,6,.7);border:1px solid var(--rule2);border-radius:10px;color:var(--bright);font:500 15px var(--mono);padding:10px 12px;min-width:0}
-.fields input:focus{border-color:rgba(255,184,77,.7);outline:none}
-.formrow{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap}
-.spform #spawnlog{grid-column:1/-1;margin:0;overflow-wrap:anywhere}
+.formrow{display:flex;gap:10px;flex-wrap:wrap}
 .tradesheet{width:min(440px,100%);display:grid;gap:14px}
 .tradetop{display:flex;gap:12px;align-items:center}
 .tradetop img{width:44px;height:44px;border-radius:9px;object-fit:cover;background:var(--rule)}
@@ -645,8 +671,18 @@ body.sp{min-height:100vh;background:radial-gradient(1200px 600px at 70% -10%,rgb
   .spstats dd{font-size:22px}
   .spstats div{padding:12px}
   .squares{grid-template-columns:repeat(10,minmax(0,1fr))}
-  .spform form{grid-template-columns:1fr}
-  .pic{max-width:160px}
+  .spform .lf{grid-template-columns:88px minmax(0,1fr) 112px;grid-template-areas:"pic name name" "pic ticker ticker" "buy buy go" "note note note";padding:12px;gap:8px}
+  .spform .lf input[type=text]{padding:9px 12px}
   .movelist li{grid-template-columns:minmax(64px,90px) minmax(0,1fr);row-gap:4px}
   .movelist .n{grid-column:1/-1}
 }
+
+/* ---------- the main page's coins ---------- */
+.homecoins{padding-top:80px}
+.homecoins .sectop{align-items:end;gap:16px 24px}
+.homecoins .display{margin-bottom:12px}
+.homecoins .eyebrow .pill{margin-left:8px;vertical-align:1px}
+.homecoins .lede{margin:0 0 26px}
+.homecoins .sectop .btn-ghost{margin-bottom:24px}
+.homefee{margin:18px 0 0;max-width:100ch}
+@media (max-width:720px){.homecoins{padding-top:56px}.homecoins .sectop .btn-ghost{margin-bottom:0}.homecoins .lede{margin-top:12px}}

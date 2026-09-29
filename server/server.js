@@ -75,6 +75,7 @@ export function createWormServer(overrides = {}) {
     twitch: { ...defaultConfig.twitch, ...(overrides.twitch || {}) },
     token: { ...defaultConfig.token, ...(overrides.token || {}) },
     pow: { ...defaultConfig.pow, ...(overrides.pow || {}) },
+    spawn: { ...defaultConfig.spawn, ...(overrides.spawn || {}) },
   };
   const L = config.limits;
   const stepMs = STEP_MS / (config.speed || 1);   // speed > 1 only in tests
@@ -110,7 +111,7 @@ export function createWormServer(overrides = {}) {
     eyes: { kind: 'chosen', view: text.VIEW, speed: text.SPEED, eyeGain: text.EYE_GAIN, flood: text.FLOOD, floodGain: text.FLOOD_GAIN, mapping: '13 left photoreceptors sample strips of the left half of the view, 13 right ones the right half' },
     poke: { kind: 'chosen', maxCells: MAX_POKE_CELLS, steps: POKE_STEPS, drive: POKE_DRIVE },
     spawn: {
-      kind: 'chosen', poke: 'a buy of a coin on SPAWN, the $BRAINWORM launchpad, pokes three touch cells picked from the SHA-256 of the coin\'s address: the same spot for every buy of that coin, logged with its transaction',
+      kind: 'chosen', poke: 'a buy of a coin on SPAWN, the BRAINWORM launchpad, pokes three touch cells picked from the SHA-256 of the coin\'s address: the same spot for every buy of that coin, logged with its transaction',
       coinWorm: { version: COINWORM_VERSION, what: 'every coin on SPAWN also has its own worm: a fresh copy of this larva, nothing added', birth: 'its first sight is "$TICKER", shown to its eyes as a message', trades: `a buy touches three head-end touch cells, a sell three tail-end ones, picked from the trade\'s signature, then ${STEPS_PER_TRADE} steps; between trades its time stands still`, check: '/spawn/worm/<mint>.json lists its ticker, every trade in order and its state hash; shared/coinworm.js rebuild() recomputes it' },
     },
     tug: { kind: 'chosen', order: TUG_ORDER, scored: TUG_SCORED, gapSteps: TUG_GAP, score: 'how fast the body turned toward word A (rad/s), from its cilia and muscles as it steers, averaged over the scored passes; a tie below 0.0001' },
@@ -203,7 +204,7 @@ export function createWormServer(overrides = {}) {
   const tokenMint = () => config.token.mint || (launch && launch.mint) || '';
   let lab = null;
 
-  // SPAWN, the launchpad: coins priced in $BRAINWORM (server/spawn.js). A buy of one pokes the worm at that coin's
+  // SPAWN, the launchpad: coins priced in SOL, and in $BRAINWORM once it exists (server/spawn.js). A buy of one pokes the worm at that coin's
   // own spot: three touch cells picked from the coin's address, the same for every buy of it. The mapping is ours;
   // the worm has no idea what a coin is. Each poke is logged with its transaction.
   const spawnPokes = new Map();   // poke id -> the coin's mint, to credit the cells it lit
@@ -230,7 +231,10 @@ export function createWormServer(overrides = {}) {
   const spawn = createSpawn({
     dir: dataDir, dbc: config.spawnDeps?.dbc || dbc, rootMint: tokenMint, fetchImpl: config.spawnDeps?.fetchImpl || fetch, coinWorms, render, D,
     moderate: (t) => checkMessage(t, blocklist()), onTrade: onSpawnTrade,
-    opts: { rpc: config.token.solanaRpc, ws: config.spawnDeps ? config.spawnDeps.ws || null : config.token.solanaWs, WebSocketImpl: config.spawnDeps?.WebSocketImpl, publicUrl: config.publicUrl, pinataJwt: config.token.pinataJwt, uploadPinata: solana.uploadPinataMetadata, jupiterKey: config.token.jupiterKey },
+    opts: {
+      rpc: config.token.solanaRpc, ws: config.spawnDeps ? config.spawnDeps.ws || null : config.token.solanaWs, WebSocketImpl: config.spawnDeps?.WebSocketImpl, publicUrl: config.publicUrl,
+      pinataJwt: config.token.pinataJwt, uploadPinata: config.spawnDeps?.uploadPinata || solana.uploadPinataMetadata, jupiterKey: config.token.jupiterKey, owner: config.spawn.owner, localMeta: config.spawn.localMeta,
+    },
   });
 
   // A trade becomes a poke: buys at the head end, sells at the tail end, the touch cells picked from
@@ -672,15 +676,17 @@ export function createWormServer(overrides = {}) {
         run().then((r) => json(res, 200, r)).catch((e) => json(res, 200, { ok: false, error: e.message }));
         return;
       }
-      case '/admin/spawn/price': case '/admin/spawn/config': case '/admin/spawn/confirm': case '/admin/spawn/claim': case '/admin/spawn/claim-graduated': case '/admin/spawn/burn-claimed': case '/admin/spawn/burned': {
-        const act = p.slice('/admin/spawn/'.length);
+      case '/admin/spawn/price': case '/admin/spawn/config': case '/admin/spawn/confirm': case '/admin/spawn/claim': case '/admin/spawn/claim-graduated': case '/admin/spawn/claim-sol': case '/admin/spawn/buyback': case '/admin/spawn/burn-claimed': case '/admin/spawn/burned': {
+        const act = p.slice('/admin/spawn/'.length), feeClaimer = q.get('feeClaimer') || '';
         const run = async () => {
           if (act === 'price') return { ok: true, price: await spawn.rootPrice() };
-          if (act === 'config') return { ok: true, ...(await spawn.buildConfig({ partner: q.get('partner') || '', startMcap: q.get('startMcap'), graduationMcap: q.get('graduationMcap') })) };
+          if (act === 'config') return { ok: true, ...(await spawn.buildConfig({ partner: q.get('partner') || '', startMcap: q.get('startMcap'), graduationMcap: q.get('graduationMcap'), quote: q.get('quote') || undefined })) };
           if (act === 'confirm') return await spawn.confirmConfig({ signature: q.get('signature') || '' });
-          if (act === 'claim') return { ok: true, txs: await spawn.buildClaimAndBurn({ feeClaimer: q.get('feeClaimer') || '' }) };
-          if (act === 'claim-graduated') return { ok: true, txs: await spawn.buildClaimGraduated({ feeClaimer: q.get('feeClaimer') || '' }) };
-          if (act === 'burn-claimed') return { ok: true, ...(await spawn.burnClaimed({ signature: q.get('signature') || '' })) };
+          if (act === 'claim') return { ok: true, txs: await spawn.buildClaimAndBurn({ feeClaimer }) };
+          if (act === 'claim-graduated') return { ok: true, txs: await spawn.buildClaimGraduated({ feeClaimer }) };
+          if (act === 'claim-sol') return { ok: true, txs: await spawn.buildClaimSol({ feeClaimer }) };
+          if (act === 'buyback') return { ok: true, ...(await spawn.buyback({ feeClaimer })) };
+          if (act === 'burn-claimed') return { ok: true, ...(await spawn.burnClaimed({ signature: q.get('signature') || '', buyback: flag('buyback') === true })) };
           return await spawn.burned({ signature: q.get('signature') || '' });
         };
         run().then((r) => json(res, 200, r)).catch((e) => json(res, 200, { ok: false, error: e.message }));
@@ -756,7 +762,7 @@ export function createWormServer(overrides = {}) {
     if (p === '/config.json') {
       return json(res, 200, {
         site: siteInfo(), params: PARAMS, wiringSha256: wiringHash, transmittersSha256: txHash, model: MODEL_V2.id, stepsPerSecond: STEPS_PER_SECOND,
-        features: { ots: !!(ledger && config.ots), chunkMinutes: config.chunkMinutes, twitch: twitch ? twitch.status().channel : null, publicUrl: config.publicUrl, spawn: spawn.open },
+        features: { ots: !!(ledger && config.ots), chunkMinutes: config.chunkMinutes, twitch: twitch ? twitch.status().channel : null, publicUrl: config.publicUrl, spawn: spawn.open, spawnQuote: spawn.quote },
         calibration,
       });
     }

@@ -18,6 +18,7 @@ export const SYSTEM_PROGRAM = '11111111111111111111111111111111';
 export const METADATA_PROGRAM = 'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s';
 export const COMPUTE_BUDGET = 'ComputeBudget111111111111111111111111111111';
 export const INCINERATOR = '1nc1nerator11111111111111111111111111111111';   // no key exists for it: what's sent there is gone
+export const SOL_MINT = 'So11111111111111111111111111111111111111112';     // wrapped SOL: coins priced in SOL trade against it
 export const EVENT_AUTHORITY = findProgramAddress(['__event_authority'], DBC_PROGRAM)[0];
 
 export const MIN_SQRT_PRICE = 4295048016n;
@@ -40,8 +41,10 @@ const fail = (msg) => { throw new Error(`dbc: ${msg}`); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 /** One RPC call, retried with backoff while the node says it is busy (the public one rate-limits hard). */
 async function call(method, params, { url = RPC_URL, fetchImpl = fetch, tries = 4 } = {}) {
+  // listing a program's accounts scans all of them: on a public node that can take a while
+  const timeoutMs = method === 'getProgramAccounts' ? 60_000 : 15_000;
   for (let k = 0; ; k++) {
-    try { return await rpc(method, params, { url, fetchImpl }); } catch (e) {
+    try { return await rpc(method, params, { url, fetchImpl, timeoutMs }); } catch (e) {
       if (k + 1 >= tries || !/HTTP (429|5\d\d)|too many requests/i.test(e.message)) throw e;
       await sleep(400 * 2 ** k);
     }
@@ -207,7 +210,7 @@ const u128At = (d, o) => d.readBigUInt64LE(o) | (d.readBigUInt64LE(o + 8) << 64n
 const pk = (d, o) => b58encode(d.subarray(o, o + 32));
 
 /**
- * SPAWN's config: 1% flat fee, collected in the quote token ($BRAINWORM) only; of what's left after Meteora's
+ * SPAWN's config: 1% flat fee, collected in the quote token (SOL or $BRAINWORM) only; of what's left after Meteora's
  * 20%, `creatorShare` % to the coin's creator and the rest to the fee claimer (who burns it). Graduation to
  * DAMM v2 at a 1% fee with every bit of its liquidity locked for good (half the position to each side). The
  * metadata is immutable, and nothing is vested, reserved or left to anyone.
@@ -262,6 +265,12 @@ export const createAtaIdempotent = (payer, owner, mint, tokenProgram = TOKEN_PRO
 ], [1]);
 const closeAccount = (account, owner, tokenProgram) => ix(tokenProgram, [meta(account, true), meta(owner, true), meta(owner, false, true)], [9]);
 const burnChecked = (account, mint, owner, amount, decimals, tokenProgram) => ix(tokenProgram, [meta(account, true), meta(mint, true), meta(owner, false, true)], new Writer().u8(15).u64(amount).u8(decimals).bytes());
+const transfer = (from, to, lamports) => ix(SYSTEM_PROGRAM, [meta(from, true, true), meta(to, true)], new Writer().u32(2).u64(lamports).bytes());
+const syncNative = (account) => ix(TOKEN_PROGRAM, [meta(account, true)], [17]);
+/** SOL into the owner's wrapped-SOL account, where a curve can take it like any token. */
+export const wrapSol = (owner, lamports) => [createAtaIdempotent(owner, owner, SOL_MINT), transfer(owner, ata(owner, SOL_MINT), lamports), syncNative(ata(owner, SOL_MINT))];
+/** Close the owner's wrapped-SOL account: all it holds comes back to them as SOL, with its rent. */
+export const unwrapSol = (owner) => closeAccount(ata(owner, SOL_MINT), owner, TOKEN_PROGRAM);
 
 function shortvec(n) {
   const out = [];
@@ -396,6 +405,25 @@ async function tokenBalance(owner, mint, program, { url, fetchImpl }) {
   const [a] = await accounts([ata(owner, mint, program)], { url, fetchImpl });
   return a ? a.data.readBigUInt64LE(64) : 0n;
 }
+async function solBalance(owner, { url, fetchImpl }) {
+  return BigInt((await call('getBalance', [owner, { commitment: 'confirmed' }], { url, fetchImpl })).value);
+}
+const units = (atoms, decimals) => Number(atoms) / 10 ** decimals;
+// what a new coin's own accounts cost its creator in rent (its mint, metadata, pool, two vaults, their coin account): about 0.019 SOL
+const CREATE_RENT = 20_000_000n;
+
+/** Every DBC config whose fees go to `feeClaimer`: how SPAWN finds its own configs again from the chain alone. */
+export async function findConfigs({ feeClaimer, url, fetchImpl }) {
+  const r = await call('getProgramAccounts', [DBC_PROGRAM, { encoding: 'base64', commitment: 'confirmed', filters: [{ dataSize: CONFIG_SIZE }, { memcmp: { offset: 40, bytes: check(feeClaimer, 'fee claimer') } }] }], { url, fetchImpl });
+  const out = [];
+  for (const a of r) {
+    try { const c = { address: a.pubkey, ...decodeConfig(Buffer.from(a.account.data[0], 'base64')) }; configCache.set(a.pubkey, c); out.push(c); } catch { /* not a config */ }
+  }
+  return out;
+}
+/** Whether a config is one SPAWN makes (configParameters): its fee, split, supply, graduation and leftovers. */
+export const isSpawnConfig = (c, { creatorShare = 20, feeBps = 100 } = {}) => !!c && c.feeNumerator === BigInt(feeBps) * FEE_DENOMINATOR / 10_000n && c.collectFeeMode === 0
+  && c.migrationOption === 1 && c.tokenType === 0 && c.tokenDecimal === 6 && c.creatorShare === creatorShare && c.migrationFeeOption === 2 && c.fixedSupply && c.leftoverReceiver === INCINERATOR;
 
 /* ---------- instructions (pure: every account passed in or derived) ---------- */
 
@@ -444,7 +472,7 @@ export const ixs = {
     meta(baseVault, true), meta(quoteVault, true), meta(mint), meta(quoteMint), meta(creator, false, true), meta(baseProgram), meta(quoteProgram),
   ], new Writer().u64(0).u64(U64_MAX).bytes()),
 
-  closeAccount, burnChecked, createAtaIdempotent, computeBudget,
+  closeAccount, burnChecked, createAtaIdempotent, computeBudget, transfer, syncNative,
 };
 
 /* ---------- transactions SPAWN builds ---------- */
@@ -470,51 +498,62 @@ export async function buildCreateConfig({ partner, quoteMint, startMcap, graduat
 /**
  * A new coin on `config`, for its creator's wallet (fee payer and creator), with an optional first buy in
  * the quote token in the same transaction, so nobody can buy before them. The coin's mint key signs and is dropped.
+ * On a config priced in SOL the first buy is paid in SOL: wrapped, spent and the account closed in the same transaction.
  */
 export async function buildCreatePool({ config, creator, name, symbol, uri, firstBuyQuote = 0, url, fetchImpl }) {
   check(creator, 'creator');
   const c = await fetchConfig({ address: config, url, fetchImpl });
   if (!c) fail('that config is not on chain');
   if (c.tokenType !== 0) fail('SPAWN makes SPL Token coins; that config is for Token-2022');
-  const q = await mintInfo(c.quoteMint, { url, fetchImpl });
+  const q = await mintInfo(c.quoteMint, { url, fetchImpl }), sol = c.quoteMint === SOL_MINT;
   const mint = generateKeypair();
   const init = ixs.initializePool({ config, creator, mint: mint.address, quoteMint: c.quoteMint, quoteProgram: q.program, name, symbol, uri });
   const instructions = [...computeBudget({ units: firstBuyQuote ? 400_000 : 250_000 }), init.ix];
   let firstBuy = null;
   const amount = BigInt(Math.floor(Number(firstBuyQuote) * 10 ** q.decimals));
   if (amount > 0n) {
-    const have = await tokenBalance(creator, c.quoteMint, q.program, { url, fetchImpl });
-    if (have < amount) fail(`the first buy needs ${Number(amount) / 10 ** q.decimals} of the quote token; that wallet has ${Number(have) / 10 ** q.decimals}`);
+    const have = sol ? await solBalance(creator, { url, fetchImpl }) : await tokenBalance(creator, c.quoteMint, q.program, { url, fetchImpl });
+    if (sol && have < amount + CREATE_RENT) fail(`the first buy needs ${units(amount, 9)} SOL, and about 0.02 SOL more pays for the coin's accounts; that wallet has ${units(have, 9)} SOL`);
+    if (!sol && have < amount) fail(`the first buy needs ${units(amount, q.decimals)} of the quote token; that wallet has ${units(have, q.decimals)}`);
     const { out } = quoteBuy({ sqrtPrice: c.sqrtStartPrice, curve: c.curve, migrationSqrtPrice: c.migrationSqrtPrice, feeNumerator: c.feeNumerator }, amount);
     const minOut = (out * 99n) / 100n;
-    instructions.push(createAtaIdempotent(creator, creator, mint.address), ixs.buy({ config, ...init, mint: mint.address, quoteMint: c.quoteMint, trader: creator, quoteProgram: q.program, amountIn: amount, minOut }));
-    firstBuy = { quote: Number(amount) / 10 ** q.decimals, coins: Number(out) / 1e6, minCoins: Number(minOut) / 1e6 };
+    instructions.push(
+      ...(sol ? wrapSol(creator, amount) : []),
+      createAtaIdempotent(creator, creator, mint.address),
+      ixs.buy({ config, ...init, mint: mint.address, quoteMint: c.quoteMint, trader: creator, quoteProgram: q.program, amountIn: amount, minOut }),
+      ...(sol ? [unwrapSol(creator)] : []),
+    );
+    firstBuy = { quote: units(amount, q.decimals), coins: Number(out) / 1e6, minCoins: Number(minOut) / 1e6 };
   }
   const raw = compileTransaction({ payer: creator, instructions, blockhash: await blockhash({ url, fetchImpl }) });
   return { mint: mint.address, pool: init.pool, tx: toB64(signPartial(raw, mint)), firstBuy };
 }
 
 /**
- * A trade on a coin's curve, for the trader's own wallet: a buy paid in the quote token ($BRAINWORM) or a sell for
- * it, exact-in with a floor. Works from the coin's first second, before any aggregator has indexed it.
+ * A trade on a coin's curve, for the trader's own wallet: a buy paid in the quote token or a sell for it, exact-in
+ * with a floor. Works from the coin's first second, before any aggregator has indexed it. On a coin priced in SOL
+ * the trader pays and is paid in SOL: it is wrapped for the curve and unwrapped again in the same transaction.
  */
 export async function buildSwap({ pool, side, trader, amountIn, minOut, url, fetchImpl }) {
   check(trader, 'trader');
   const c = await fetchConfig({ address: pool.config, url, fetchImpl });
   if (!c) fail('that config is not on chain');
-  const q = await mintInfo(c.quoteMint, { url, fetchImpl });
+  const q = await mintInfo(c.quoteMint, { url, fetchImpl }), sol = c.quoteMint === SOL_MINT;
   const baseProgram = baseProgramOf(c);
   const leg = { config: c.address, pool: pool.address, mint: pool.baseMint, quoteMint: c.quoteMint, baseVault: pool.baseVault, quoteVault: pool.quoteVault, trader, quoteProgram: q.program, baseProgram, amountIn: BigInt(amountIn), minOut: BigInt(minOut) };
-  const instructions = [...computeBudget({ units: 150_000 }), side === 'sell'
-    ? createAtaIdempotent(trader, trader, c.quoteMint, q.program) : createAtaIdempotent(trader, trader, pool.baseMint, baseProgram), side === 'sell' ? ixs.sell(leg) : ixs.buy(leg)];
+  const instructions = [...computeBudget({ units: sol ? 180_000 : 150_000 })];
+  if (side === 'sell') instructions.push(createAtaIdempotent(trader, trader, c.quoteMint, q.program), ixs.sell(leg));
+  else instructions.push(...(sol ? wrapSol(trader, leg.amountIn) : []), createAtaIdempotent(trader, trader, pool.baseMint, baseProgram), ixs.buy(leg));
+  if (sol) instructions.push(unwrapSol(trader));
   return { tx: toB64(compileTransaction({ payer: trader, instructions, blockhash: await blockhash({ url, fetchImpl }) })) };
 }
 
 /**
- * The instructions that claim `pools`' fee-claimer fees and burn exactly what they claim. `payer` fronts the
- * rent of the coin accounts opened and closed on the way (the fee claimer, unless told otherwise).
+ * The instructions that claim `pools`' fee-claimer fees and burn exactly what they claim (or, with burn false, leave
+ * it in the fee claimer's quote account). `payer` fronts the rent of the coin accounts opened and closed on the way
+ * (the fee claimer, unless told otherwise).
  */
-export function claimAndBurnInstructions({ config, quoteMint, quoteProgram, quoteDecimals, feeClaimer, pools, payer = feeClaimer }) {
+export function claimAndBurnInstructions({ config, quoteMint, quoteProgram, quoteDecimals, feeClaimer, pools, payer = feeClaimer, burn = true }) {
   const instructions = [createAtaIdempotent(payer, feeClaimer, quoteMint, quoteProgram)];
   let total = 0n;
   for (const p of pools) {
@@ -529,31 +568,34 @@ export function claimAndBurnInstructions({ config, quoteMint, quoteProgram, quot
     );
     total += p.partnerQuoteFee;
   }
-  instructions.push(burnChecked(ata(feeClaimer, quoteMint, quoteProgram), quoteMint, feeClaimer, total, quoteDecimals, quoteProgram));
+  if (burn) instructions.push(burnChecked(ata(feeClaimer, quoteMint, quoteProgram), quoteMint, feeClaimer, total, quoteDecimals, quoteProgram));
   return { instructions, total };
 }
 
 /**
  * The fee claimer's share of the quote fees of `pools`, claimed and burned in the same transactions, three
- * pools to a transaction so each fits. Each claim is capped at the fees read now, so the burn is exact.
+ * pools to a transaction so each fits. Each claim is capped at the fees read now, so the burn is exact. With burn
+ * false (fees in SOL, which are bought back into $BRAINWORM before they are burned) the claims stay in the fee
+ * claimer's wrapped-SOL account for that; each result then says what it claims instead of what it burns.
  */
-export async function buildClaimAndBurn({ pools, feeClaimer, url, fetchImpl }) {
+export async function buildClaimAndBurn({ pools, feeClaimer, burn = true, url, fetchImpl }) {
   check(feeClaimer, 'fee claimer');
   if (!pools.length) return [];
   const c = await fetchConfig({ address: pools[0].config, url, fetchImpl });
   if (c.feeClaimer !== feeClaimer) fail('that wallet is not this config\'s fee claimer');
+  if (burn && c.quoteMint === SOL_MINT) fail('fees in SOL are bought back into $BRAINWORM before they are burned');
   const q = await mintInfo(c.quoteMint, { url, fetchImpl });
   const out = [];
   for (let i = 0; i < pools.length; i += 3) {
     const batch = pools.slice(i, i + 3);
-    const { instructions, total } = claimAndBurnInstructions({ config: c.address, quoteMint: c.quoteMint, quoteProgram: q.program, quoteDecimals: q.decimals, feeClaimer, pools: batch.map((p) => ({ baseProgram: baseProgramOf(c), ...p })) });
+    const { instructions, total } = claimAndBurnInstructions({ config: c.address, quoteMint: c.quoteMint, quoteProgram: q.program, quoteDecimals: q.decimals, feeClaimer, burn, pools: batch.map((p) => ({ baseProgram: baseProgramOf(c), ...p })) });
     const raw = compileTransaction({ payer: feeClaimer, instructions: [...computeBudget({ units: 60_000 + 90_000 * batch.length }), ...instructions], blockhash: await blockhash({ url, fetchImpl }) });
-    out.push({ tx: toB64(raw), pools: batch.map((p) => p.address), burn: Number(total) / 10 ** q.decimals });
+    out.push({ tx: toB64(raw), pools: batch.map((p) => p.address), [burn ? 'burn' : 'claim']: units(total, q.decimals) });
   }
   return out;
 }
 
-/** A creator's share of one pool's fees, to their own wallet. */
+/** A creator's share of one pool's fees, to their own wallet (as SOL, on a coin priced in SOL). */
 export async function buildClaimCreator({ pool, creator, url, fetchImpl }) {
   check(creator, 'creator');
   if (pool.creator !== creator) fail('only the coin\'s creator can claim its creator fees');
@@ -563,6 +605,7 @@ export async function buildClaimCreator({ pool, creator, url, fetchImpl }) {
   const instructions = [
     ...computeBudget({ units: 120_000 }), createAtaIdempotent(creator, creator, c.quoteMint, q.program), createAtaIdempotent(creator, creator, pool.baseMint, baseProgram),
     ixs.claimCreator({ pool: pool.address, mint: pool.baseMint, quoteMint: c.quoteMint, baseVault: pool.baseVault, quoteVault: pool.quoteVault, creator, quoteProgram: q.program, baseProgram }),
+    ...(c.quoteMint === SOL_MINT ? [unwrapSol(creator)] : []),
   ];
   return { tx: toB64(compileTransaction({ payer: creator, instructions, blockhash: await blockhash({ url, fetchImpl }) })), amount: Number(pool.creatorQuoteFee) / 10 ** q.decimals };
 }
@@ -629,9 +672,10 @@ Object.assign(ixs, {
 
 /**
  * Claim transactions for `owner`'s positions in the pools of graduated coins (two coins a transaction, so each fits).
- * coins: [{ baseMint, quoteMint, migrationFeeOption }]. Returns [{ tx, coins: [baseMint…] }].
+ * coins: [{ baseMint, quoteMint, migrationFeeOption }]. Returns [{ tx, coins: [baseMint…] }]. With unwrap, fees in
+ * SOL reach the owner as SOL; without, they stay wrapped (the fee claimer's, to be bought back into $BRAINWORM).
  */
-export async function buildClaimGraduated({ coins, owner, url, fetchImpl }) {
+export async function buildClaimGraduated({ coins, owner, unwrap = false, url, fetchImpl }) {
   check(owner, 'owner');
   const found = [];
   for (const c of coins) {
@@ -647,17 +691,19 @@ export async function buildClaimGraduated({ coins, owner, url, fetchImpl }) {
       instructions.push(createAtaIdempotent(owner, owner, f.pool.tokenAMint, f.pool.tokenAProgram), createAtaIdempotent(owner, owner, f.pool.tokenBMint, f.pool.tokenBProgram));
       for (const p of f.mine) instructions.push(ixs.claimPositionFee({ pool: f.pool, position: p.address, nftAccount: p.nftAccount, owner }));
     }
+    if (unwrap && batch.some((f) => f.pool.tokenAMint === SOL_MINT || f.pool.tokenBMint === SOL_MINT)) instructions.push(unwrapSol(owner));
     out.push({ tx: toB64(compileTransaction({ payer: owner, instructions, blockhash: await blockhash({ url, fetchImpl }) })), coins: batch.map((f) => f.coin) });
   }
   return out;
 }
 
 /**
- * The burn for what a confirmed claim paid `owner`: every token that arrived in their accounts, exactly, read from
- * the claim transaction. Accounts the claim opened are closed afterwards once empty (their rent comes back), except
- * for the mints in `keep`. Returns { tx, burns: [{ mint, amount }] }, or null when nothing arrived.
+ * The burn for what a confirmed claim (or buyback) paid `owner`: every token that arrived in their accounts, exactly,
+ * read from that transaction; with `only`, just those mints. Accounts it opened are closed afterwards once empty
+ * (their rent comes back), except for the mints in `keep`. Returns { tx, burns: [{ mint, amount }] }, or null when
+ * nothing arrived.
  */
-export async function buildBurnReceived({ signature, owner, keep = [], url, fetchImpl }) {
+export async function buildBurnReceived({ signature, owner, keep = [], only = null, url, fetchImpl }) {
   const tx = await call('getTransaction', [signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 1, commitment: 'confirmed' }], { url, fetchImpl });
   if (!tx) fail('that claim is not confirmed yet');
   if (tx.meta?.err) fail('that claim failed on chain');
@@ -665,7 +711,7 @@ export async function buildBurnReceived({ signature, owner, keep = [], url, fetc
   const pre = new Map((tx.meta.preTokenBalances || []).map((b) => [b.accountIndex, BigInt(b.uiTokenAmount.amount)]));
   const instructions = [], burns = [];
   for (const b of tx.meta.postTokenBalances || []) {
-    if (b.owner !== owner) continue;
+    if (b.owner !== owner || (only && !only.includes(b.mint))) continue;
     const post = BigInt(b.uiTokenAmount.amount), opened = !pre.has(b.accountIndex), got = post - (pre.get(b.accountIndex) || 0n);
     const program = b.programId || TOKEN_PROGRAM, account = keys[b.accountIndex];
     if (got > 0n) {

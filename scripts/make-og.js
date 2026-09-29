@@ -45,7 +45,7 @@ for (let k = 2; k < D.e.length; k += 3) syn += D.e[k];
 
 save('og.png', renderActivityPNG({
   D, act: peak.act, layout: 'og', badge: 'LIVE',
-  lines: ['A REAL LARVA\'S WIRING, SIMULATED LIVE.', 'EVERYONE SEES THE SAME WORM.'],
+  lines: ['LAUNCH A COIN. IT HATCHES ITS OWN WORM.', 'A REAL LARVA\'S WIRING, SIMULATED LIVE.'],
   footnote: `PLATYNEREIS LARVA CONNECTOME - ${commas(D.n.length)} CELLS - ${commas(syn)} SYNAPSES`,
 }));
 save('apple-touch-icon.png', renderActivityPNG({ D, act: peak.act, layout: 'icon' }));

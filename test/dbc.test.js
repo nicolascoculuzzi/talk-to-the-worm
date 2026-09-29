@@ -105,7 +105,7 @@ test('SPAWN\'s config: 1% in $BRAINWORM only, 20% of the rest to creators, fixed
 });
 
 // a stand-in RPC holding a few accounts (and, for getProgramAccounts, the accounts a program lists; for getTransaction, some transactions)
-function fakeRpc(accounts, { listed = {}, txs = {} } = {}) {
+function fakeRpc(accounts, { listed = {}, txs = {}, balances = {} } = {}) {
   const reply = (result) => new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result }), { status: 200 });
   return async (url, init) => {
     const { method, params } = JSON.parse(init.body);
@@ -113,6 +113,7 @@ function fakeRpc(accounts, { listed = {}, txs = {} } = {}) {
     if (method === 'getMultipleAccounts') return reply({ value: params[0].map((a) => (accounts[a] ? { owner: accounts[a].owner, data: [accounts[a].data.toString('base64'), 'base64'] } : null)) });
     if (method === 'getProgramAccounts') return reply((listed[params[0]] || []).map((a) => ({ pubkey: a.address, account: { owner: params[0], data: [a.data.toString('base64'), 'base64'] } })));
     if (method === 'getTransaction') return reply(txs[params[0]] ?? null);
+    if (method === 'getBalance') return reply({ value: balances[params[0]] ?? 0 });
     throw new Error('unexpected ' + method);
   };
 }
@@ -120,7 +121,8 @@ function configAccount({ quoteMint, feeClaimer, c }) {
   const r = dbc.checkCurve(c), d = Buffer.alloc(dbc.CONFIG_SIZE);
   crypto.createHash('sha256').update('account:PoolConfig').digest().copy(d, 0, 0, 8);
   Buffer.from(b58decode(quoteMint)).copy(d, 8); Buffer.from(b58decode(feeClaimer)).copy(d, 40);
-  d.writeBigUInt64LE(10_000_000n, 104); d[233] = 1; d[235] = 6; d[244] = 1; d[245] = 20;
+  d.writeBigUInt64LE(10_000_000n, 104); d[233] = 1; d[235] = 6; d[243] = 2; d[244] = 1; d[245] = 20;
+  Buffer.from(b58decode(dbc.INCINERATOR)).copy(d, 72);
   d.writeBigUInt64LE(c.migrationQuoteThreshold, 264); u128(d, r.sqrtMig, 280); d.writeBigUInt64LE(c.totalSupply, 344); u128(d, c.sqrtStartPrice, 392);
   c.curve.forEach((q, i) => { u128(d, q.sqrtPrice, 408 + 32 * i); u128(d, q.liquidity, 424 + 32 * i); });
   return { owner: dbc.DBC_PROGRAM, data: d };
@@ -256,4 +258,65 @@ test('the burn after a graduated claim is exactly what arrived; an account the c
   assert.deepEqual([token[1].data[0], tx.accountKeys[token[1].accounts[0]]], [9, dbc.ata(owner, coin)], 'the empty coin account the claim opened is closed');
   assert.equal(await dbc.buildBurnReceived({ signature: sig, owner: addr(), url: 'http://rpc.test', fetchImpl }), null, 'nothing arrived for anyone else');
   await assert.rejects(dbc.buildBurnReceived({ signature: b58encode(crypto.randomBytes(64)), owner, url: 'http://rpc.test', fetchImpl }), /not confirmed/);
+});
+
+test('a coin priced in SOL: its first buy and its trades wrap SOL for the curve and give back the rest, in the same transaction', async () => {
+  const config = addr(), creator = addr(), c = dbc.buildCurve({ quoteDecimals: 9, startMcap: 28, graduationMcap: 400 });
+  const wsol = dbc.ata(creator, dbc.SOL_MINT);
+  const accounts = { [config]: configAccount({ quoteMint: dbc.SOL_MINT, feeClaimer: addr(), c }), [dbc.SOL_MINT]: mintAccount(9) };
+  const longest = { name: 'N'.repeat(32), symbol: 'S'.repeat(10), uri: 'https://ipfs.io/ipfs/bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku' };
+  const token = (tx, i) => tx.accountKeys[i.programIdIndex] === dbc.TOKEN_PROGRAM;
+  const system = (tx, i) => tx.accountKeys[i.programIdIndex] === dbc.SYSTEM_PROGRAM;
+  const fetchImpl = fakeRpc(accounts, { balances: { [creator]: 5e9 } });
+  const r = await dbc.buildCreatePool({ config, creator, ...longest, firstBuyQuote: 1.5, url: 'http://rpc.test', fetchImpl });
+  const bytes = Buffer.from(r.tx, 'base64');
+  assert.ok(bytes.length <= 1232, `${bytes.length} bytes`);
+  const tx = parseTransaction(bytes);
+  const move = tx.instructions.find((i) => system(tx, i));
+  assert.deepEqual([Buffer.from(move.data).readUInt32LE(0), Buffer.from(move.data).readBigUInt64LE(4), tx.accountKeys[move.accounts[1]]], [2, 1_500_000_000n, wsol], '1.5 SOL into the creator\'s wrapped-SOL account');
+  const [sync, close] = tx.instructions.filter((i) => token(tx, i));
+  assert.deepEqual([sync.data[0], close.data[0], tx.accountKeys[close.accounts[0]]], [17, 9, wsol], 'synced, then closed again');
+  assert.equal(tx.instructions.at(-1), close, 'closed last: what the buy did not spend comes back');
+  assert.ok(r.firstBuy.coins > 0);
+  await assert.rejects(dbc.buildCreatePool({ config, creator, ...longest, firstBuyQuote: 4.99, url: 'http://rpc.test', fetchImpl }), /first buy needs 4\.99 SOL, and about 0\.02 SOL more/);
+
+  const pool = { address: addr(), config, baseMint: addr(), baseVault: addr(), quoteVault: addr() };
+  const buy = parseTransaction(Buffer.from((await dbc.buildSwap({ pool, side: 'buy', trader: creator, amountIn: 250_000_000n, minOut: 1n, url: 'http://rpc.test', fetchImpl })).tx, 'base64'));
+  assert.equal(Buffer.from(buy.instructions.find((i) => system(buy, i)).data).readBigUInt64LE(4), 250_000_000n);
+  assert.deepEqual(buy.instructions.filter((i) => token(buy, i)).map((i) => i.data[0]), [17, 9]);
+  const sell = parseTransaction(Buffer.from((await dbc.buildSwap({ pool, side: 'sell', trader: creator, amountIn: 5n, minOut: 1n, url: 'http://rpc.test', fetchImpl })).tx, 'base64'));
+  assert.ok(!sell.instructions.some((i) => system(sell, i)), 'a sell pays nothing in');
+  const last = sell.instructions.at(-1);
+  assert.deepEqual([last.data[0], sell.accountKeys[last.accounts[0]]], [9, wsol], 'what the sell paid comes out as SOL');
+  const claim = parseTransaction(Buffer.from((await dbc.buildClaimCreator({ pool: { ...pool, creator, creatorQuoteFee: 5n }, creator, url: 'http://rpc.test', fetchImpl })).tx, 'base64'));
+  assert.equal(claim.instructions.at(-1).data[0], 9, 'a creator\'s fees in SOL arrive as SOL');
+});
+
+test('fees in SOL are claimed and kept wrapped for the buyback, never burned as SOL; the burn after a buyback is only $BRAINWORM', async () => {
+  const config = addr(), owner = addr(), c = dbc.buildCurve({ quoteDecimals: 9, startMcap: 28, graduationMcap: 400 });
+  const fetchImpl = fakeRpc({ [config]: configAccount({ quoteMint: dbc.SOL_MINT, feeClaimer: owner, c }), [dbc.SOL_MINT]: mintAccount(9) });
+  const pools = [1, 2].map((k) => ({ address: addr(), config, baseMint: addr(), baseVault: addr(), quoteVault: addr(), partnerQuoteFee: BigInt(k) * 10_000_000n }));
+  await assert.rejects(dbc.buildClaimAndBurn({ pools, feeClaimer: owner, url: 'http://rpc.test', fetchImpl }), /bought back/);
+  const [t] = await dbc.buildClaimAndBurn({ pools, feeClaimer: owner, burn: false, url: 'http://rpc.test', fetchImpl });
+  assert.equal(t.claim, 0.03);
+  const tx = parseTransaction(Buffer.from(t.tx, 'base64'));
+  assert.ok(!tx.instructions.some((i) => i.data[0] === 15 && tx.accountKeys[i.programIdIndex] === dbc.TOKEN_PROGRAM), 'no burn');
+
+  // the buyback's swap took SOL from the wrapped account and brought $BRAINWORM: only the $BRAINWORM is burned
+  const root = addr(), sig = b58encode(crypto.randomBytes(64)), k = [owner, dbc.ata(owner, dbc.SOL_MINT), dbc.ata(owner, root), dbc.ata(owner, addr())];
+  const bal = (i, mint, amount, decimals = 6) => ({ accountIndex: i, mint, owner, programId: dbc.TOKEN_PROGRAM, uiTokenAmount: { amount: String(amount), decimals } });
+  const swapTx = { meta: { err: null, preTokenBalances: [bal(1, dbc.SOL_MINT, 30_000_000, 9)], postTokenBalances: [bal(1, dbc.SOL_MINT, 0, 9), bal(2, root, 4_200_000_000), bal(3, 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 7)] }, transaction: { message: { accountKeys: k.map((pubkey) => ({ pubkey })) } } };
+  const r = await dbc.buildBurnReceived({ signature: sig, owner, keep: [root, dbc.SOL_MINT], only: [root], url: 'http://rpc.test', fetchImpl: fakeRpc({}, { txs: { [sig]: swapTx } }) });
+  assert.deepEqual(r.burns, [{ mint: root, amount: 4200 }]);
+});
+
+test('SPAWN finds its own configs by their fee claimer and parameters', async () => {
+  const owner = addr(), c = dbc.buildCurve({ quoteDecimals: 9, startMcap: 28, graduationMcap: 400 }), a = addr(), b = addr();
+  const ours = configAccount({ quoteMint: dbc.SOL_MINT, feeClaimer: owner, c }), other = configAccount({ quoteMint: dbc.SOL_MINT, feeClaimer: owner, c });
+  other.data[245] = 50;   // another creator share: not SPAWN's
+  const found = await dbc.findConfigs({ feeClaimer: owner, url: 'http://rpc.test', fetchImpl: fakeRpc({}, { listed: { [dbc.DBC_PROGRAM]: [{ address: a, data: ours.data }, { address: b, data: other.data }] } }) });
+  assert.deepEqual(found.map((x) => [x.address, dbc.isSpawnConfig(x)]), [[a, true], [b, false]]);
+  assert.equal(dbc.isSpawnConfig({ address: fx.config.address, ...dbc.decodeConfig(raw(fx.config.data)) }), false, 'someone else\'s real config is not SPAWN\'s');
+  const p = dbc.configParameters({ ...c, creatorShare: 20 });
+  assert.deepEqual([p[28], p[29], p[101], p[119]], [0, 1, 2, 20], 'what isSpawnConfig checks is what configParameters writes');
 });
