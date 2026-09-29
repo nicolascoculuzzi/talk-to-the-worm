@@ -37,6 +37,8 @@ export const config = {
     pumpportalKey: env.PUMPPORTAL_API_KEY || '',
     // the launch's image and metadata go to IPFS through Pinata when this is set, else pump.fun's own uploader
     pinataJwt: env.PINATA_JWT || '',
+    // SPAWN trades through Jupiter's free API unless this is set (a paid key also routes through less-traded middle tokens)
+    jupiterKey: env.JUPITER_API_KEY || '',
   },
 
   // the lab: registered experiments against randomly rewired worms, run once in a worker and cached (LAB=0 turns it off)

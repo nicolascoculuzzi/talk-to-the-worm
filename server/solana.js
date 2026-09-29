@@ -262,14 +262,14 @@ export async function uploadPumpMetadata({ image, filename = 'image.png', name, 
 }
 
 /** The same via Pinata's v3 upload API (image, then pump.fun-style metadata JSON), as PumpPortal's examples do now. */
-export async function uploadPinataMetadata({ image, filename = 'image.png', name, symbol, description = '', twitter = '', telegram = '', website = '', jwt, url = 'https://uploads.pinata.cloud/v3/files', gateway = 'https://ipfs.io/ipfs/', fetchImpl = fetch, timeoutMs = 30_000 } = {}) {
+export async function uploadPinataMetadata({ image, filename = 'image.png', name, symbol, description = '', twitter = '', telegram = '', website = '', createdOn = 'https://pump.fun', jwt, url = 'https://uploads.pinata.cloud/v3/files', gateway = 'https://ipfs.io/ipfs/', fetchImpl = fetch, timeoutMs = 30_000 } = {}) {
   checkText(name, 32, 'name'); checkText(symbol, 10, 'symbol');
   if (!jwt) fail('a Pinata JWT is required');
   const upload = async (part) => {
     const json = await postForm(url, [['network', 'public'], part], { Authorization: `Bearer ${jwt}` }, fetchImpl, timeoutMs, 'Pinata');
     return /^[A-Za-z0-9]{10,100}$/.test(json?.data?.cid) ? gateway + json.data.cid : fail('Pinata reply has no cid');
   };
-  const metadata = { name, symbol, description, image: await upload(filePart('file', image, filename)), showName: true, createdOn: 'https://pump.fun' };
+  const metadata = { name, symbol, description, image: await upload(filePart('file', image, filename)), showName: true, createdOn };
   for (const [k, v] of Object.entries({ twitter, telegram, website })) if (v) metadata[k] = v;
   return { metadataUri: await upload(filePart('file', Buffer.from(JSON.stringify(metadata)), 'metadata.json')), metadata };
 }

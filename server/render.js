@@ -102,6 +102,8 @@ function text(cv, s, x, y, sc, color, { glow = 0, gap = 0 } = {}) {
     x += (cols.length + 1) * sc;
   }
 }
+// a title part's colour: its own if given (titleColors), else ink and amber in turn
+const titleColor = (o, i) => NAMED[o.titleColors[i]] || (/^#[0-9a-f]{6}$/i.test(o.titleColors[i] || '') ? o.titleColors[i] : i % 2 ? AMBER : INK);
 const lineSpec = (l, i) => (typeof l === 'object' && l ? { s: l.text ?? '', color: l.color || (i ? MUTE : INK) } : { s: l ?? '', color: i ? MUTE : INK });
 
 /* ---------- the larva ---------- */
@@ -272,8 +274,8 @@ const LAYOUTS = {
         text(cv, b.s, X(92), Y(top), b.sc, CORAL);
       }
       o.title.forEach((part, i) => {
-        const t = fit(part, 9 * k, X(520));
-        text(cv, t.s, X(64), Y(top + 26 + i * 128), t.sc, i % 2 ? AMBER : INK, { glow: i % 2 ? 0.03 : 0.005, gap: t.sc >= 5 ? 1 : 0 });
+        const t = fit(part, 9 * k, X(520)), c = titleColor(o, i);
+        text(cv, t.s, X(64), Y(top + 26 + i * 128), t.sc, c, { glow: c === AMBER ? 0.03 : 0.005, gap: t.sc >= 5 ? 1 : 0 });
       });
       const y0 = top + 26 + o.title.length * 128 + 64;
       o.lines.forEach((l, i) => {
@@ -314,7 +316,8 @@ const LAYOUTS = {
         o.title.forEach((part, i) => {
           const s = t.s.slice(from, from + clean(part).length); from += s.length;
           if (!s) return;
-          text(cv, s, x, Y(top), t.sc, i % 2 ? AMBER : INK, { glow: i % 2 ? 0.03 : 0.006, gap: t.sc >= 5 ? 1 : 0 });
+          const c = titleColor(o, i);
+          text(cv, s, x, Y(top), t.sc, c, { glow: c === AMBER ? 0.03 : 0.006, gap: t.sc >= 5 ? 1 : 0 });
           x += textWidth(s, t.sc) + t.sc;
         });
       }
@@ -340,13 +343,14 @@ export const LAYOUT_NAMES = Object.keys(LAYOUTS);
  * @param {number} [o.width] output size; defaults to the layout's own, other sizes scale the layout
  * @param {number} [o.height]
  * @param {string[]} [o.title=['BRAIN','WORM']] title parts, alternately ink and amber
+ * @param {string[]} [o.titleColors=[]] a colour per title part instead ('ink', 'amber', … or '#RRGGBB')
  * @param {Array<string|{text: string, color?: string}>} [o.lines=[]] small lines under the title (first ink, then mute;
  *   color: 'ink' | 'mute' | 'faint' | 'amber' | 'coral' | '#RRGGBB'); the square shows up to 3
  * @param {string} [o.footnote=''] tiny line at the bottom
  * @param {string} [o.badge=''] e.g. 'LIVE': coral dot and label above the title
  * @returns {Buffer} PNG, 8-bit RGB
  */
-export function renderActivityPNG({ D, act, layout = 'square', width, height, title = ['BRAIN', 'WORM'], lines = [], footnote = '', badge = '' } = {}) {
+export function renderActivityPNG({ D, act, layout = 'square', width, height, title = ['BRAIN', 'WORM'], titleColors = [], lines = [], footnote = '', badge = '' } = {}) {
   const L = LAYOUTS[layout];
   if (!L) throw new Error(`unknown layout "${layout}" (use ${LAYOUT_NAMES.join(', ')})`);
   if (!D || !Array.isArray(D.n) || !D.e) throw new Error('D must be the wiring data {n, e}');
@@ -359,7 +363,7 @@ export function renderActivityPNG({ D, act, layout = 'square', width, height, ti
   const X = (v) => (sx === 1 ? v : Math.round(v * sx)), Y = (v) => (sy === 1 ? v : Math.round(v * sy));
   const size = {};
   for (const [key, v] of Object.entries(L.size)) size[key] = /A$|^line$|^dof$|^rest$|^lowres$/.test(key) ? v : v * k;
-  const words = { title: [].concat(title ?? []).map(String).filter(Boolean), lines: [].concat(lines ?? []), footnote: footnote ? String(footnote) : '', badge: badge ? String(badge) : '' };
+  const words = { title: [].concat(title ?? []).map(String).filter(Boolean), titleColors: [].concat(titleColors ?? []), lines: [].concat(lines ?? []), footnote: footnote ? String(footnote) : '', badge: badge ? String(badge) : '' };
   const plan = L.plan(words), { box, scrim } = plan;
   const cv = canvas(W, H);
   const glow = drawLarva(cv, D, a, L.cam, [box[0] * sx, box[1] * sy, box[2] * sx, box[3] * sy], size);

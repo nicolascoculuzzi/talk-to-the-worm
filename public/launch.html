@@ -58,6 +58,17 @@
         <button type="button" class="btn-ghost" id="lpprep">Prepare transaction</button>
         <button type="button" class="btn-amber" id="lpsign" disabled>Sign and launch</button>
       </div>
+      <div class="lpspawn">
+        <p class="eyebrow">SPAWN, the launchpad</p>
+        <p class="small" id="spstatus">Opens after $BRAINWORM launches.</p>
+        <div class="lprow">
+          <label class="small">Start market cap (SOL) <input type="text" id="spstart" value="28" inputmode="decimal" aria-label="Starting market cap in SOL"></label>
+          <label class="small">Graduation market cap (SOL) <input type="text" id="spgrad" value="400" inputmode="decimal" aria-label="Graduation market cap in SOL"></label>
+          <button type="button" class="btn-ghost" id="spcfg">Make a config at today's price</button>
+        </div>
+        <p class="small" id="spcalc"></p>
+        <div class="lprow"><button type="button" class="btn-ghost" id="spclaim">Claim and burn</button></div>
+      </div>
       <pre class="lplog" id="lplog" aria-live="polite"></pre>
     </div>
   </section>

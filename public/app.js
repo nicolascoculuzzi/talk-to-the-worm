@@ -732,7 +732,7 @@ function drawOverlay(now, dt, bend, st) {
     if (rp.hit) { og.beginPath(); og.arc(x, y, 3 + e * 22, 0, 6.2832); og.stroke(); }
     if (rp.by && t < 0.85) {
       // who poked, on everyone's screen
-      const who = rp.by.startsWith('chain:') ? rp.by.slice(6).toUpperCase() : rp.by.startsWith('twitch:') ? rp.by.slice(7) : rp.by;
+      const who = rp.by.startsWith('chain:') ? rp.by.slice(6).toUpperCase() : rp.by.startsWith('spawn:') ? rp.by.slice(6) : rp.by.startsWith('twitch:') ? rp.by.slice(7) : rp.by;
       og.globalAlpha = Math.min(1, (0.85 - t) * 3);
       og.font = '500 10px "Geist Mono", ui-monospace, monospace';
       og.fillStyle = 'rgba(4,7,11,.7)'; const w = og.measureText(who).width;
@@ -791,7 +791,7 @@ function paintPanels(now, ro, stepNow) {
   if (lampNow) paintLEDLevels(eg, eyeview.width, eyeview.height, VIEW, Math.min(1, 1.6 * lampNow.L), Math.min(1, 1.6 * lampNow.R));
   else paintLED(eg, eyeview.width, eyeview.height, VIEW, nowMsg ? ew.windows : []);
   const dh = $('nowtext').parentElement, playing = !!nowMsg;
-  const whoNow = nowMsg && (nowMsg.by === you || nowMsg.by === 'you' ? 'you' : String(nowMsg.by).replace(/^chain:/, 'a trade · '));
+  const whoNow = nowMsg && (nowMsg.by === you || nowMsg.by === 'you' ? 'you' : String(nowMsg.by).replace(/^chain:/, 'a trade · ').replace(/^spawn:/, 'SPAWN · '));
   const nowText = nowMsg
     ? (nowMsg.kind === 'tug' ? `Tug · ${nowMsg.a} vs ${nowMsg.b} · from ${whoNow}`
       : nowMsg.kind === 'lamp' ? `Lamp · lit by ${whoNow}${lampNow ? ` · ${((lampNow.d * UM_PER_UNIT) / 1000).toFixed(2)} mm away` : ''}`
@@ -927,9 +927,13 @@ function renderFeed(reset = false) {
       const mine = it.by === you || it.by === 'you';
       const tw = typeof it.by === 'string' && it.by.startsWith('twitch:');
       const chain = typeof it.by === 'string' && it.by.startsWith('chain:');
+      const sp = typeof it.by === 'string' && it.by.startsWith('spawn:');
       const who = el('span', 'who' + (mine ? ' you' : ''));
       if (tw) who.append(el('span', 'tw', 'TWITCH'));
-      if (chain) {
+      if (sp) {
+        who.append(el('span', 'tw buy', 'SPAWN'), it.by.slice(6) + ' ');
+        if (it.chain) { const a = el('a', 'txl', `${it.chain.sol} SOL`); a.href = (site.txUrl || 'https://solscan.io/tx/') + it.chain.sig; a.target = '_blank'; a.rel = 'noopener'; who.append(a, ' '); }
+      } else if (chain) {
         const side = it.by.slice(6);
         who.append(el('span', 'tw ' + (side === 'sell' ? 'sell' : 'buy'), side.toUpperCase()));
         if (it.chain) { const a = el('a', 'txl', `${it.chain.sol} SOL`); a.href = (site.txUrl || 'https://solscan.io/tx/') + it.chain.sig; a.target = '_blank'; a.rel = 'noopener'; who.append(a, ' '); }
@@ -941,6 +945,21 @@ function renderFeed(reset = false) {
     $('feedcount').textContent = feed.size ? `${feed.size} recent` : '';
     if (STREAM) renderStreamFeed(items.slice(0, 5));
   });
+}
+
+/* ---------- SPAWN: the three most active coins' own worms, on the SPAWN card ---------- */
+async function showSpawnCoins() {
+  const j = await fetch('/spawn.json').then((r) => r.json()).catch(() => null);
+  const coins = (j?.coins || []).filter((c) => c.own).sort((a, b) => (b.own.cells - a.own.cells) || (b.createdAt - a.createdAt)).slice(0, 3);
+  if (!coins.length) { $('spawnnote').textContent = 'Open · no coins yet'; return; }
+  const box = $('spawncoins'); box.replaceChildren();
+  for (const c of coins) {
+    const a = el('a', 'spawncoin'); a.href = '/spawn#coins';
+    const img = el('img'); img.alt = `$${c.symbol}'s own worm`; img.width = 112; img.height = 112; img.loading = 'lazy'; img.src = `/spawn/worm/${c.mint}.png?t=${c.own.trades}`;
+    a.append(img, el('span', null, '$' + c.symbol));
+    box.append(a);
+  }
+  $('spawnnote').textContent = 'Their own worms, after their latest trades';
 }
 
 /* ---------- leaderboard ---------- */
@@ -1213,6 +1232,10 @@ fetch('/config.json').then((r) => r.json()).then((c) => {
   for (const l of site.links || []) { const a = el('a', null, l.label); a.href = l.url; a.target = '_blank'; a.rel = 'noopener'; fl.append(a); }
   if (calibration) renderCalibration();
   if (features.twitch && !twitch) twitch = { channel: features.twitch, prefix: '!worm' };
+  if (features.spawn && !$('navspawn')) { const a = el('a', null, 'SPAWN'); a.href = '/spawn'; a.id = 'navspawn'; $('navlinks').append(a); }
+  const spill = $('spawnpill');
+  if (spill) { spill.textContent = features.spawn ? 'Open' : 'After launch'; spill.classList.toggle('live', !!features.spawn); }
+  if (features.spawn) showSpawnCoins();
   renderTwitch();
 }).catch(() => {});
 
