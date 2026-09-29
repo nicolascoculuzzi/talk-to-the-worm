@@ -499,6 +499,7 @@ export async function buildCreateConfig({ partner, quoteMint, startMcap, graduat
  * A new coin on `config`, for its creator's wallet (fee payer and creator), with an optional first buy in
  * the quote token in the same transaction, so nobody can buy before them. The coin's mint key signs and is dropped.
  * On a config priced in SOL the first buy is paid in SOL: wrapped, spent and the account closed in the same transaction.
+ * `uri` may be a function of the new coin's address (its metadata can then live at an address named after it).
  */
 export async function buildCreatePool({ config, creator, name, symbol, uri, firstBuyQuote = 0, url, fetchImpl }) {
   check(creator, 'creator');
@@ -507,7 +508,7 @@ export async function buildCreatePool({ config, creator, name, symbol, uri, firs
   if (c.tokenType !== 0) fail('SPAWN makes SPL Token coins; that config is for Token-2022');
   const q = await mintInfo(c.quoteMint, { url, fetchImpl }), sol = c.quoteMint === SOL_MINT;
   const mint = generateKeypair();
-  const init = ixs.initializePool({ config, creator, mint: mint.address, quoteMint: c.quoteMint, quoteProgram: q.program, name, symbol, uri });
+  const init = ixs.initializePool({ config, creator, mint: mint.address, quoteMint: c.quoteMint, quoteProgram: q.program, name, symbol, uri: typeof uri === 'function' ? uri(mint.address) : uri });
   const instructions = [...computeBudget({ units: firstBuyQuote ? 400_000 : 250_000 }), init.ix];
   let firstBuy = null;
   const amount = BigInt(Math.floor(Number(firstBuyQuote) * 10 ** q.decimals));

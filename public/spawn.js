@@ -2,8 +2,8 @@
 // coin priced in $BRAINWORM with SOL goes SOL → $BRAINWORM → coin through Jupiter. The visitor's own wallet signs
 // every transaction; the server only builds them.
 import { pixelWordmark } from '/pixel.js';
-import { connect, connected, signAndSend, short } from '/wallet.js';
-import { mountLaunchForm } from '/launchform.js';
+import { connect, connected, signAndSend, short, noWallet } from '/wallet.js';
+import { mountLaunchForm, openInWallet } from '/launchform.js';
 import { coinCard, coinPicture, el, fmt, compact, sol, usd } from '/coincard.js';
 
 const $ = (id) => document.getElementById(id);
@@ -18,7 +18,8 @@ $('spmark').append(pixelWordmark([{ text: 'SPAWN', cls: 'amber', glow: true }]))
 const launchForm = mountLaunchForm($('spawnform'), { onLaunched: () => setTimeout(load, 4000) });
 
 /* ---------- live data ---------- */
-let data = null, sort = 'new', linked = new URLSearchParams(location.search).get('coin');
+// a coin's own link (/c/<mint>, or /spawn?coin=<mint>) opens its trade window
+let data = null, sort = 'new', linked = new URLSearchParams(location.search).get('coin') || (/^\/c\/([1-9A-HJ-NP-Za-km-z]{32,44})$/.exec(location.pathname) || [])[1];
 async function load() {
   try { data = await api('/spawn.json'); render(); } catch (e) { $('spstate').hidden = false; $('spstate').textContent = 'Could not reach the launchpad. Retrying…'; return; }
   // /spawn?coin=<mint> opens that coin's trade window
@@ -180,6 +181,13 @@ $('tclaim').addEventListener('click', async () => {
 $('tbuy').addEventListener('click', () => setSide('buy'));
 $('tsell').addEventListener('click', () => setSide('sell'));
 $('tclose').addEventListener('click', () => { $('trade').hidden = true; });
+// share a coin: its own link, whose preview is its worm
+$('tshare').addEventListener('click', async () => {
+  if (!coin) return;
+  const url = `${location.origin}/c/${coin.mint}`, text = `$${coin.symbol} hatched its own worm on SPAWN: a copy of a real larva's wiring that feels every trade of it.`;
+  if (navigator.share) { try { await navigator.share({ title: '$' + coin.symbol, text, url }); return; } catch { /* cancelled */ } }
+  open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank', 'noopener');
+});
 $('trade').addEventListener('click', (e) => { if (e.target.id === 'trade') $('trade').hidden = true; });
 addEventListener('keydown', (e) => { if (e.key === 'Escape') $('trade').hidden = true; });
 $('tamount').addEventListener('input', () => { clearTimeout(quoteTimer); quoteTimer = setTimeout(requote, 350); });
@@ -203,7 +211,11 @@ async function requote() {
   } catch (e) { const d = el('div'); d.append(el('dt', null, 'Quote'), el('dd', null, e.message)); q.append(d); }
 }
 $('twallet').addEventListener('click', async () => {
-  try { await connect(); } catch (e) { $('tlog').textContent = e.message; }
+  try { await connect(); } catch (e) {
+    // a phone's browser has no wallet: open this coin's trade window inside a wallet app instead
+    if (noWallet(e)) $('tlog').replaceChildren(...openInWallet(`${location.origin}/spawn?coin=${coin?.mint || ''}`));
+    else $('tlog').textContent = e.message;
+  }
 });
 // whichever form connected it, the trade window shows it
 addEventListener('wallet-connected', (e) => { $('twallet').textContent = short(e.detail.address); $('tgo').disabled = !quote; showClaim(); });

@@ -34,7 +34,7 @@ export function coinCard(c, { onBuy = null, buyHref = null } = {}) {
   foot.append(el('span', null, stageText(c)));
   let buy;
   if (onBuy) { buy = el('button', 'btn-amber', 'Buy'); buy.type = 'button'; buy.disabled = c.stage === 'graduating'; buy.addEventListener('click', () => onBuy(c)); }
-  else { buy = el('a', 'btn-amber', 'Buy'); buy.href = buyHref || `/spawn?coin=${c.mint}`; }
+  else { buy = el('a', 'btn-amber', 'Buy'); buy.href = buyHref || `/c/${c.mint}`; }
   foot.append(buy);
   card.append(head, stats, prog, foot);
   return card;

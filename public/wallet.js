@@ -31,6 +31,12 @@ export async function connect(chain = 'solana:mainnet') {
   return connected();
 }
 export const short = (a) => `${a.slice(0, 4)}…${a.slice(-4)}`;
+/** Where someone with no wallet in this browser (most phones) can open `url` instead: inside a wallet app's own browser. */
+export const walletLinks = (url = location.href) => [
+  ['Phantom', `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(location.origin)}`],
+  ['Solflare', `https://solflare.com/ul/v1/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(location.origin)}`],
+];
+export const noWallet = (e) => /no solana wallet/i.test(String(e?.message || e));
 
 /** Ask the wallet to show, sign and send a base64 transaction. Returns the signature. */
 export async function signAndSend(txB64, chain = 'solana:mainnet') {

@@ -132,7 +132,24 @@ export function createCoinWorms({ dir, D, render, logger = console, live = 24 })
     return png;
   }
 
-  return { hatch: hatchCoin, feel: feelTrades, has: (mint) => recs.has(mint), info, lastSignature, publicRecord, portrait, mints: () => [...recs.keys()], stop: flush };
+  /** Its link preview (1200x630): the coin's ticker next to its worm at its latest trade (or its first sight), kept. */
+  function sharePicture(mint) {
+    const r = recs.get(mint);
+    if (!r) return null;
+    const key = `${mint}:og:${r.trades.length}`;
+    if (pics.has(key)) return pics.get(key);
+    const png = render.renderActivityPNG({
+      D, act: unq8(r.lastAct || r.birthAct), layout: 'og', badge: 'SPAWN', title: ['$' + r.ticker], titleColors: ['amber'],
+      lines: ['IT HATCHED ITS OWN WORM.', r.trades.length ? `IT HAS FELT ${commas(r.trades.length)} TRADES.` : `ITS FIRST SIGHT: ${commas(r.stats.birth)} CELLS FIRING.`],
+      footnote: 'A COIN ON SPAWN, THE BRAINWORM LAUNCHPAD',
+    });
+    for (const k of pics.keys()) if (k.startsWith(`${mint}:og:`)) pics.delete(k);
+    pics.set(key, png);
+    if (pics.size > 200) pics.delete(pics.keys().next().value);
+    return png;
+  }
+
+  return { hatch: hatchCoin, feel: feelTrades, has: (mint) => recs.has(mint), info, lastSignature, publicRecord, portrait, sharePicture, mints: () => [...recs.keys()], stop: flush };
 }
 
 /** What a fresh worm makes of a ticker, for the spawn form's preview and a coin's picture: { peak, png }. */

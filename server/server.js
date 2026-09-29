@@ -583,6 +583,23 @@ export function createWormServer(overrides = {}) {
       "connect-src 'self' ws: wss:", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'self'",
     ].join('; '));
   }
+  // /spawn's page with one coin in its title and link preview (the page opens that coin's trade window itself)
+  const escapeHtml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  let spawnHtml = null;
+  function coinPage(c) {
+    try {
+      const f = path.join(ROOT, 'public', 'spawn.html'), st = fs.statSync(f);
+      if (!spawnHtml || spawnHtml.mtimeMs !== st.mtimeMs) spawnHtml = { mtimeMs: st.mtimeMs, html: fs.readFileSync(f, 'utf8').replaceAll('%ORIGIN%', config.publicUrl) };
+    } catch { return null; }
+    const sym = escapeHtml('$' + c.symbol), name = escapeHtml(c.name), trades = c.own?.trades || 0;
+    const desc = `${name} (${sym}) on SPAWN, the BRAINWORM launchpad. It hatched its own worm, a copy of a real larva's wiring, which has felt ${trades} trade${trades === 1 ? '' : 's'} of it. Every buy pokes the live worm too.`;
+    return spawnHtml.html
+      .replace(/<title>[^<]*<\/title>/, `<title>${sym} · its own worm, on SPAWN</title>`)
+      .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${desc}">`)
+      .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${sym} · ${name}">\n<meta property="og:url" content="${config.publicUrl}/c/${c.mint}">`)
+      .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${desc}">`)
+      .replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${config.publicUrl}/spawn/worm/${c.mint}-og.png">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">`);
+  }
   const json = (res, code, o) => { res.writeHead(code, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' }); res.end(JSON.stringify(o)); };
   const notFound = (res) => { res.writeHead(404, { 'Content-Type': MIME['.txt'] }); res.end('Not found'); };
 
@@ -794,14 +811,30 @@ export function createWormServer(overrides = {}) {
     if (p === '/launch' || p === '/launch/') { res.setHeader('X-Robots-Tag', 'noindex'); return statics.serve(req, res, '/launch.html') || notFound(res); }
     if (p === '/spawn' || p === '/spawn/') return statics.serve(req, res, '/spawn.html') || notFound(res);
     if (p === '/spawn.json') { const send = () => json(res, 200, spawn.publicState()); spawn.fresh().then(send, send); return; }
-    if (p.startsWith('/spawn/worm/')) {   // a coin's own worm: its record (to rebuild and check) and its portraits
-      const m = /^\/spawn\/worm\/([1-9A-HJ-NP-Za-km-z]{32,44})(-birth)?\.(json|png)$/.exec(p);
+    if (p.startsWith('/c/')) {   // a coin's own page to share: /spawn with its trade window open, its worm in the link preview
+      const m = /^\/c\/([1-9A-HJ-NP-Za-km-z]{32,44})$/.exec(p);
+      if (!m) return notFound(res);
+      const send = () => {
+        const c = spawn.publicState().coins.find((x) => x.mint === m[1]);
+        if (!c) { res.writeHead(302, { Location: '/spawn' }); return res.end(); }
+        const html = coinPage(c);
+        if (!html) return notFound(res);
+        res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'public, max-age=60' });
+        res.end(req.method === 'HEAD' ? undefined : html);
+      };
+      spawn.fresh().then(send, send);
+      return;
+    }
+    if (p.startsWith('/spawn/worm/')) {   // a coin's own worm: its record (to rebuild and check), its portraits, its link preview
+      const m = /^\/spawn\/worm\/([1-9A-HJ-NP-Za-km-z]{32,44})(-birth|-og)?\.(json|png)$/.exec(p);
       if (!m) return notFound(res);
       res.setHeader('Access-Control-Allow-Origin', '*');
       if (m[3] === 'json') { const r = coinWorms.publicRecord(m[1]); return r ? json(res, 200, r) : json(res, 404, { error: 'no worm for that coin' }); }
-      const png = coinWorms.portrait(m[1], m[2] ? 'birth' : 'now');
+      if (m[2] === '-og' && !coinWorms.has(m[1])) return notFound(res);
+      if (m[2] === '-og' && !hatchLimiter.take(clientIp(req))) { res.writeHead(429, { 'Retry-After': '2', 'Content-Type': MIME['.txt'] }); return res.end('Too many requests'); }
+      const png = m[2] === '-og' ? coinWorms.sharePicture(m[1]) : coinWorms.portrait(m[1], m[2] ? 'birth' : 'now');
       if (!png) return notFound(res);
-      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': m[2] ? 'public, max-age=31536000, immutable' : 'public, max-age=20', 'Content-Length': png.length });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': m[2] === '-birth' ? 'public, max-age=31536000, immutable' : m[2] ? 'public, max-age=300' : 'public, max-age=20', 'Content-Length': png.length });
       return res.end(req.method === 'HEAD' ? undefined : png);
     }
     if (p.startsWith('/spawn/hatch/')) {   // what a fresh worm makes of a ticker: the spawn form's preview
@@ -817,6 +850,13 @@ export function createWormServer(overrides = {}) {
       if (m[2] === 'json') return json(res, 200, { ticker: m[1], peak: h.peak });
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400', 'Content-Length': h.png.length });
       return res.end(req.method === 'HEAD' ? undefined : h.png);
+    }
+    if (p.startsWith('/spawn/m/')) {   // a SPAWN coin's metadata, when its picture is its worm's first sight: rebuilt from the chain
+      const m = /^\/spawn\/m\/([1-9A-HJ-NP-Za-km-z]{32,44})\.json$/.exec(p);
+      if (!m) return notFound(res);
+      res.setHeader('Access-Control-Allow-Origin', '*');   // wallets and explorers read coin metadata from anywhere
+      spawn.coinMetadata(m[1]).then((meta) => (meta ? json(res, 200, meta) : notFound(res)), () => notFound(res));
+      return;
     }
     if (p.startsWith('/spawn/meta/')) {
       const f = spawn.metaFile(p.slice('/spawn/meta/'.length));

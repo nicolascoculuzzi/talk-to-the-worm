@@ -2,7 +2,7 @@
 // picture, which is its worm's first sight (a fresh worm shown "$TICKER", drawn from the real wiring) unless one is
 // picked. The server builds the transaction with the coin's fresh mint key signed in; the visitor's own wallet signs
 // and sends it. Nothing here holds a key.
-import { connect, connected, signAndSend, short } from '/wallet.js';
+import { connect, connected, signAndSend, short, walletLinks, noWallet } from '/wallet.js';
 
 const TICKER = /^[A-Z0-9]{1,10}$/;
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
@@ -17,9 +17,15 @@ async function api(path, body) {
 // what a wallet says, in words
 function walletError(e) {
   const m = String(e?.message || e);
-  if (/no solana wallet/i.test(m)) return 'No wallet in this browser. On a phone, open this site in your wallet app (Phantom, Solflare, Backpack).';
   if (/reject|cancel|denied|declined/i.test(m)) return 'Cancelled in your wallet.';
   return m;
+}
+/** "Open this in Phantom or Solflare": links that open `url` inside the wallet app's browser. */
+export function openInWallet(url) {
+  const parts = ['No wallet in this browser. Open it in '];
+  walletLinks(url).forEach(([name, href], i) => { if (i) parts.push(' or '); parts.push(link(href, name)); });
+  parts.push(', or add a wallet to this browser.');
+  return parts;
 }
 /** Downscale to at most 512 px and re-encode, so uploads stay small. GIFs are kept as they are (up to 1 MB). */
 async function shrink(file) {
@@ -42,17 +48,34 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
   const $f = (k) => form.querySelector(`[data-lf="${k}"]`);
   const pic = $f('pic'), img = $f('picimg'), ph = $f('picph'), unpick = $f('unpick'), name = $f('name'), ticker = $f('ticker'), buy = $f('buy'), unit = $f('unit'), go = $f('go'), note = $f('note');
   let custom = null;            // a picked picture, as a data URL; without one it gets its worm's first sight
-  let state = { open: false, quote: null, reason: 'Opening soon.' };
+  let state = { open: false, quote: null, reason: 'Opening soon.', pictures: true };
   let busy = false, hatchTimer = null, hatchLine = '', done = false;
 
   const say = (...parts) => { note.classList.remove('bad'); note.replaceChildren(...parts); };
   const bad = (text) => { note.classList.add('bad'); note.textContent = text; };
+  // the wallet app's browser opens this page with what was typed in it, so nothing has to be typed twice
+  function here() {
+    const u = new URL(location.href);
+    for (const [k, v] of [['lname', name.value.trim()], ['lticker', ticker.value], ['lbuy', buy.value]]) if (v) u.searchParams.set(k, v); else u.searchParams.delete(k);
+    return u.href;
+  }
+  {
+    const q = new URLSearchParams(location.search);
+    if (q.get('lname')) name.value = q.get('lname').slice(0, 32);
+    if (q.get('lticker')) { ticker.value = q.get('lticker').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10); ticker.dataset.touched = '1'; }
+    if (q.get('lbuy')) buy.value = q.get('lbuy').replace(/[^0-9.]/g, '');
+    if (q.has('lname') || q.has('lticker')) {
+      const u = new URL(location.href); for (const k of ['lname', 'lticker', 'lbuy']) u.searchParams.delete(k);
+      history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+      queueMicrotask(() => form.scrollIntoView?.({ block: 'center' }));
+    }
+  }
   function idle() {
     if (busy || done) return;
     const w = connected(), who = w ? ` · ${short(w.address)}` : '';
     if (!state.open) say(`${state.reason || 'Opening soon.'} You can already see what its worm will see first.`);
     else if (hatchLine) say(hatchLine + who);
-    else say(`Free to launch. ${custom ? 'Your picture' : 'Its picture: its worm\'s first sight, unless you pick one'}.${who}`);
+    else say(`Free to launch. ${custom ? 'Your picture' : state.pictures ? 'Its picture: its worm\'s first sight, unless you pick one' : 'Its picture: its worm\'s first sight'}.${who}`);
   }
   function showPic() {
     const src = custom || (TICKER.test(ticker.value) ? `/spawn/hatch/${ticker.value}.png` : '');
@@ -115,17 +138,26 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
       const sig = await signAndSend(j.tx);
       await api('/spawn/created', { mint: j.mint, signature: sig }).catch(() => {});
       done = true;
-      say(`Launched $${sym}. `, link(`/spawn?coin=${j.mint}`, 'See it'), ' · ', link(`https://solscan.io/tx/${sig}`, 'Solscan', true));
+      const page = `${location.origin}/c/${j.mint}`, post = `I just launched $${sym} on SPAWN. It hatched its own worm, a copy of a real larva's wiring that feels every trade of it.`;
+      say(`Launched $${sym}. `, link(`/c/${j.mint}`, 'See it'), ' · ', link(`https://x.com/intent/post?text=${encodeURIComponent(post)}&url=${encodeURIComponent(page)}`, 'Share on X', true), ' · ', link(`https://solscan.io/tx/${sig}`, 'Solscan', true));
       name.value = ''; ticker.value = ''; ticker.dataset.touched = ''; buy.value = ''; custom = null; hatchLine = ''; showPic();
       onLaunched({ mint: j.mint, symbol: sym, signature: sig });
-    } catch (err) { bad(walletError(err)); }
+    } catch (err) {
+      if (noWallet(err)) { note.classList.add('bad'); note.replaceChildren(...openInWallet(here())); }
+      else bad(walletError(err));
+    }
     finally { busy = false; go.disabled = !state.open; }
   });
 
-  showPic(); idle();
+  showPic(); hatch();
   return {
     update(s) {
-      state = { open: !!s.open, quote: s.quote || null, reason: s.reason || null };
+      state = { open: !!s.open, quote: s.quote || null, reason: s.reason || null, pictures: s.pictures !== false };
+      // without lasting picture hosting every coin gets its worm's first sight, which needs none
+      pic.disabled = !state.pictures;
+      form.classList.toggle('nopics', !state.pictures);
+      ph.lastChild.textContent = state.pictures ? 'Picture' : 'Its worm';
+      if (!state.pictures && custom) { custom = null; showPic(); }
       unit.textContent = state.quote === '$BRAINWORM' ? '$BRAINWORM' : 'SOL';
       go.disabled = busy || !state.open;
       go.textContent = state.open ? 'Launch' : 'Opening soon';

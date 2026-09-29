@@ -328,7 +328,20 @@ test('the server: SPAWN buys poke the worm at the coin\'s own spot, logged with 
       assert.equal(r.status, 200, u); assert.equal(r.headers.get('content-type'), 'image/png');
     }
     assert.ok((await (await fetch(base + '/spawn/hatch/GOOD.json')).json()).peak > 0);
+    // its own page to share: /spawn with its name in the title and its worm in the link preview
+    const cp = await fetch(`${base}/c/${MINT}`), html = await cp.text();
+    assert.equal(cp.status, 200);
+    assert.match(html, /<title>\$GOOD · its own worm, on SPAWN<\/title>/);
+    assert.match(html, new RegExp(`<meta property="og:image" content="https://worm\\.example/spawn/worm/${MINT}-og\\.png">`));
+    assert.match(html, /What the worm has to do with it/);
+    const og = await fetch(`${base}/spawn/worm/${MINT}-og.png`);
+    assert.equal(og.status, 200); assert.equal(og.headers.get('content-type'), 'image/png');
+    const nope = await fetch(`${base}/c/${addr()}`, { redirect: 'manual' });
+    assert.equal(nope.status, 302); assert.equal(nope.headers.get('location'), '/spawn');
     assert.equal((await fetch(base + '/spawn/hatch/nope!.json')).status, 404);
+    // metadata served from here only for SPAWN coins that point here
+    assert.equal((await fetch(`${base}/spawn/m/${MINT}.json`)).status, 404, 'its metadata lives elsewhere');
+    assert.equal((await fetch(`${base}/spawn/m/nope.json`)).status, 404);
   } finally { await app.close(); }
 });
 
@@ -471,5 +484,33 @@ test('with the owner\'s address SPAWN needs no saved state: its configs from the
   await sleep(20); await sp.fresh(true);
   assert.equal(sp.publicState().coins[0].image, 'https://ipfs.io/ipfs/bafkfoundimage', 'the picture in its metadata, from a host the page allows');
   await assert.rejects(sp.buildConfig({ partner: addr(), startMcap: 1e6, graduationMcap: 1.3e7 }), /owner wallet/);
+  sp.stop();
+});
+
+test('with nowhere lasting to keep pictures, SPAWN still opens: a coin gets its worm\'s first sight, its metadata rebuilt from the chain here', async () => {
+  const f = fakes(), MINT = addr(), OTHER = addr(), ELSEWHERE = addr();
+  openConfig(f);
+  const sp = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts: { rpc: 'http://rpc.test', publicUrl: 'https://worm.example' }, logger: quiet });
+  f.pools.push(f.pool(OTHER, { name: 'Made Elsewhere', symbol: 'ELSE', creator: addr(), uri: `https://worm.example/spawn/m/${OTHER}.json` }), f.pool(ELSEWHERE, { name: 'Their Own', symbol: 'OWN', creator: addr(), uri: 'https://example.com/meta.json' }));
+  // no config yet: shut; with one, open, and picked pictures wait for picture hosting
+  assert.equal(sp.publicState().open, false);
+  await sp.buildConfig({ partner: OWNER, startMcap: 1e6, graduationMcap: 1.3e7 });
+  assert.equal((await sp.confirmConfig({ signature: sig() })).ok, true);
+  assert.deepEqual([sp.publicState().open, sp.publicState().pictures], [true, false]);
+  await assert.rejects(sp.create({ creator: CREATOR, name: 'Pic Coin', symbol: 'PIC', image: PNG }), /Picked pictures open soon/);
+  const made = await sp.create({ creator: CREATOR, name: 'Worm Coin', symbol: 'WORMC', image: 'worm' });
+  const cc = f.calls.filter((c) => c[0] === 'create').at(-1)[1];
+  assert.equal(typeof cc.uri, 'function', 'its metadata address is named after the coin, which only exists once the transaction is built');
+  assert.equal(cc.uri(MINT), `https://worm.example/spawn/m/${MINT}.json`);
+  assert.deepEqual(await sp.coinMetadata(made.mint), {
+    name: 'Worm Coin', symbol: 'WORMC', description: `$WORMC was spawned on SPAWN, the BRAINWORM launchpad, priced in $BRAINWORM. It hatched its own copy of a simulated worm larva's nervous system, which feels every trade of it, and every buy pokes the live worm. https://worm.example/spawn`,
+    image: 'https://worm.example/spawn/hatch/WORMC.png', showName: true, createdOn: 'https://worm.example/spawn', website: 'https://worm.example/spawn',
+  });
+  // a coin on SPAWN's config pointing here is served (its picture too); anything else is not
+  await sp.fresh(true, true);
+  assert.equal((await sp.coinMetadata(OTHER)).symbol, 'ELSE');
+  assert.equal(sp.publicState().coins.find((c) => c.symbol === 'ELSE').image, 'https://worm.example/spawn/hatch/ELSE.png');
+  assert.equal(await sp.coinMetadata(ELSEWHERE), null, 'its metadata is elsewhere');
+  assert.equal(await sp.coinMetadata(addr()), null, 'not a SPAWN coin');
   sp.stop();
 });

@@ -90,21 +90,26 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     return mine.filter((c) => quoteMintOf(c) === r).at(-1) || mine.filter((c) => quoteMintOf(c) === SOL_MINT).at(-1) || null;
   }
   const partner = () => opts.owner || s.configs.at(-1)?.partner || null;
-  // a coin's picture and metadata must stay up for good: on IPFS through Pinata, or on this server's own disk when that disk lasts
+  // A picked picture and its metadata must stay up for good: on IPFS through Pinata, or on this server's own disk when that
+  // disk lasts. A coin with its worm's first sight needs neither: its picture and metadata are a function of the chain,
+  // served from here (coinMetadata), so launching works as soon as there's a config and an address to serve them from.
   const canHost = () => !!(opts.pinataJwt && opts.uploadPinata) || !!(opts.localMeta && root && opts.publicUrl);
   const canTrade = () => !!current();
-  const canLaunch = () => canTrade() && canHost();
+  const canLaunch = () => canTrade() && (canHost() || !!opts.publicUrl);
+  const ownMeta = (mint) => `${opts.publicUrl}/spawn/m/${mint}.json`, wormPicture = (symbol) => `${opts.publicUrl}/spawn/hatch/${symbol}.png`;
 
   /* ---------- reading the chain ---------- */
 
   const onHost = (u) => typeof u === 'string' && (IMAGE_HOSTS.some((h) => u.startsWith(h) && /^[A-Za-z0-9]+$/.test(u.slice(h.length))) || (!!opts.publicUrl && u.startsWith(opts.publicUrl + '/spawn/meta/')));
-  const allowedImage = onHost;
+  const allowedImage = (u) => onHost(u) || (!!opts.publicUrl && typeof u === 'string' && /^\/spawn\/hatch\/[A-Z0-9]{1,10}\.png$/.test(u.slice(opts.publicUrl.length)) && u.startsWith(opts.publicUrl));
   // coins spawned on the page were checked then; ones made on the curve some other way are checked here, or not shown
   function shown(mint, p) {
     const own = s.coins[mint];
     if (own) return { name: own.name, symbol: own.symbol, image: allowedImage(own.image) ? own.image : '' };
     const n = moderate(p.name || ''), y = moderate(p.symbol || '');
-    return n.ok && y.ok && /^[A-Za-z0-9]{1,10}$/.test(y.text) ? { name: n.text, symbol: y.text.toUpperCase(), image: allowedImage(s.images[mint]) ? s.images[mint] : '' } : null;
+    if (!(n.ok && y.ok && /^[A-Za-z0-9]{1,10}$/.test(y.text))) return null;
+    const symbol = y.text.toUpperCase(), image = opts.publicUrl && p.uri === ownMeta(mint) ? wormPicture(symbol) : allowedImage(s.images[mint]) ? s.images[mint] : '';
+    return { name: n.text, symbol, image };
   }
 
   /**
@@ -223,8 +228,9 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     const cur = current();
     return {
       open: canLaunch(),
-      reason: !cur ? 'Opening soon.' : !canHost() ? 'Opening soon: coin pictures are being set up.' : null,
+      reason: !cur ? 'Opening soon.' : !canLaunch() ? 'Opening soon: coin pictures are being set up.' : null,
       quote: cur ? quoteName(cur) : null,      // what new coins are priced in
+      pictures: canHost(),                     // a picked picture can be kept for good (else every coin gets its worm's)
       root: {
         mint: rootMint() || null, priceSol: cache.prices.rootSol || 0, priceUsd: cache.prices.rootUsd || 0, solUsd: cache.prices.solUsd || 0,
         burned: round(s.burns.reduce((n, b) => n + b.amount, 0), 2), waiting: round(cache.waiting, 2), waitingSol: round(cache.waitingSol, 4),
@@ -350,9 +356,10 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
 
   /* ---------- spawning a coin ---------- */
 
+  const describe = (symbol, cfg) => `$${symbol} was spawned on SPAWN, the BRAINWORM launchpad${inSol(cfg) ? '' : ', priced in $BRAINWORM'}. It hatched its own copy of a simulated worm larva's nervous system, which feels every trade of it, and every buy pokes the live worm.${opts.publicUrl ? ` ${opts.publicUrl}/spawn` : ''}`;
   async function uploadMeta({ image, type, name, symbol, cfg }) {
     const site = opts.publicUrl ? `${opts.publicUrl}/spawn` : '';
-    const description = `$${symbol} was spawned on SPAWN, the BRAINWORM launchpad${inSol(cfg) ? '' : ', priced in $BRAINWORM'}. It hatched its own copy of a simulated worm larva's nervous system, which feels every trade of it, and every buy pokes the live worm.${site ? ' ' + site : ''}`;
+    const description = describe(symbol, cfg);
     if (opts.pinataJwt && opts.uploadPinata) {
       const r = await opts.uploadPinata({ image, filename: `${symbol}.${IMAGE_TYPES[type]}`, name, symbol, description, website: site, createdOn: site, jwt: opts.pinataJwt, fetchImpl });
       return { uri: r.metadataUri, image: r.metadata?.image || '' };
@@ -379,10 +386,12 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     const buy = Number(firstBuy || 0);
     if (!(buy >= 0) || !Number.isFinite(buy)) throw new Error(`The first buy is a number of ${quoteName(cfg)}.`);
     let m, bytes;
+    if (image !== 'worm' && !canHost()) throw new Error('Picked pictures open soon. For now every coin gets its worm\'s first sight.');
+    const fromChain = image === 'worm' && !canHost();   // its picture and metadata served from here, nothing uploaded
     if (image === 'worm') {
       // the picture its worm will see first: a fresh worm shown the ticker, drawn from the real wiring
-      if (!render || !D) throw new Error('Pictures from the worm are not available here.');
-      bytes = previewHatch({ D, render, ticker: sy.text, width: 512 }).png;
+      if (!fromChain && (!render || !D)) throw new Error('Pictures from the worm are not available here.');
+      if (!fromChain) bytes = previewHatch({ D, render, ticker: sy.text, width: 512 }).png;
       m = [null, 'image/png'];
     } else {
       m = /^data:(image\/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(String(image || ''));
@@ -395,10 +404,11 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     const lamports = await rpc('getBalance', [creator, { commitment: 'confirmed' }], chain).then((r) => r.value, () => null);
     const need = LAUNCH_RENT_SOL + (inSol(cfg) ? buy : 0);
     if (lamports != null && lamports / 1e9 < need) throw new Error(`Launching needs about ${round(need, 4)} SOL in that wallet (${inSol(cfg) && buy ? `${buy} for the first buy, and about ${LAUNCH_RENT_SOL} for the coin's accounts` : `about ${LAUNCH_RENT_SOL} for the coin's accounts`}). It has ${round(lamports / 1e9, 4)}.`);
-    const meta = await uploadMeta({ image: bytes, type: m[1], name: nm.text, symbol: sy.text, cfg });
+    // its worm's first sight needs no upload where nothing lasts: its metadata is served from here, from the chain
+    const meta = fromChain ? { uri: ownMeta, image: wormPicture(sy.text) } : await uploadMeta({ image: bytes, type: m[1], name: nm.text, symbol: sy.text, cfg });
     let built;
     try { built = await dbc.buildCreatePool({ config: cfg.address, creator, name: nm.text, symbol: sy.text, uri: meta.uri, firstBuyQuote: buy, ...chain }); } catch (e) { throw human(e); }
-    s.coins[built.mint] = { name: nm.text, symbol: sy.text, image: meta.image, uri: meta.uri, creator, createdAt: Date.now() };
+    s.coins[built.mint] = { name: nm.text, symbol: sy.text, image: meta.image, uri: typeof meta.uri === 'function' ? meta.uri(built.mint) : meta.uri, creator, createdAt: Date.now() };
     save();
     return { tx: built.tx, mint: built.mint, firstBuy: built.firstBuy, quote: quoteName(cfg) };
   }
@@ -670,6 +680,21 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     w.pokes++; w.cells += cells || 0; save();
   }
 
+  /**
+   * The metadata of a SPAWN coin whose picture is its worm's first sight, rebuilt from what the chain says (and the
+   * page's own record right after it was spawned). Only for coins on SPAWN's configs that pass the chat filter, so no
+   * other token can borrow this address for its metadata.
+   */
+  async function coinMetadata(mint) {
+    if (!B58.test(mint || '') || !opts.publicUrl) return null;
+    let own = s.coins[mint], coin = cache.coins.find((c) => c.mint === mint);
+    if (!own && !coin) { await fresh(true, true).catch(() => {}); coin = cache.coins.find((c) => c.mint === mint); }
+    const name = own?.name || coin?.name, symbol = own?.symbol || coin?.symbol, pool = cache.pools.get(mint);
+    if (!name || !symbol || (own && own.uri !== ownMeta(mint)) || (!own && pool?.uri !== ownMeta(mint))) return null;
+    const site = `${opts.publicUrl}/spawn`;
+    return { name, symbol, description: describe(symbol, pool?.cfg || current()), image: wormPicture(symbol), showName: true, createdOn: site, website: site };
+  }
+
   function metaFile(name) {
     if (!root || !/^[0-9a-f]{24}\.(json|png|jpg|webp|gif)$/.test(name)) return null;
     const f = path.join(root, 'meta', name);
@@ -680,7 +705,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     get open() { return canLaunch(); },
     get pricedIn() { return current() ? quoteName(current()) : null; },   // what new coins are priced in
     status: () => ({ open: canLaunch(), trading: canTrade(), hosting: canHost(), owner: opts.owner || null, configs: s.configs, current: current()?.address || null, pending: pendingConfig, burns: s.burns.slice(-20), burned: s.burns.reduce((n, b) => n + b.amount, 0), waiting: cache.waiting, waitingSol: cache.waitingSol, stuck: cache.stuck, coins: cache.coins.length, stream: !!stream, prices: cache.prices, caughtUpAt }),
-    fresh, publicState, quote, swap, confirm, create, created, claimCreator, rootPrice, buildConfig, confirmConfig, buildClaimAndBurn, buildClaimGraduated, buildClaimSol, buyback, burnClaimed, burned, addReaction, metaFile,
+    fresh, publicState, quote, swap, confirm, create, created, claimCreator, rootPrice, buildConfig, confirmConfig, buildClaimAndBurn, buildClaimGraduated, buildClaimSol, buyback, burnClaimed, burned, addReaction, metaFile, coinMetadata,
     start() { if (s.configs.length || opts.owner) fresh().catch(() => {}); },
     stop() {
       if (stream) stream.stop();
