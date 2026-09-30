@@ -49,8 +49,20 @@
     <div id="lpcontrols" hidden>
       <ol class="lpguide">
         <li><b>Open SPAWN.</b> Connect the wallet that will be SPAWN's rewards wallet and press <i>Use this wallet for SPAWN</i> below (or set SPAWN_OWNER on the server). Every new coin names it as its pump.fun creator, so every coin's creator rewards collect there. Use a different wallet from the one that launches $WORM, so $WORM's own creator rewards stay apart. Coins can be launched as soon as it is set.</li>
-        <li><b>Launch $WORM.</b> Arm the launch, then tap the worm's head on the main page (the top of its body) until its cilia stop: the first touch that does is the moment. Upload the image and metadata, connect a wallet other than SPAWN's rewards wallet, set your dev buy, prepare the transaction (it shows the coin's address), then sign it within a minute.</li>
+        <li><b>Get $WORM ready.</b> Press <i>Make the contract address</i>: this browser makes the coin's key and keeps it, so you know its address (CA) before the launch. Save the backup and keep it private. Connect the dev wallet (not SPAWN's rewards wallet), set the dev buy and press <i>Check it works</i>: it runs the whole launch on Solana without sending anything, and says what it would cost.</li>
+        <li><b>Launch $WORM.</b> Arm the launch, then tap the worm's head on the main page (the top of its body) until its cilia stop: the first touch that does is the moment. Upload the image and metadata, prepare the transaction, then sign it within a minute.</li>
       </ol>
+      <div class="lprow">
+        <button type="button" class="btn-ghost" id="lpres">Make the contract address</button>
+        <button type="button" class="btn-ghost" id="lpbak" hidden>Save its key (backup)</button>
+        <label class="btn-ghost" id="lploadl" for="lpload">Load a saved key</label><input type="file" id="lpload" accept=".json,application/json" hidden>
+      </div>
+      <p class="modstate" id="lpresst" role="status" hidden></p>
+      <div class="lprow">
+        <button type="button" class="btn-ghost" id="lpwallet">Connect wallet</button>
+        <label class="small">Dev buy (SOL) <input type="text" id="lpbuy" value="0" inputmode="decimal" aria-label="Initial buy in SOL"></label>
+        <button type="button" class="btn-ghost" id="lpcheck">Check it works</button>
+      </div>
       <div class="lprow"><button type="button" class="btn-ghost" id="lparm">Arm the launch</button><button type="button" class="btn-ghost" id="lpdisarm">Disarm</button></div>
       <div class="lprow">
         <input type="text" id="lptw" placeholder="X link (optional)" aria-label="X link">
@@ -58,8 +70,6 @@
         <button type="button" class="btn-ghost" id="lpmeta">Upload image + metadata</button>
       </div>
       <div class="lprow">
-        <button type="button" class="btn-ghost" id="lpwallet">Connect wallet</button>
-        <label class="small">Dev buy (SOL) <input type="text" id="lpbuy" value="0" inputmode="decimal" aria-label="Initial buy in SOL"></label>
         <button type="button" class="btn-ghost" id="lpprep">Prepare transaction</button>
         <button type="button" class="btn-amber" id="lpsign" disabled>Sign and launch</button>
       </div>

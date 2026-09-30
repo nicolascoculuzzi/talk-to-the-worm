@@ -9,9 +9,12 @@
 //                publishes the step, the state hash and the image hash.
 //  3. metadata:  on a mod's click, the image and metadata are uploaded to pump.fun's IPFS (or Pinata's). If the
 //                uploader refuses the server, they are kept on the site's lasting disk (LOG_DIR) instead.
-//  4. prepared:  the site builds the pump.fun create transaction for the owner's wallet, with a fresh
-//                mint key signed in. The owner's wallet adds its signature and sends it. The server
-//                never holds the owner's key and never sends anything itself.
+//  4. prepared:  the site builds the pump.fun create transaction (server/pump.js, the same code SPAWN's coins use)
+//                for the owner's wallet, with a dev buy in it. The coin's address is either made ahead of time in
+//                the owner's browser (reserved: its key never leaves that browser, which signs the coin's slot) or
+//                a fresh key signed in here and dropped. The owner's wallet adds its signature and sends it. The
+//                server never holds the owner's key and never sends anything itself. Before signing, check() runs
+//                the exact transaction on Solana without sending it (a simulation) and says what it would cost.
 //  5. launched:  once the transaction confirms, the mint is the site's contract address and live
 //                trades start reaching the worm. Every prepared mint (a public address; its key was discarded
 //                once it signed) is kept on disk, and the server watches the chain for them: a launch is
@@ -29,11 +32,12 @@ const commas = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');   // same
 
 const WATCH_MS = 3600_000;   // how long a prepared transaction is looked for on the chain (it can land for about a minute)
 
-export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}, publicUrl = '', pinataJwt = '', hostMetadata = false, rpcUrl, configuredMint = '', watchEveryMs = 15_000, onChange = () => {}, onLaunched = () => {}, logger = console }) {
+export function createLaunch({ dir, worm, D, writeLog, render, solana, pump, site = {}, publicUrl = '', pinataJwt = '', hostMetadata = false, rpcUrl, configuredMint = '', watchEveryMs = 15_000, onChange = () => {}, onLaunched = () => {}, logger = console }) {
   const root = path.join(dir, 'launch'), metaDir = path.join(root, 'meta');
   fs.mkdirSync(root, { recursive: true });
   const file = path.join(root, 'state.json');
-  let s = { armed: null, moment: null, metadata: null, launched: null, prepared: [] };
+  // reserved: the contract address the owner made ahead of time (its key is in their browser); private until the launch
+  let s = { armed: null, moment: null, metadata: null, launched: null, prepared: [], reserved: null };
   try { s = { ...s, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { /* first run */ }
   s.prepared ||= [];   // every transaction prepared for the owner, newest first: {mint, at}
   const save = () => { fs.writeFileSync(file, JSON.stringify(s, null, 1)); onChange(status()); };
@@ -127,16 +131,72 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
     return fs.existsSync(f) ? f : null;
   }
 
-  async function prepare({ creator, amountSol = 0, slippage = 10, priorityFee = 0.0005, fetchImpl } = {}) {
+  /** The contract address the owner made ahead of time in their browser (its key stays there); '' drops it. */
+  function reserve({ mint = '' } = {}) {
+    if (done()) throw new Error('$WORM has already launched.');
+    if (mint && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(mint)) throw new Error('That is not a Solana address.');
+    s.reserved = mint ? { mint, at: Date.now() } : null;
+    save();
+    return { reserved: mint };
+  }
+
+  // the create transaction with the dev buy in it, at the reserved address if there is one
+  async function build({ creator, amountSol, uri, fetchImpl }) {
+    const r = await pump.buildCreate({ user: creator, creator, ...TOKEN, uri, firstBuySol: amountSol, mint: s.reserved?.mint || '', url: rpcUrl, fetchImpl });
+    const fb = r.firstBuy;
+    return { tx: r.tx, mint: r.mint, mintSigned: r.mintSigned, firstBuy: fb && { sol: Number(fb.lamports) / 1e9, worm: Number(fb.tokens) / 1e6, share: Number(fb.tokens) / 1e15 } };
+  }
+
+  async function prepare({ creator, amountSol = 0, fetchImpl } = {}) {
     if (done()) throw new Error('Already launched.');
     if (!s.metadata) throw new Error('Upload the metadata first.');
     // one prepared earlier may have landed after all (a slow wallet, a closed page): never make a second coin
     if (await watch({ fetchImpl })) throw new Error(`Already launched: ${s.launched.mint}.`);
-    const r = await solana.prepareLaunch({ creator, ...TOKEN, uri: s.metadata.uri, amountSol, slippage, priorityFee, fetchImpl });
-    s.prepared = [{ mint: r.mint, at: Date.now() }, ...s.prepared].slice(0, 8);
+    const r = await build({ creator, amountSol, uri: s.metadata.uri, fetchImpl });
+    s.prepared = [{ mint: r.mint, at: Date.now() }, ...s.prepared.filter((x) => x.mint !== r.mint)].slice(0, 8);
     s.creator = creator;   // the wallet launching $WORM: its pump.fun creator
+    s.preparers = [creator, ...(s.preparers || []).filter((w) => w !== creator)].slice(0, 8);   // every wallet a launch was prepared for
     save();
     return r;
+  }
+
+  /**
+   * The launch transaction exactly as prepare() builds it, run on Solana without being sent (a simulation: nothing is
+   * signed and nothing moves). Would pump.fun make $WORM for `creator` with this dev buy, and what would it take from
+   * the wallet? Before the moment, a stand-in link as long as the real one takes the metadata's place.
+   */
+  async function check({ creator, amountSol = 0, fetchImpl } = {}) {
+    if (done()) throw new Error('$WORM has already launched.');
+    const uri = s.metadata?.uri || `${publicUrl || 'https://example.com'}/launch/meta/${'x'.repeat(12)}.json`;
+    const r = await build({ creator, amountSol, uri, fetchImpl });
+    const at = { url: rpcUrl, fetchImpl }, message = Buffer.from(solana.parseTransaction(Buffer.from(r.tx, 'base64')).messageBytes).toString('base64');
+    const [balance, fee, sim] = await Promise.all([
+      solana.rpc('getBalance', [creator, { commitment: 'confirmed' }], at),
+      solana.rpc('getFeeForMessage', [message, { commitment: 'confirmed' }], at),
+      solana.rpc('simulateTransaction', [r.tx, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: true, commitment: 'confirmed', innerInstructions: true }], at),
+    ]);
+    const v = sim.value, has = balance.value / 1e9;
+    const base = { mint: r.mint, reserved: !!s.reserved, standIn: !s.metadata, balance: has, firstBuy: r.firstBuy };
+    if (v.err) return { works: false, ...base, error: whyNot(v, has, Number(amountSol) || 0) };
+    // every lamport that leaves the wallet: the new accounts' rent, the dev buy and its fees (moved by the programs it
+    // calls, so they show as inner instructions) and the network fee
+    let out = fee?.value || 0;
+    for (const inner of v.innerInstructions || []) {
+      for (const ix of inner.instructions) {
+        const info = ix.parsed?.info;
+        if (info?.source === creator && info.lamports != null && ['transfer', 'createAccount'].includes(ix.parsed.type)) out += Number(info.lamports);
+      }
+    }
+    const trade = pump.eventsFromLogs(v.logs).find((e) => e.kind === 'trade');
+    return { works: true, ...base, cost: out / 1e9, bought: trade ? Number(trade.tokens) / 1e6 : 0, creatorFee: trade ? Number(trade.creatorFee) / 1e9 : 0 };
+  }
+  // what a failed simulation means, in words
+  function whyNot(v, has, devBuy) {
+    const logs = v.logs || [], err = JSON.stringify(v.err);
+    if (/AccountNotFound|InsufficientFunds/.test(err) || logs.some((l) => /insufficient (lamports|funds)/i.test(l))) return `This wallet does not have enough SOL: it has ${has} SOL, and this launch needs about ${Math.round((devBuy + 0.012) * 1000) / 1000} SOL.`;
+    if (logs.some((l) => /already in use/.test(l))) return 'Something already exists at the contract address. Make a new one.';
+    const msg = logs.map((l) => /Error Message: (.*)$/.exec(l)?.[1]).find(Boolean);
+    return msg ? `pump.fun refused it: ${msg}` : `It failed: ${err}`;
   }
 
   function launched(mint, signature, r = {}) {
@@ -151,6 +211,18 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
     if (typeof solana.rpc !== 'function') return true;
     const t = await solana.rpc('getTransaction', [signature, { encoding: 'json', maxSupportedTransactionVersion: 0, commitment: 'confirmed' }], { url, fetchImpl });
     return !!t && !t.meta?.err && (t.transaction?.message?.accountKeys || []).includes(mint);
+  }
+
+  // a coin found at a prepared address is the launch only if a wallet it was prepared for is its creator (a reserved
+  // address's key lives in a browser: were it ever copied, a coin someone else made there is not $WORM)
+  async function ours(mint, { fetchImpl, url }) {
+    const wallets = s.preparers?.length ? s.preparers : [s.creator].filter(Boolean);
+    if (typeof pump?.fetchCurves !== 'function' || !wallets.length) return true;
+    const c = (await pump.fetchCurves({ mints: [mint], url, fetchImpl })).get(mint);
+    if (!c) return false;   // not readable yet: the next look decides
+    if (!wallets.includes(c.creator)) { logger.warn(`[launch] a coin at ${mint} was made by ${c.creator}, not by a wallet it was prepared for: not $WORM`); return false; }
+    s.creator = c.creator;   // the wallet that really launched it
+    return true;
   }
 
   async function confirm({ signature, fetchImpl, url = rpcUrl } = {}) {
@@ -184,7 +256,7 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
       const first = (sigs || []).filter((x) => !x.err).at(-1);   // newest first: the last is the one that made it
       if (!first) continue;
       const r = await solana.confirmLaunch({ signature: first.signature, mint, fetchImpl, url });
-      if (r.confirmed && !r.err && r.mintExists && await madeBy(first.signature, mint, { fetchImpl, url })) {
+      if (r.confirmed && !r.err && r.mintExists && await madeBy(first.signature, mint, { fetchImpl, url }) && await ours(mint, { fetchImpl, url })) {
         logger.log(`launch found on the chain: ${mint}`);
         launched(mint, first.signature, r);
         return true;
@@ -195,5 +267,9 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
   const timer = setInterval(() => { watch().catch((e) => logger.warn(`[launch] watching the chain: ${e.message}`)); }, watchEveryMs);
   timer.unref?.();
 
-  return { status, arm, disarm, onStep, uploadMetadata, metaFile, prepare, confirm, watch, stop: () => clearInterval(timer), description, get mint() { return s.launched ? s.launched.mint : null; }, get creator() { return s.creator || ''; }, imagePath: path.join(root, 'moment.png') };
+  return {
+    status, arm, disarm, onStep, uploadMetadata, metaFile, reserve, prepare, check, confirm, watch, stop: () => clearInterval(timer), description,
+    get mint() { return s.launched ? s.launched.mint : null; }, get creator() { return s.creator || ''; }, get reserved() { return s.reserved?.mint || ''; },
+    imagePath: path.join(root, 'moment.png'),
+  };
 }

@@ -274,16 +274,19 @@ const toB64 = (u8) => Buffer.from(u8).toString('base64');
 /**
  * A new coin for `user` to sign and send: its mint (a fresh key, signed in here and dropped), its curve with
  * `creator` as the coin's creator, and `firstBuySol` of it bought for the user in the same transaction.
- * Returns { tx (base64), mint, firstBuy: { lamports, tokens, minTokens } | null }.
+ * With `mint` (an address made ahead of time, whose key is kept elsewhere) the coin is made at that address and its
+ * signature slot is left empty for that key (mintSigned false).
+ * Returns { tx (base64), mint, mintSigned, firstBuy: { lamports, tokens, minTokens } | null }.
  */
-export async function buildCreate({ user, creator, name, symbol, uri, firstBuySol = 0, slippageBps = 500, state = null, mintKey = null, url, fetchImpl }) {
+export async function buildCreate({ user, creator, name, symbol, uri, firstBuySol = 0, slippageBps = 500, state = null, mintKey = null, mint: madeAhead = '', url, fetchImpl }) {
   check(user, 'user'); check(creator, 'creator');
+  if (madeAhead) check(madeAhead, 'mint');
   if (!name || Buffer.byteLength(name) > 32) fail('name must be 1-32 bytes');
   if (!/^[A-Z0-9]{1,10}$/.test(symbol || '')) fail('symbol must be 1-10 letters or digits');
   if (!uri || Buffer.byteLength(uri) > 200) fail('uri must be 1-200 bytes');
   const { global, fees } = state || await fetchProgramState({ url, fetchImpl });
   if (!global.createV2Enabled) fail('pump.fun is not taking new coins right now');
-  const kp = mintKey || generateKeypair(), mint = kp.address;
+  const kp = madeAhead ? null : mintKey || generateKeypair(), mint = madeAhead || kp.address;
   const body = [ixs.createV2({ mint, user, creator, name, symbol, uri })];
   let firstBuy = null;
   const spendable = BigInt(Math.round(Number(firstBuySol || 0) * 1e9));
@@ -297,7 +300,7 @@ export async function buildCreate({ user, creator, name, symbol, uri, firstBuySo
   // with a priority fee when it fits (a 32-character name and a long link with a first buy come close to the limit)
   let tx;
   try { tx = compileTransaction({ payer: user, instructions: [priorityFee(300_000), ...body], blockhash: hash }); } catch { tx = compileTransaction({ payer: user, instructions: body, blockhash: hash }); }
-  return { tx: toB64(signPartial(tx, kp)), mint, firstBuy };
+  return { tx: toB64(kp ? signPartial(tx, kp) : tx), mint, mintSigned: !!kp, firstBuy };
 }
 
 /** A buy of a coin on its curve with `lamports` (fees included), at least `minTokens` out. `global` from fetchProgramState. */

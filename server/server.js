@@ -199,7 +199,7 @@ export function createWormServer(overrides = {}) {
   const headTouch = worm.roles.touch.filter((i) => ['episphere', 'segment_0', 'segment_1'].includes(segOf(i)));
   const tailTouch = worm.roles.touch.filter((i) => ['segment_2', 'segment_3', 'pygidium'].includes(segOf(i)));
   const launch = dataDir ? createLaunch({
-    dir: dataDir, worm, D, writeLog, render, solana, publicUrl: config.publicUrl, pinataJwt: config.token.pinataJwt, hostMetadata: config.spawn.localMeta, rpcUrl: config.token.solanaRpc, configuredMint: config.token.mint,
+    dir: dataDir, worm, D, writeLog, render, solana, pump: config.spawnDeps?.pump || pump, publicUrl: config.publicUrl, pinataJwt: config.token.pinataJwt, hostMetadata: config.spawn.localMeta, rpcUrl: config.token.solanaRpc, configuredMint: config.token.mint,
     onChange: (st) => broadcast({ t: 'launch', launch: st }),
     onLaunched: (l) => startTrades(l.mint),
   }) : null;
@@ -629,6 +629,7 @@ export function createWormServer(overrides = {}) {
       twitch: twitch ? twitch.status() : { enabled: false },
       trades: trades ? { ...trades.status(), ...tradeStats, mint: tokenMint() } : { enabled: false, mint: tokenMint() },
       launch: launch ? launch.status() : null,
+      launchReserved: launch ? launch.reserved : '',   // the contract address made ahead of time: the owner's eyes only until the launch
       spawn: { ...spawn.status(), trades: spawnStats },
       stats: { messagesLastMin: stats.say.lastMinute(), pokesLastMin: stats.poke.lastMinute(), rejectedLastMin: stats.rejected.lastMinute() },
       feed,
@@ -688,18 +689,19 @@ export function createWormServer(overrides = {}) {
         mod.extra = mod.extra.filter((x) => x !== phrase); mod.save();
         return json(res, 200, { ok: true, extra: mod.extra });
       }
-      case '/admin/launch/arm': case '/admin/launch/disarm': case '/admin/launch/metadata': case '/admin/launch/prepare': case '/admin/launch/confirm': {
+      case '/admin/launch/arm': case '/admin/launch/disarm': case '/admin/launch/metadata': case '/admin/launch/reserve': case '/admin/launch/check': case '/admin/launch/prepare': case '/admin/launch/confirm': {
         if (!launch) return json(res, 200, { ok: false, error: 'The launch needs a data folder (LOG_DIR).' });
         const act = p.slice('/admin/launch/'.length);
         const run = async () => {
           if (act === 'arm') { launch.arm(); return { ok: true, launch: launch.status() }; }
           if (act === 'disarm') { launch.disarm(); return { ok: true, launch: launch.status() }; }
           if (act === 'metadata') return { ok: true, metadata: await launch.uploadMetadata({ twitter: q.get('twitter') || '', telegram: q.get('telegram') || '', website: q.get('website') || config.publicUrl }) };
-          if (act === 'prepare') {
-            const creator = String(q.get('creator') || '');
+          if (act === 'reserve') return { ok: true, ...launch.reserve({ mint: String(q.get('mint') || '') }) };
+          if (act === 'prepare' || act === 'check') {
+            const creator = String(q.get('creator') || ''), amountSol = Math.max(0, Number(q.get('amountSol')) || 0);
             if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(creator)) throw new Error('That is not a Solana address.');
             if (spawn.owners.includes(creator)) throw new Error('Launch $WORM from a different wallet than SPAWN\'s rewards wallet: their pump.fun creator rewards would mix in one vault.');
-            return { ok: true, ...(await launch.prepare({ creator, amountSol: Math.max(0, Number(q.get('amountSol')) || 0) })) };
+            return { ok: true, ...(await launch[act]({ creator, amountSol })) };
           }
           return await launch.confirm({ signature: String(q.get('signature') || ''), url: config.token.solanaRpc });
         };
