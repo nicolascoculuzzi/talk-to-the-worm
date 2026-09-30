@@ -502,7 +502,7 @@ function wait(text) { const w = $('wwait'); w.hidden = !text; w.textContent = te
 
 function renderOwn() {
   const c = coin, o = c.own, sym = '$' + c.symbol, done = c.graduated || c.stage !== 'curve';
-  $('wormlede').textContent = `${sym} hatched its own copy of a real larva's wiring. The first thing it saw was "${sym}". Since then it feels every trade: a buy touches its head, a sell its tail.`;
+  $('wormlede').textContent = `${sym} hatched its own copy of a real larva's wiring. The first thing it saw was "${sym}". Since then it feels every trade on its bonding curve: a buy touches its head, a sell its tail.`;
   $('grow').textContent = done ? `Drawn at full size: ${sym} has graduated. Same wiring, same model.` : `Drawn bigger as ${sym} nears graduation. Same wiring, same model.`;
   const set = (id, v, u) => { const d = $(id); d.replaceChildren(v); if (u) d.append(el('small', null, u)); };
   if (!o) {
