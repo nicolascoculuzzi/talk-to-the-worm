@@ -50,8 +50,8 @@ body:not(.loading) .loader{opacity:0;visibility:hidden}
 .navlinks a.navcta{align-self:center;font-weight:600;color:#1A1204;background:var(--amber);border-radius:999px;padding:7px 12px;letter-spacing:.14em;transition:transform .16s var(--ease-out),box-shadow .2s ease,background-color .15s ease}
 .navlinks a.navcta:active{transform:scale(.97)}
 @media (hover:hover) and (pointer:fine){.navlinks a.navcta:hover{color:#1A1204;background:#FFC874;box-shadow:0 0 22px rgba(255,184,77,.4)}}
-@media (max-width:760px){.navlinks a:not(#navcoin):not(.navcta):not([href="#coins"]):not([href="#proof"]){display:none}.navlinks{gap:14px}}
-@media (max-width:520px){.opt{display:none}.navlinks a[href="#proof"]{display:none}}
+@media (max-width:760px){.navlinks a:not(#navcoin):not(.navcta):not([href$="#coins"]):not([href="/about"]){display:none}.navlinks{gap:14px}}
+@media (max-width:520px){.opt{display:none}.navlinks:has(#navcoin:not([hidden])) a[href="/about"]{display:none}}
 .announce{position:fixed;top:var(--nav);inset-inline:0;z-index:29;display:flex;gap:10px;align-items:center;justify-content:center;padding:8px var(--gutter);
   font:500 12.5px var(--mono);color:#140e02;background:var(--amber)}
 .announce .dot{width:7px;height:7px;border-radius:50%;background:#140e02;animation:breathe 1.2s infinite}

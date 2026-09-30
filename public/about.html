@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>About BRAINWORM · the whole story, stated plainly</title>
+<meta name="description" content="What BRAINWORM is: a real marine larva's published connectome, 2,675 cells wired exactly as mapped, run live for everyone and checked by every browser. The science, how the digital worm was built, the proofs, the tests, $BRAINWORM, the SPAWN launchpad, and the limits, stated plainly.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="BRAINWORM">
+<meta property="og:title" content="About BRAINWORM · the whole story, stated plainly">
+<meta property="og:description" content="A real larva's nervous system, wired exactly as published, run live for everyone and checked by every browser. The science, the software, the proofs, the tests, the token, the launchpad, and the limits.">
+<meta property="og:url" content="%ORIGIN%/about">
+<meta property="og:image" content="%ORIGIN%/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="BRAINWORM: a glowing map of a real larva's nervous system">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="About BRAINWORM · the whole story, stated plainly">
+<meta name="twitter:description" content="A real larva's nervous system, wired exactly as published, run live for everyone and checked by every browser.">
+<meta name="twitter:image" content="%ORIGIN%/og.png">
+<meta name="theme-color" content="#04070B">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/about.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200..800&family=Geist+Mono:wght@400..600&display=swap">
+<script type="module" src="/about.js"></script>
+</head>
+<body class="ab">
+<a class="skip" href="#content">Skip to the text</a>
+
+<nav class="nav" id="abnav" aria-label="Site">
+  <a class="wordmark" href="/">BRAINWORM</a>
+  <div class="navlinks"><a href="/#coins">Coins</a><a href="/#spawnhow">How it works</a><a href="/about" aria-current="page">About</a><a href="/lab">Tests</a><a href="/docs">Docs</a><a class="navcta" href="/#top">Launch<span class="opt"> a coin</span></a></div>
+</nav>
+<div class="ab-progress" aria-hidden="true"><i></i></div>
+
+<div class="ab-wrap">
+
+  <header class="ab-head">
+    <p class="ab-eyebrow">About BRAINWORM</p>
+    <h1>The whole story, <span>stated plainly</span></h1>
+    <p class="ab-deck">BRAINWORM runs the published wiring diagram of a real marine worm larva as one live simulation that everyone watches together and any browser can check. On top of it sits SPAWN, a launchpad where every coin hatches its own copy of the worm. This page explains all of it: the science, how the map became a digital worm, the proofs, the tests, the token, the launchpad, and the limits.</p>
+    <dl class="ab-stats">
+      <div><dt>Cells</dt><dd>2,675</dd></div>
+      <div><dt>Connections</dt><dd>14,066</dd></div>
+      <div><dt>Synapses</dt><dd>26,881</dd></div>
+      <div><dt>Steps a second</dt><dd>30</dd></div>
+    </dl>
+    <p class="ab-meta">Model v2, registered and timestamped on 26 September 2026 · a 30-minute read, the one-minute version first</p>
+  </header>
+
+  <aside class="ab-toc" aria-label="Contents">
+    <details id="toc">
+      <summary><span class="ab-tock">Contents</span><span class="ab-toccur" id="toccur">11 sections</span><svg class="ab-chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></summary>
+      <ol class="ab-tocl">
+        <li><a href="#minute"><span>01</span>BRAINWORM in one minute</a></li>
+        <li><a href="#animal"><span>02</span>The animal</a></li>
+        <li><a href="#map"><span>03</span>The map</a></li>
+        <li><a href="#digital-worm"><span>04</span>From map to digital worm</a>
+          <ol>
+            <li><a href="#data-file">The data file</a></li>
+            <li><a href="#cells">Cells as firing rates</a></li>
+            <li><a href="#strength">Connection strength</a></li>
+            <li><a href="#signs">Transmitters and signs</a></li>
+            <li><a href="#cilia">The cilia rule</a></li>
+            <li><a href="#eyes">The eyes</a></li>
+            <li><a href="#touch">Touch and pokes</a></li>
+            <li><a href="#body">The body</a></li>
+            <li><a href="#lamp">The lamp</a></li>
+            <li><a href="#labels">Measured, simplified, chosen</a></li>
+          </ol>
+        </li>
+        <li><a href="#live"><span>05</span>One worm for everyone</a></li>
+        <li><a href="#proof"><span>06</span>Proof</a></li>
+        <li><a href="#tests"><span>07</span>The tests</a></li>
+        <li><a href="#token"><span>08</span>$BRAINWORM</a></li>
+        <li><a href="#spawn"><span>09</span>SPAWN, the launchpad</a></li>
+        <li><a href="#plainly"><span>10</span>Stated plainly</a></li>
+        <li><a href="#credits"><span>11</span>Credits and links</a></li>
+      </ol>
+      <p class="ab-tocfoot"><a href="/lab">Tests</a><a href="/docs">Code</a><a href="/manifest.json">Manifest</a></p>
+    </details>
+  </aside>
+
+  <main class="ab-main" id="content">
+
+    <!-- 01 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="minute" aria-labelledby="h-minute">
+      <header class="ab-sech"><p class="ab-num">01</p><h2 id="h-minute">BRAINWORM in one minute</h2></header>
+      <div class="ab-tldr">
+        <ul>
+          <li><b>A real wiring diagram.</b> In 2025 the Jékely lab published the complete wiring of a three-day-old larva of the marine worm <i>Platynereis dumerilii</i>: 2,675 cells, 14,066 connections, 26,881 synapses. BRAINWORM runs that wiring exactly as published. No connection is added or removed, and nothing is trained.</li>
+          <li><b>One worm, live, for everyone.</b> A single simulation runs on the server at 30 steps a second, and every visitor watches the same worm. Messages reach its 26 eye cells as light, pokes reach its touch sensors, and its activity drives a simulated body that swims through a virtual tank.</li>
+          <li><b>Checked by your browser.</b> The simulation is exactly reproducible, so your browser runs its own copy and compares a fingerprint of its state with the server's every second. Every hour of its life is logged, sealed, chained to the hour before and timestamped into Bitcoin.</li>
+          <li><b>Tested in public.</b> The model and its tests were written down and timestamped before they first ran, and every test also runs on 50 randomly rewired worms. Under the current model 3 tests pass, 3 fail and 4 are measurements. All of them are published.</li>
+          <li><b>$BRAINWORM and SPAWN.</b> $BRAINWORM's launch moment and image come from a logged step in the worm's life. On SPAWN, every coin hatches its own copy of the worm, which feels that coin's trades; every buy also pokes the live worm; and most of each trade's 1% fee goes to burning $BRAINWORM.</li>
+          <li><b>What it is not.</b> The worm doesn't read, understand, choose or predict anything. What it does comes from its wiring and a simple model. Wherever we had to make a choice, this page says so.</li>
+        </ul>
+        <p class="ab-tldrcta"><a class="btn-amber" href="/">Watch the worm</a><a class="btn-ghost" href="/lab">See every test</a></p>
+      </div>
+    </section>
+
+    <!-- 02 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="animal" aria-labelledby="h-animal">
+      <header class="ab-sech"><p class="ab-num">02</p><h2 id="h-animal">The animal</h2></header>
+      <p class="ab-lede"><i>Platynereis dumerilii</i> is a marine annelid: a segmented worm. The animal in this project is one of its larvae, three days old. Its traced cells span about a fifth of a millimetre from head to tail.</p>
+      <p>Even this young, the larva senses and moves. It has eyes, touch and vibration sensors, muscles, and bands of <dfn>cilia</dfn>: microscopic hairs that beat like oars and push it through the water. Its body runs from a head through a few segments to a tail end, and the data records which segment and side every cell sits in.</p>
+      <h3 class="ab-h3">What the lab has seen its larvae do</h3>
+      <p>The model and its tests lean on three of the lab's earlier studies. They are the only claims about the living animal on this page.</p>
+      <ul class="ab-list">
+        <li><b>They swim toward light.</b> The larvae steer toward light with their eyespots and the band of cilia beside them: light on one eyespot changes the beating of the cilia next to it, and because the larva rotates as it swims, that turns it toward the light (Jékely et al., 2008).</li>
+        <li><b>A vibration makes them stop.</b> Water vibrations make the larvae close their swimming cilia and raise their parapodia (the paired flaps along their sides), through vibration-sensing cells called collar receptors. The study describes it as a startle response for avoiding predators (Bezares-Calderón et al., 2018).</li>
+        <li><b>Their cilia stop and go.</b> Every so often all the cilia stop together. The lab traced these stops to cells that fire together in a rhythm; one of them, called MC, activates with a median cycle of 71 seconds. It also found that serotonin, one of the chemicals nerve cells signal with, inhibits that rhythm and makes the cilia beat faster (Verasztó et al., 2017).</li>
+      </ul>
+      <p>Where neither the data nor these studies say something about the animal, this page doesn't either. Parts of the simulation that the data can't supply, such as how its eyes see a message or how its body moves through water, are our choices, and they are labelled as ours below.</p>
+    </section>
+
+    <!-- 03 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="map" aria-labelledby="h-map">
+      <header class="ab-sech"><p class="ab-num">03</p><h2 id="h-map">The map: a whole-body connectome</h2></header>
+      <p class="ab-lede">A <dfn>connectome</dfn> is a complete map of every nerve cell and every connection between them. This one covers the whole body.</p>
+      <blockquote class="ab-cite">
+        <p>Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> eLife (2025).</p>
+        <p class="ab-citelinks"><a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">The paper</a><a href="https://github.com/JekelyLab/Platynereis_3D_connectome_2024" target="_blank" rel="noopener">The data</a><a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a><span>Not affiliated with the authors.</span></p>
+      </blockquote>
+      <p>"Whole-body" means the map doesn't stop at the brain. It includes the nerve cord, every sensory cell, and the muscles, ciliated cells, glands and other cells that the nerves connect to. Every cell and connection was traced from electron micrographs, images taken with an electron microscope.</p>
+      <p>A <dfn>synapse</dfn> is a contact point where one cell passes a signal to another. In the data, a <dfn>connection</dfn> is one cell linking to another through at least one synapse, and each connection carries its synapse count: how many separate synapses the first cell makes onto the second. The 14,066 connections carry 26,881 synapses between them. Counts matter: more synapses means a stronger link, and the model uses exactly that.</p>
+      <p>The lab released its results openly. BRAINWORM uses three parts of that release: a graph of every cell and connection with synapse counts; a table of cell types, which also lists each type's transmitter where it is known; and the lab's 3D viewer pages, which show every traced cell's shape and cell body.</p>
+
+      <dl class="ab-facts">
+        <div><dt>Neurons</dt><dd>1,627</dd><p>468 sensory, 920 interneurons, 239 motor neurons</p></div>
+        <div><dt>Effector cells</dt><dd>424</dd><p>301 muscle cells, 72 ciliated swimming cells, 51 others such as glands</p></div>
+        <div><dt>Other cells</dt><dd>157</dd><p>cells the data classes as neither</p></div>
+        <div><dt>Fragments</dt><dd>467</dd><p>pieces of cells with no position: simulated, not drawn</p></div>
+      </dl>
+      <p><dfn>Sensory neurons</dfn> detect things like light and touch, <dfn>interneurons</dfn> pass signals between neurons, <dfn>motor neurons</dfn> drive the cells that act, and those acting cells (muscles, ciliated cells, glands) are the <dfn>effectors</dfn>. From the cells' names in the data, BRAINWORM identifies the ones it needs:</p>
+      <ul class="ab-list ab-roles">
+        <li><b>26 eye photoreceptors</b>, 13 on each side, including the 4 photoreceptors of its two eyespots. A photoreceptor is a light-sensing cell.</li>
+        <li><b>4 non-directional light sensors</b>, which respond to overall brightness.</li>
+        <li><b>53 touch sensors</b>: collar receptors (the vibration sensors) and chaetal mechanosensors (chaetae are its bristles). 26 are at the head end and 27 at the tail end.</li>
+        <li><b>83 body-wall muscles</b> running along the body, 49 on the left and 34 on the right, and <b>192 startle muscles</b> (chaetal, acicular and oblique).</li>
+        <li><b>72 ciliated swimming cells</b>, 36 on each side, in four bands the data names the prototroch (23 cells), paratrochs (34), akrotroch (8) and metatroch (7).</li>
+      </ul>
+
+      <figure class="ab-fig ab-mapfig">
+        <div class="ab-mapwrap"><svg class="ab-mapsvg" viewBox="0 0 267 423" role="img" aria-labelledby="mapfig-t">
+<title id="mapfig-t">The 1,199 cells of the larva whose positions come from the lab&#39;s 3D reconstructions, drawn as dots and projected flat with the head at the top, coloured by kind.</title>
+<path class="m-other" d="M155.2 10.0h0M107.8 48.3h0M74.2 118.9h0M147.6 39.7h0M249.6 95.0h0M225.5 124.0h0M144.4 49.3h0M103.7 29.4h0M254.0 108.3h0M234.7 108.5h0M38.5 101.7h0M215.2 86.8h0M166.9 114.5h0M213.5 276.5h0M117.2 120.2h0M186.6 135.5h0M79.6 71.3h0M136.6 286.8h0M130.9 41.5h0M194.0 133.6h0M123.6 240.0h0M131.3 212.6h0M159.8 165.5h0M102.9 183.9h0M191.3 119.1h0M59.6 118.1h0M76.0 189.9h0M42.0 45.1h0M68.6 115.9h0M150.0 41.3h0M169.3 396.4h0M172.2 161.9h0M73.0 140.9h0M99.3 70.2h0M196.1 356.7h0M126.3 347.5h0M154.7 339.8h0M163.2 64.3h0M84.8 279.8h0M156.4 341.7h0M171.0 40.9h0M124.4 57.8h0M109.8 302.5h0M192.6 91.0h0M155.3 412.7h0M130.2 333.4h0M56.8 264.7h0M234.9 108.2h0M111.0 373.1h0M71.3 252.5h0M205.2 259.1h0M197.4 329.4h0M127.7 331.0h0M133.9 341.0h0M88.8 208.6h0M179.6 26.4h0M63.6 138.6h0M42.8 73.5h0M97.5 237.1h0M211.3 116.1h0M37.0 137.8h0M176.0 151.4h0M37.4 109.7h0M24.8 113.4h0M217.9 142.7h0M128.9 38.3h0M152.2 76.3h0M119.2 145.3h0M175.6 399.2h0M164.0 53.7h0M169.0 155.9h0"/>
+<path class="m-mus" d="M47.0 170.5h0M69.4 161.0h0M56.9 107.8h0M48.3 120.9h0M76.0 154.2h0M44.1 142.2h0M56.9 150.4h0M49.3 146.9h0M81.9 203.3h0M133.6 295.3h0M204.3 324.7h0M206.1 181.6h0M153.5 170.6h0M169.1 207.2h0M168.3 273.6h0M171.0 278.1h0M173.0 220.7h0M173.7 160.4h0M167.5 227.8h0M172.9 233.6h0M201.2 283.5h0M205.2 275.5h0M202.8 198.0h0M200.3 204.3h0M228.0 121.3h0M216.7 151.2h0M203.6 158.1h0M202.2 152.7h0M223.5 128.6h0M57.4 199.5h0M63.7 201.9h0M61.0 162.9h0M56.8 224.3h0M53.3 207.6h0M82.2 307.8h0M72.7 272.3h0M60.9 221.6h0M131.3 75.0h0M27.0 153.0h0M180.1 286.3h0M188.5 293.6h0M81.8 275.2h0M229.4 209.7h0M224.2 201.7h0M228.5 209.8h0M216.1 203.8h0M77.7 298.9h0M45.2 195.3h0M204.4 302.4h0M62.0 175.6h0M64.1 188.1h0M75.9 249.1h0M102.0 306.1h0M70.4 183.3h0M84.9 186.9h0M84.3 219.2h0M115.4 227.3h0M107.1 221.3h0M114.2 218.1h0M129.1 319.7h0M127.1 311.3h0M68.1 278.7h0M105.7 220.8h0M79.5 224.0h0M61.6 237.0h0M70.6 231.0h0M68.7 209.2h0M70.3 214.1h0M61.0 250.9h0M149.2 246.4h0M78.8 202.0h0M106.7 241.1h0M76.4 222.0h0M56.9 224.5h0M80.4 225.4h0M96.0 215.6h0M60.1 175.6h0M43.3 156.5h0M40.7 181.2h0M82.3 180.0h0M80.4 228.6h0M83.3 237.8h0M109.8 314.9h0M108.3 297.0h0M167.6 300.4h0M231.3 290.4h0M184.1 338.3h0M201.8 281.8h0M181.9 241.4h0M200.4 138.9h0M104.1 213.3h0M171.9 360.2h0M195.4 168.8h0M202.8 179.3h0M205.9 177.0h0M201.5 150.6h0M218.5 346.2h0M206.5 227.2h0M213.3 208.5h0M204.3 222.6h0M224.6 203.2h0M233.9 161.2h0M194.2 152.7h0M196.6 176.4h0M206.9 187.6h0M203.9 173.2h0M186.6 213.4h0M102.2 352.6h0M120.4 323.8h0M195.1 298.4h0M120.1 356.2h0M124.7 342.6h0M200.7 166.2h0M50.8 135.1h0M50.3 170.4h0M72.3 194.4h0M155.9 180.7h0M72.3 202.3h0M86.0 308.7h0M102.6 352.1h0M114.8 331.8h0M85.8 171.2h0M174.2 161.7h0M60.4 155.4h0M173.9 164.6h0M172.3 171.2h0M202.4 109.3h0M208.7 275.9h0M198.8 217.0h0M222.1 238.3h0M203.5 218.2h0M182.2 236.2h0M195.0 195.1h0M192.6 167.5h0M49.8 178.8h0M61.8 180.8h0M160.7 207.1h0M218.5 139.5h0M246.6 272.6h0M236.3 256.1h0M205.7 238.9h0M70.2 184.5h0M230.8 301.0h0M215.0 301.9h0M211.3 293.3h0M196.0 232.9h0M198.6 229.8h0M210.5 219.0h0M214.8 234.6h0M195.1 148.3h0M218.7 131.4h0M94.6 144.3h0M88.2 137.5h0M25.2 190.8h0M135.6 319.8h0M89.7 296.5h0M123.0 294.8h0M127.9 324.2h0M79.6 134.1h0M69.6 144.8h0M84.7 189.7h0M53.8 133.2h0M77.4 323.1h0M73.0 246.3h0M115.1 266.6h0M86.8 220.4h0M83.9 291.8h0M80.8 236.3h0M178.3 297.4h0M65.2 250.1h0M97.4 281.2h0M79.4 275.2h0M91.7 286.8h0M190.0 314.3h0M97.3 279.9h0M88.6 280.2h0M196.1 184.4h0M177.5 303.8h0M74.1 294.8h0M104.3 310.0h0M79.1 318.6h0M85.4 322.5h0M161.4 307.3h0M51.4 194.2h0M187.8 215.2h0M176.3 234.9h0M145.8 274.5h0M130.9 250.0h0M122.7 238.4h0M143.7 291.2h0M92.8 264.1h0M170.9 128.3h0M80.0 325.5h0M87.6 328.9h0M198.2 327.6h0M198.1 182.2h0M191.5 206.9h0M172.2 196.9h0M161.9 192.0h0M162.4 185.8h0M158.8 202.2h0M201.5 219.4h0M82.9 157.0h0M182.5 207.2h0M122.1 342.0h0M84.2 330.8h0M90.9 326.8h0M185.1 129.7h0M79.8 142.2h0M119.6 203.9h0M120.5 189.4h0M213.8 267.6h0M162.7 286.7h0M198.0 318.7h0M170.8 334.4h0M87.0 218.2h0M95.6 208.8h0M49.4 161.9h0M58.1 254.0h0M69.9 228.6h0M172.9 344.5h0M159.7 333.8h0M58.8 201.5h0M57.7 205.1h0M38.5 197.2h0M163.5 204.4h0M165.8 199.1h0M159.4 174.2h0M153.1 236.8h0M176.5 244.3h0M81.0 293.2h0M159.0 315.9h0M204.4 349.8h0M208.2 320.7h0M142.7 357.5h0M135.2 340.9h0M142.1 345.2h0M141.9 352.5h0M137.1 351.3h0M140.2 344.7h0M138.1 334.0h0M163.8 345.6h0M92.0 198.9h0M172.3 289.4h0M162.4 282.7h0M54.8 156.9h0M105.7 282.6h0M87.2 298.5h0M176.8 271.0h0M187.6 288.0h0M150.3 339.9h0M147.0 343.8h0M116.1 288.6h0M79.7 317.3h0M118.4 217.0h0M141.9 282.8h0M128.0 288.0h0M146.4 289.7h0M219.3 123.1h0M67.2 276.8h0M60.8 115.3h0M115.3 340.4h0M102.3 327.4h0M153.4 210.6h0M160.2 276.6h0M170.3 130.0h0M88.2 203.3h0M93.6 204.9h0M145.1 348.6h0M76.3 167.4h0M42.5 143.3h0M55.3 118.4h0M199.7 261.6h0M79.2 244.5h0M181.0 343.4h0M177.6 353.6h0M75.6 162.3h0M69.8 192.4h0M53.9 200.0h0M180.0 233.1h0M152.1 157.8h0M171.5 185.9h0M179.1 184.2h0M184.0 172.1h0M168.7 183.2h0M74.0 288.0h0M162.9 311.5h0M167.7 309.6h0M177.0 257.0h0M176.1 263.8h0M72.6 277.1h0M104.0 256.0h0M183.1 327.3h0M96.0 272.8h0M103.7 341.8h0M86.8 313.7h0M121.0 333.6h0M84.0 289.4h0"/>
+<path class="m-cil" d="M36.4 175.7h0M221.6 166.7h0M227.3 167.2h0M105.8 207.9h0M163.5 208.2h0M153.6 312.8h0M172.6 309.9h0M201.3 302.4h0M44.7 295.0h0M55.0 305.7h0M67.7 313.3h0M83.8 316.7h0M155.4 316.5h0M207.9 337.2h0M195.4 369.4h0M177.2 361.7h0M106.7 384.4h0M107.4 382.8h0M53.7 159.3h0M67.5 236.1h0M118.8 334.4h0M238.1 67.5h0M174.6 241.2h0M181.7 230.5h0M185.2 315.2h0M202.7 316.5h0M198.5 217.4h0M210.2 235.1h0M47.8 227.7h0M200.8 32.7h0M43.8 213.8h0M12.1 103.9h0M48.1 91.5h0M45.7 85.8h0M31.3 82.9h0M26.1 103.6h0M38.6 120.8h0M99.4 101.4h0M90.9 120.4h0M134.7 105.7h0M163.6 132.3h0M204.5 139.0h0M251.9 118.0h0M196.6 128.6h0M247.9 102.9h0M244.3 115.9h0M252.4 106.8h0M160.7 104.5h0M211.8 110.3h0M102.0 84.5h0M120.2 62.4h0M197.9 97.2h0M210.1 41.4h0M30.5 60.9h0M119.1 383.4h0M46.5 53.7h0M140.4 327.4h0M10.0 86.9h0M187.1 363.1h0M45.4 147.8h0M185.8 305.4h0M81.9 214.1h0M237.2 80.4h0M35.6 150.3h0M56.4 158.5h0M69.4 30.7h0M203.7 164.2h0M149.2 175.8h0M167.7 167.5h0M189.6 164.8h0M84.3 22.4h0M44.8 111.0h0"/>
+<path class="m-in" d="M156.2 226.1h0M143.3 63.1h0M76.5 305.3h0M83.2 60.6h0M151.0 61.2h0M158.0 235.6h0M156.1 36.2h0M50.2 124.8h0M165.1 38.3h0M52.0 223.2h0M107.7 49.7h0M180.8 53.6h0M195.5 64.0h0M82.0 62.2h0M183.0 55.8h0M166.5 211.3h0M105.4 49.8h0M104.1 52.6h0M80.2 69.5h0M182.4 47.9h0M67.4 298.9h0M105.3 346.7h0M189.7 43.7h0M85.1 68.9h0M161.0 18.1h0M167.6 42.1h0M115.5 253.7h0M158.1 58.8h0M208.4 288.0h0M98.6 43.2h0M88.6 45.4h0M77.8 71.0h0M158.5 373.7h0M168.9 46.1h0M109.7 363.8h0M145.6 48.0h0M104.1 46.9h0M98.5 60.7h0M169.0 64.0h0M71.7 67.9h0M194.4 69.2h0M121.8 43.2h0M81.1 288.9h0M176.6 386.1h0M73.2 219.3h0M121.9 28.7h0M165.9 24.7h0M101.5 55.1h0M107.4 47.0h0M194.2 55.8h0M72.0 71.5h0M109.4 63.2h0M184.8 40.2h0M87.0 56.7h0M163.3 364.5h0M175.2 63.1h0M183.9 62.0h0M181.1 56.9h0M63.0 75.8h0M115.2 24.9h0M207.9 70.4h0M214.0 74.2h0M204.8 79.1h0M94.9 42.3h0M95.5 38.1h0M157.6 29.4h0M55.8 75.4h0M158.1 21.8h0M98.8 30.3h0M185.3 30.3h0M145.4 388.9h0M219.6 90.8h0M203.0 78.4h0M69.1 72.1h0M207.9 86.2h0M77.7 64.7h0M80.3 175.5h0M146.4 273.2h0M92.8 292.8h0M174.5 335.6h0M216.6 93.4h0M67.0 272.4h0M69.8 303.5h0M68.9 80.2h0M79.7 292.2h0M157.8 50.7h0M117.7 41.4h0M113.1 289.2h0M115.1 43.3h0M203.1 85.0h0M173.6 351.4h0M109.2 272.8h0M68.7 214.2h0M158.8 304.8h0M163.9 189.8h0M65.1 71.8h0M120.7 49.5h0M70.4 187.2h0M190.9 149.0h0M94.1 49.4h0M108.2 22.4h0M63.6 300.8h0M166.4 380.2h0M164.1 356.4h0M80.9 301.0h0M150.3 305.8h0M151.8 197.7h0M132.8 293.9h0M67.5 182.1h0M62.6 111.9h0M216.9 76.4h0M102.1 33.6h0M204.7 78.3h0M65.4 307.7h0M154.4 369.0h0M178.7 303.7h0M174.6 28.1h0M82.7 254.4h0M156.3 188.5h0M58.1 109.4h0M66.6 288.7h0M207.5 82.5h0M132.5 281.5h0M163.5 221.4h0M155.0 262.1h0M170.2 360.2h0M196.8 123.6h0M156.7 198.4h0M126.8 217.0h0M177.7 297.6h0M141.5 47.1h0M196.8 198.6h0M103.0 351.2h0M110.5 290.3h0M109.2 81.0h0M185.2 296.8h0M175.8 288.9h0M175.0 356.3h0M161.4 50.0h0M62.6 68.9h0M213.4 58.6h0M65.8 82.3h0M77.8 84.9h0M103.9 52.7h0M175.7 368.7h0M159.9 293.5h0M109.4 252.2h0M128.6 367.4h0M166.7 54.6h0M188.1 63.3h0M159.1 287.8h0M173.5 291.5h0M108.7 345.0h0M149.6 255.3h0M177.2 371.1h0M212.5 85.1h0M82.2 62.6h0M60.7 183.9h0M97.8 360.8h0M168.0 332.6h0M222.2 91.5h0M92.9 315.0h0M105.9 368.5h0M87.6 180.2h0M146.4 387.2h0M167.8 302.7h0M219.8 152.1h0M178.1 49.3h0M116.9 30.2h0M72.6 299.8h0M81.1 299.0h0M103.7 40.1h0M68.7 187.1h0M108.8 368.8h0M70.4 49.3h0M173.7 85.7h0M82.4 72.5h0M213.0 59.5h0M179.8 299.4h0M229.0 96.7h0M83.8 57.9h0M74.7 77.1h0M48.8 212.5h0M168.1 81.9h0M58.6 68.0h0M92.3 51.5h0M58.4 220.7h0M62.7 286.8h0M118.3 48.0h0M115.9 51.5h0M180.1 58.0h0M167.4 44.0h0M67.8 53.8h0M53.8 73.7h0M108.0 44.7h0M149.7 291.4h0M108.3 37.8h0M54.4 148.8h0M135.6 253.3h0M93.6 52.5h0M74.3 54.2h0M74.5 82.7h0M186.5 72.1h0M89.3 55.6h0M86.3 60.0h0M220.2 79.4h0M206.7 79.8h0M217.6 84.5h0M192.0 61.7h0M198.4 117.5h0M206.3 74.3h0M89.1 85.4h0M159.8 38.9h0M167.1 50.1h0M175.1 39.6h0M71.8 77.7h0M63.3 74.8h0M90.0 72.3h0M84.7 57.9h0M123.0 18.6h0M63.4 76.8h0M163.8 19.6h0M109.5 37.3h0M135.0 381.3h0M53.1 212.8h0M86.3 257.2h0M179.1 385.6h0M165.7 30.2h0M179.8 35.3h0M111.3 42.0h0M159.0 211.0h0M76.7 181.4h0M224.4 103.9h0M112.1 41.1h0M157.9 191.9h0M167.4 29.0h0M150.2 220.5h0M168.0 36.5h0M97.6 208.0h0M154.3 30.8h0M112.6 25.5h0M98.9 276.7h0M197.1 132.1h0M96.9 52.0h0M91.7 55.7h0M188.0 61.2h0M92.8 29.0h0M139.5 46.7h0M209.9 70.7h0M98.8 29.3h0M214.0 93.0h0M167.4 40.3h0M157.7 46.1h0M158.0 39.4h0M125.8 25.7h0M116.7 32.3h0M213.5 95.6h0M157.6 51.9h0M179.9 66.2h0M192.4 32.7h0M166.1 27.5h0M171.0 21.5h0M127.2 22.2h0M172.2 35.0h0M136.2 375.6h0M122.0 193.3h0M139.5 387.5h0M105.0 40.2h0M90.4 47.1h0M139.2 390.4h0M122.1 45.5h0M172.0 51.4h0M150.8 40.9h0M108.3 30.8h0M84.0 67.6h0M76.9 62.9h0M227.6 103.1h0M151.4 31.2h0M71.8 81.6h0M155.6 39.9h0M124.1 24.7h0M155.4 43.3h0M105.8 186.9h0M148.2 69.2h0M124.5 287.7h0M170.5 32.8h0M116.1 32.0h0"/>
+<path class="m-mn" d="M135.7 79.3h0M115.7 78.6h0M140.9 239.1h0M149.9 313.1h0M135.1 347.1h0M189.2 352.9h0M107.8 63.3h0M166.8 222.3h0M123.6 37.3h0M149.3 206.1h0M158.2 62.5h0M104.3 69.3h0M200.6 59.8h0M81.3 192.0h0M172.1 378.4h0M90.2 266.6h0M133.9 298.3h0M108.0 26.7h0M116.4 335.8h0M129.8 297.9h0M147.1 270.2h0M99.9 283.7h0M76.9 187.0h0M150.6 307.9h0M98.8 227.6h0M74.8 289.2h0M133.1 227.8h0M80.1 271.5h0M123.7 346.1h0M127.2 264.2h0M92.4 241.4h0M159.6 355.6h0M125.0 221.8h0M147.6 291.3h0M122.0 246.1h0M151.6 318.7h0M131.9 192.9h0M153.5 66.6h0M91.5 276.8h0M154.4 265.1h0M91.6 262.8h0M151.3 326.5h0M88.0 297.1h0M94.2 229.0h0M155.8 190.9h0M106.8 176.5h0M125.0 277.2h0M156.5 294.5h0M153.9 290.1h0M132.4 66.2h0M74.9 195.3h0M89.3 284.8h0M143.2 253.7h0M99.8 79.6h0M148.7 252.0h0M146.0 352.7h0M138.6 311.8h0M110.0 342.3h0M154.0 385.8h0M71.0 260.6h0M136.7 352.6h0M75.0 194.6h0M102.3 327.7h0M86.1 186.7h0M114.8 365.5h0M96.0 339.9h0M108.8 325.2h0M91.0 346.1h0M164.3 70.4h0M61.3 240.6h0M142.5 259.9h0M70.8 237.3h0M62.4 234.2h0M141.8 183.1h0M65.7 183.3h0M82.7 246.5h0M78.2 238.5h0M81.6 264.8h0M69.7 182.0h0M97.2 322.3h0M107.8 330.1h0M166.9 30.6h0M119.0 360.0h0M152.9 333.5h0M87.3 336.5h0M102.8 319.7h0M168.9 323.6h0M140.6 261.8h0M72.2 263.2h0M79.6 236.4h0M141.1 225.9h0M147.0 232.8h0M105.7 57.5h0M145.2 244.4h0M136.6 267.0h0M143.7 88.2h0M61.1 211.9h0M91.5 307.6h0M154.1 297.5h0M146.1 346.9h0M123.7 64.7h0M155.8 182.2h0M132.7 275.3h0M86.8 174.8h0M70.8 172.3h0M156.5 215.2h0M59.5 220.2h0M96.5 191.2h0M165.1 338.2h0M175.5 59.0h0M157.4 185.3h0M152.3 399.3h0M134.4 202.0h0M117.8 340.5h0M153.3 313.3h0M147.2 317.8h0M146.5 194.4h0M99.7 34.8h0M140.7 343.0h0M97.1 68.0h0M149.1 327.8h0"/>
+<path class="m-sn" d="M158.9 50.4h0M152.5 53.4h0M148.4 47.7h0M84.9 57.6h0M94.7 42.1h0M132.1 23.2h0M177.7 47.0h0M165.3 33.4h0M110.2 51.8h0M64.4 60.1h0M70.9 48.3h0M87.3 34.2h0M176.4 19.2h0M162.6 394.6h0M135.8 97.3h0M166.9 21.6h0M224.4 77.4h0M178.0 45.7h0M182.3 196.3h0M95.2 17.3h0M185.7 34.4h0M122.1 11.4h0M146.7 17.1h0M237.6 108.0h0M112.3 27.3h0M100.1 26.0h0M144.5 30.8h0M101.9 48.4h0M172.5 36.1h0M99.9 27.2h0M101.6 13.4h0M114.9 23.6h0M204.1 51.4h0M117.7 30.2h0M97.2 21.8h0M189.5 22.2h0M91.8 26.1h0M114.2 19.9h0M143.5 26.2h0M65.4 52.4h0M117.1 34.8h0M182.6 41.4h0M88.7 46.7h0M80.3 53.5h0M176.4 40.4h0M177.2 49.9h0M148.9 175.1h0M173.6 395.7h0M168.3 15.1h0M197.4 36.6h0M131.5 26.9h0M165.5 16.2h0M149.7 21.5h0M128.2 34.0h0M115.0 20.6h0M233.7 81.0h0M131.5 77.0h0M166.7 23.5h0M98.8 35.3h0M114.3 40.4h0M187.2 34.1h0M157.3 30.7h0M47.2 66.0h0M102.3 25.9h0M165.8 41.7h0M137.6 241.6h0M48.4 135.8h0M37.3 213.4h0M47.6 217.2h0M48.4 229.6h0M230.8 184.7h0M54.7 256.3h0M187.4 55.2h0M94.2 59.7h0M184.1 52.5h0M160.5 23.6h0M159.3 28.4h0M47.8 247.8h0M60.9 156.9h0M92.9 194.8h0M52.2 289.8h0M58.0 285.2h0M79.5 164.5h0M112.1 24.2h0M113.8 28.4h0M227.8 153.4h0M88.6 40.8h0M179.1 242.0h0M144.5 25.5h0M110.0 352.8h0M143.5 307.7h0M119.8 22.3h0M138.4 39.4h0M34.9 160.7h0M61.7 43.0h0M47.5 213.0h0M80.8 194.0h0M53.4 288.5h0M172.2 224.8h0M136.3 23.4h0M188.9 53.2h0M110.0 365.0h0M49.8 266.3h0M198.5 60.7h0M182.2 384.9h0M24.3 191.8h0M210.7 143.0h0M53.1 266.4h0M206.0 304.2h0M82.2 33.7h0M190.2 200.4h0M73.0 50.6h0M251.1 252.5h0M190.1 32.5h0M152.3 282.6h0M151.1 15.0h0M78.7 76.2h0M132.9 27.4h0M167.2 61.6h0M194.3 209.4h0M185.0 74.2h0M109.6 37.6h0M219.4 51.6h0M203.2 63.6h0M88.2 39.5h0M161.8 119.0h0M41.8 230.4h0M137.7 201.5h0M104.3 122.8h0M217.8 161.1h0M61.5 243.2h0M83.2 288.4h0M49.3 213.2h0M69.1 313.5h0M140.8 392.5h0M214.9 46.4h0M226.5 277.2h0M48.2 231.8h0M150.6 40.0h0M165.0 24.8h0M182.2 296.4h0M209.7 216.2h0M42.5 238.8h0M88.4 197.0h0M190.0 292.1h0M80.5 238.1h0M189.6 291.1h0M56.8 292.2h0M98.1 370.5h0M156.9 365.3h0M44.3 217.0h0M67.4 157.2h0M204.8 227.0h0M190.9 357.1h0M256.7 255.9h0M212.5 224.8h0M65.6 211.5h0M62.8 304.3h0M94.7 168.7h0M192.2 386.4h0M183.4 380.1h0M189.1 79.0h0M180.4 388.5h0M112.7 350.7h0M251.9 274.2h0M221.4 161.2h0M188.8 18.0h0M116.8 81.3h0M141.1 197.6h0M243.6 67.2h0M161.5 26.6h0M208.1 55.3h0M229.2 63.5h0M170.7 35.5h0M90.8 33.6h0M77.8 189.4h0M180.2 35.6h0M170.7 45.8h0M219.0 73.6h0M87.4 48.2h0M86.0 41.9h0M144.9 16.7h0M43.0 67.4h0M227.9 73.0h0M183.8 39.9h0M122.2 305.7h0M150.9 23.3h0M242.3 107.4h0M207.9 186.2h0M200.9 187.3h0M220.4 88.6h0M218.0 75.9h0M116.2 56.2h0M35.8 54.6h0M140.1 29.6h0M190.2 304.3h0M194.3 49.9h0M201.5 43.3h0M125.1 12.3h0M103.1 43.2h0M181.2 56.9h0M181.4 34.0h0M179.4 21.7h0M67.4 42.8h0M199.6 60.0h0M180.9 19.0h0M70.8 50.6h0M72.8 59.2h0M75.5 53.2h0M229.4 157.6h0M61.9 294.0h0M187.1 393.5h0M188.8 387.9h0M171.9 228.0h0M189.4 396.8h0M40.3 157.5h0M188.4 381.6h0M133.1 369.9h0M184.1 357.7h0M146.1 22.0h0M95.4 14.6h0M213.7 68.4h0M144.8 41.5h0M140.1 37.9h0M149.8 31.7h0M198.7 274.6h0M67.8 212.9h0M186.9 390.7h0M68.9 316.2h0M118.5 22.8h0M221.3 62.5h0M151.5 32.8h0M222.0 85.3h0M74.1 75.3h0M127.7 75.6h0M76.9 52.2h0M139.3 173.6h0M184.3 22.4h0M182.3 382.0h0M79.0 39.7h0M105.1 17.3h0M173.3 26.6h0M50.2 63.5h0M87.8 46.7h0M99.6 47.7h0M94.3 32.6h0M98.6 13.2h0M144.2 33.9h0M79.8 68.1h0M70.6 80.4h0M183.3 30.8h0M180.9 23.0h0M98.0 37.2h0M58.7 79.8h0M63.1 89.6h0M66.1 79.6h0M240.9 97.9h0M86.6 61.4h0M100.9 38.5h0M110.3 25.0h0M107.0 29.7h0M167.9 31.2h0M76.8 72.2h0M201.9 66.9h0M117.6 29.1h0M76.2 66.9h0M148.4 56.2h0M207.3 76.6h0M81.7 60.0h0M206.7 69.7h0M79.3 57.7h0M95.5 83.7h0"/>
+<path class="m-touch" d="M150.6 28.3h0M153.9 19.0h0M92.9 30.3h0M124.0 28.4h0M138.9 21.4h0M112.2 48.3h0M44.6 252.7h0M74.5 219.0h0M188.2 28.9h0M193.2 31.4h0M187.5 50.4h0M42.8 219.4h0M55.7 252.4h0M217.2 248.5h0M249.9 305.9h0M136.8 27.6h0M81.9 41.2h0M231.6 346.5h0M93.4 348.6h0M144.8 33.6h0M246.2 268.0h0M135.4 51.5h0M223.3 177.6h0M218.2 321.2h0M194.4 195.0h0M214.6 187.3h0M131.4 100.0h0M113.8 321.5h0M115.9 374.6h0M214.9 355.8h0M211.3 344.0h0M98.0 362.3h0M193.1 388.9h0M22.8 199.2h0M39.9 198.6h0M175.1 395.7h0M185.9 390.6h0M26.3 174.5h0M184.0 35.3h0M155.7 34.5h0M150.7 28.1h0M195.2 390.3h0M169.8 392.7h0M146.5 404.3h0M151.5 399.3h0M163.1 400.6h0M159.8 398.4h0M153.1 400.8h0M85.9 19.2h0M105.0 15.1h0M171.9 13.1h0M173.7 393.1h0"/>
+<path class="m-eye" d="M226.6 68.1h0M48.2 50.9h0M66.7 46.5h0M66.3 42.3h0M209.2 57.2h0M72.6 65.9h0M71.9 69.4h0M71.5 60.8h0M236.8 71.3h0M205.2 55.9h0M209.8 52.2h0M215.5 51.5h0M218.3 54.0h0M206.8 69.0h0M211.5 62.2h0M211.9 69.0h0M221.2 78.2h0M40.5 54.3h0M224.5 87.1h0M224.0 84.1h0M71.7 43.0h0M73.2 55.4h0M72.7 48.0h0M75.3 45.5h0M77.5 65.2h0M71.7 52.7h0"/>
+</svg></div>
+        <figcaption>
+          <p class="ab-figt">Figure 1 · The map, flattened</p>
+          <p>Each dot is one of the 1,199 cells whose position comes straight from the lab's 3D reconstructions, projected onto one plane with the head at the top. Drawn from <a href="/data/wiring.json">/data/wiring.json</a>.</p>
+          <ul class="ab-legend">
+            <li><i class="k-eye"></i>eye photoreceptors</li>
+            <li><i class="k-touch"></i>touch sensors</li>
+            <li><i class="k-sn"></i>other sensory neurons</li>
+            <li><i class="k-in"></i>interneurons</li>
+            <li><i class="k-mn"></i>motor neurons</li>
+            <li><i class="k-mus"></i>muscle cells</li>
+            <li><i class="k-cil"></i>ciliated cells</li>
+            <li><i class="k-other"></i>other cells</li>
+          </ul>
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 04 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="digital-worm" aria-labelledby="h-digital">
+      <header class="ab-sech"><p class="ab-num">04</p><h2 id="h-digital">From map to digital worm</h2></header>
+      <p class="ab-lede">A map is not a working nervous system. It says who connects to whom and with how many synapses, not what each cell does with its input. To make it run, BRAINWORM puts a simple model on top of the map and connects a simulated body to it.</p>
+      <p>Every piece below carries one or more of three labels, the same ones the main site uses:</p>
+      <ul class="ab-keys">
+        <li><span class="tag real">Measured</span><p>Straight from the study's data, unchanged.</p></li>
+        <li><span class="tag simp">Simplified</span><p>A rule of the model: far simpler than the real animal, registered and timestamped before it first ran.</p></li>
+        <li><span class="tag chosen">Chosen</span><p>Our choice, where the data says nothing. Every such number is published in <a href="/manifest.json">/manifest.json</a>.</p></li>
+      </ul>
+
+      <figure class="ab-fig">
+        <ol class="ab-flow" aria-label="From a message to the body, step by step">
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H10l-5 4v-4H4z"/><path d="M8 9.5h8M8 12.5h5"/></svg></span><div><p class="ab-flowh"><b>Your message</b><span class="tag chosen">Chosen</span></p><p>Up to 40 characters, drawn in a pixel font 16 pixels high.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg></span><div><p class="ab-flowh"><b>Light</b><span class="tag chosen">Chosen</span></p><p>It scrolls past a view in front of the eyes, one column of pixels per step.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.6"/></svg></span><div><p class="ab-flowh"><b>Eyes</b><span class="tag real">Measured</span><span class="tag chosen">Chosen</span></p><p>26 real photoreceptors, each watching one strip of the view.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="7" r="2"/><circle cx="18.5" cy="5.5" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="19" cy="15" r="1.6"/><path d="M7.5 6.8l9-1M6.6 8.8l4.4 7.4M17.7 7.4l-4.8 8.8M13.8 17.4l3.7-1.8"/></svg></span><div><p class="ab-flowh"><b>Wiring</b><span class="tag real">Measured</span><span class="tag simp">Simplified</span></p><p>2,675 cells pass activity along 14,066 connections, weighted by synapse count.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c0-4 2-6.5 1.5-12M10 19c0-4 2-6.5 1.5-12M15 19c0-4 2-6.5 1.5-12M3 19.5h18"/></svg></span><div><p class="ab-flowh"><b>Muscles and cilia</b><span class="tag simp">Simplified</span></p><p>Body-wall muscles steer, startle muscles brake, cholinergic input stops the cilia.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 15c2.4 0 2.8-7 5.6-7s3 7 5.8 7 3-7 5.6-7"/><circle cx="20.5" cy="8" r="1.3"/></svg></span><div><p class="ab-flowh"><b>Body</b><span class="tag chosen">Chosen</span></p><p>A simulated body swims through a virtual tank. With a lamp lit, its eyes see where it swims.</p></div></li>
+        </ol>
+        <figcaption><p class="ab-figt">Figure 2 · From your keyboard to its body</p><p>One pass through the simulation, 30 times a second.</p></figcaption>
+      </figure>
+
+      <!-- 4.1 -->
+      <h3 class="ab-h3" id="data-file">The data file</h3>
+      <p class="ab-tags"><span class="tag real">Measured</span><span class="tag chosen">Chosen: placed positions</span></p>
+      <p>A script in the project reads the lab's public files and writes one compact file, <a href="/data/wiring.json">/data/wiring.json</a>: every cell with its class, side, segment and type, and every connection with its synapse count. Anyone can rebuild it from the lab's repository, and the script reproduces the published file byte for byte.</p>
+      <p>1,199 cells sit at cell-body positions taken from the lab's 3D viewer pages. For most of them that is the cell's own body; for a few cell types whose pages and tables don't line up one to one, a cell gets the body of a cell of its own type, on its own side. The 1,009 cells without a published position are placed near cells of their own segment and side, and the data marks them as approximate. The 467 fragments have no position and are not drawn.</p>
+      <p>Two more files come from the same release: the known transmitter of each cell type (<a href="/data/transmitters.json">/data/transmitters.json</a>) and the traced shapes of the cells, which the 3D view draws. The glassy outline of the body around them is ours, derived from the traced cells, because the lab didn't publish one.</p>
+
+      <!-- 4.2 -->
+      <h3 class="ab-h3" id="cells">Cells as firing rates</h3>
+      <p class="ab-tags"><span class="tag simp">Simplified</span><span class="tag chosen">Chosen: threshold, time constants, fatigue</span></p>
+      <p>Real nerve cells signal with brief electrical pulses called spikes. A <dfn>firing rate</dfn> is how often a cell spikes. The model doesn't simulate individual spikes: it keeps one number per cell, its activity, from 0 (silent) to just under 1 (as active as the model allows). The site counts a cell as firing when its activity is above 0.05.</p>
+      <p>Every step, each of the 2,675 cells does four things:</p>
+      <ol class="ab-olist">
+        <li><b>Adds up its input:</b> any outside drive (light on an eye cell, a poke on a touch sensor), plus each sending cell's activity times that connection's strength, minus 1.5 times its own fatigue.</li>
+        <li><b>Turns it into a target.</b> If the total is above the threshold of 0.05, the target is <code>tanh(total − 0.05)</code>, a smooth curve that rises steeply and then levels off below 1. Otherwise the target is 0.</li>
+        <li><b>Moves a third of the way</b> from its current activity toward that target (a time constant of 3 steps).</li>
+        <li><b>Updates its fatigue,</b> which slowly follows its activity (a time constant of 40 steps), so a cell that has been busy responds less for a while.</li>
+      </ol>
+      <p>That is the whole model of a cell: a simulation of a real, mapped nervous system, with nothing invented and nothing trained. The few numbers the data can't supply are our choices, and every one of them is listed in the manifest.</p>
+      <aside class="ab-note" data-kind="simp">
+        <p class="ab-notek"><span class="tag simp">Why not spikes?</span></p>
+        <p>The model's registration answers this. With the published spiking parameters of a fly brain model (Shiu et al., 2024), a cell needs about two dozen input synapses firing at typical rates to reach its threshold. 92% of this worm's cells have fewer, so borrowing those parameters would silence it, and there are no worm-specific parameters to use instead.</p>
+      </aside>
+
+      <!-- 4.3 -->
+      <h3 class="ab-h3" id="strength">Connection strength: one number, computed</h3>
+      <p class="ab-tags"><span class="tag real">Measured: synapse counts</span><span class="tag simp">Simplified: one registered rule</span></p>
+      <p>A connection's strength is its synapse count times one number, <i>c</i>, the same for every synapse in the worm:</p>
+      <div class="ab-formula">
+        <p>strength = synapses × <i>c</i></p>
+        <p><i>c</i> = 1 / 30.998 = 0.03226</p>
+      </div>
+      <p><i>c</i> isn't tuned. It is computed from the wiring: 1 divided by the largest eigenvalue of the synapse-count matrix. The <dfn>synapse-count matrix</dfn> is the whole wiring written as one table, with a row and a column for every cell and, where they meet, the number of synapses from one to the other. Its <dfn>largest eigenvalue</dfn> measures how much activity can multiply each time it travels around the wiring's loops. Dividing by it sets every connection at the strength where no loop can grow on its own: activity spreads along strong connections, fades along weak ones, and only a stimulus keeps it going.</p>
+      <p>So a single synapse is worth 0.032, and the strongest input to the rhythm cell MC, 36 synapses from a serotonergic cell called Ser-h1, is worth 1.16. It is also one of the few inhibitory connections, as the next part explains.</p>
+      <aside class="ab-note" data-kind="plain">
+        <p class="ab-notek"><span class="tag verify">Why model v2</span></p>
+        <p>The first model divided each cell's input by its total synapse count and multiplied by a chosen gain of 2.2. Under it, the first of ten pokes lit up 2,375 of the 2,675 cells at once (89%), and every pass/fail test failed: when everything lights up, nothing can be specific. Model v2 replaced it with the rule above, and model v1's results stay published in <a href="/data/lab-model-v1.json">/data/lab-model-v1.json</a>.</p>
+      </aside>
+
+      <!-- 4.4 -->
+      <h3 class="ab-h3" id="signs">Transmitters: which synapses inhibit</h3>
+      <p class="ab-tags"><span class="tag real">Measured: 79 transmitters</span><span class="tag simp">Simplified: everything else excitatory</span></p>
+      <p>A <dfn>neurotransmitter</dfn> is the chemical a nerve cell releases at its synapses. Cells that use acetylcholine are called cholinergic; cells that use serotonin are serotonergic. The transmitter helps decide whether a signal excites the next cell or holds it back.</p>
+      <p>The lab's cell-type table names a transmitter for 79 of the 2,675 cells: 55 glutamatergic, 18 cholinergic, 4 serotonergic, 1 dopaminergic and 1 adrenergic. For the other 97%, it is unknown.</p>
+      <p>So the model can't read a sign for most synapses, and it doesn't guess. Every synapse is excitatory, except the one kind the lab's findings pin down: synapses from serotonergic cells onto the cholinergic cells that drive the cilia are inhibitory, because the lab found that serotonin inhibits that cholinergic rhythm. In this wiring that is 9 connections carrying 65 synapses, from the Ser-h1 cells onto MC and from the Ser-tr1 cells onto the Loop, MN1 and MN2 cells. The full list is in the manifest.</p>
+
+      <!-- 4.5 -->
+      <h3 class="ab-h3" id="cilia">The cilia rule and the stop-and-go rhythm</h3>
+      <p class="ab-tags"><span class="tag simp">Simplified</span><span class="tag chosen">Chosen: burst length</span></p>
+      <p>The worm swims with its 72 ciliated cells. Each one follows one rule: it stops beating in proportion to the activity of its cholinergic inputs, and serotonergic input keeps it beating.</p>
+      <div class="ab-formula">
+        <p>arrest = A × (1 − S)</p>
+        <p class="ab-fxnote">A, S: the synapse-weighted average activity of the cell's cholinergic and serotonergic inputs (0 if it has none). 0 means beating, 1 means stopped.</p>
+      </div>
+      <p>Each side of the body beats at 1 minus the average arrest of that side's ciliated cells. No other input stops the cilia. The rule follows the lab's findings: cholinergic cells drive the coordinated stops of all the cilia and serotonin inhibits that rhythm (Verasztó et al., 2017), and the eyespot changes the beating of the cilia next to it through cholinergic synapses (Jékely et al., 2008). In the data, the 7 cells of the metatroch get no cholinergic input, so under this rule they never stop.</p>
+      <p>The rhythm itself: every 71 seconds (2,130 steps), from step 2,130 on, the MC cell gets a drive of 1.0 for 2 seconds (60 steps). The 71 seconds is the lab's median cycle. How long each burst lasts isn't reported, so the 2 seconds is ours. How long the cilia stay stopped is up to the wiring.</p>
+
+      <!-- 4.6 -->
+      <h3 class="ab-h3" id="eyes">The eyes: how a message becomes light</h3>
+      <p class="ab-tags"><span class="tag real">Measured: the eye cells</span><span class="tag chosen">Chosen: the mapping</span></p>
+      <p>The worm can't see words. What reaches it is a moving pattern of light, made like this:</p>
+      <ol class="ab-olist">
+        <li>Your message, up to 40 characters, is drawn in a pixel font 16 pixels high, rasterised from Poppins Bold, one column of pixels at a time.</li>
+        <li>It scrolls past a view 60 columns wide, one column per step: 30 columns a second.</li>
+        <li>The 13 left photoreceptors each watch one strip of the left half of the view, and the 13 right ones the right half. A photoreceptor's input is its strip's brightness times 1.6, capped at 1.</li>
+        <li>When the whole view is more than 45% lit (a row of solid blocks, █, does it), the 4 non-directional light sensors respond too.</li>
+      </ol>
+      <figure class="ab-fig ab-eyefig">
+        <svg class="ab-eyesvg" viewBox="-6 0 612 226" role="img" aria-labelledby="eyefig-t">
+<title id="eyefig-t">The message wagmi, drawn in the site&#39;s pixel font, fills the 60-column view in front of the eyes. The left half of the view is split into 13 strips for the 13 left photoreceptors and the right half into 13 strips for the right ones. Each photoreceptor's input, shown as the brightness of its dot, ranges here from 0.17 to 1.00.</title>
+<defs><pattern id="ab-px" width="10" height="10" patternUnits="userSpaceOnUse"><rect class="e-off" x="1" y="1" width="8" height="8" rx="1"/></pattern></defs>
+<rect class="e-view" x="-3" y="1" width="606" height="166" rx="7"/>
+<rect x="0" y="4" width="600" height="160" fill="url(#ab-px)"/>
+<path class="e-px" transform="translate(0 4)" d="M11 41h8v8h-8zM11 51h8v8h-8zM21 41h8v8h-8zM21 51h8v8h-8zM21 61h8v8h-8zM21 71h8v8h-8zM21 81h8v8h-8zM21 91h8v8h-8zM31 41h8v8h-8zM31 51h8v8h-8zM31 61h8v8h-8zM31 71h8v8h-8zM31 81h8v8h-8zM31 91h8v8h-8zM31 101h8v8h-8zM31 111h8v8h-8zM31 121h8v8h-8zM31 131h8v8h-8zM41 61h8v8h-8zM41 71h8v8h-8zM41 81h8v8h-8zM41 91h8v8h-8zM41 101h8v8h-8zM41 111h8v8h-8zM41 121h8v8h-8zM41 131h8v8h-8zM51 101h8v8h-8zM51 111h8v8h-8zM51 121h8v8h-8zM51 131h8v8h-8zM61 61h8v8h-8zM61 71h8v8h-8zM61 81h8v8h-8zM61 91h8v8h-8zM61 101h8v8h-8zM61 111h8v8h-8zM61 121h8v8h-8zM61 131h8v8h-8zM71 41h8v8h-8zM71 51h8v8h-8zM71 61h8v8h-8zM71 71h8v8h-8zM71 81h8v8h-8zM71 91h8v8h-8zM71 101h8v8h-8zM71 111h8v8h-8zM81 41h8v8h-8zM81 51h8v8h-8zM81 61h8v8h-8zM81 71h8v8h-8zM81 81h8v8h-8zM91 41h8v8h-8zM91 51h8v8h-8zM91 61h8v8h-8zM91 71h8v8h-8zM91 81h8v8h-8zM91 91h8v8h-8zM91 101h8v8h-8zM91 111h8v8h-8zM91 121h8v8h-8zM101 61h8v8h-8zM101 71h8v8h-8zM101 81h8v8h-8zM101 91h8v8h-8zM101 101h8v8h-8zM101 111h8v8h-8zM101 121h8v8h-8zM101 131h8v8h-8zM111 101h8v8h-8zM111 111h8v8h-8zM111 121h8v8h-8zM111 131h8v8h-8zM121 61h8v8h-8zM121 71h8v8h-8zM121 81h8v8h-8zM121 91h8v8h-8zM121 101h8v8h-8zM121 111h8v8h-8zM121 121h8v8h-8zM121 131h8v8h-8zM131 41h8v8h-8zM131 51h8v8h-8zM131 61h8v8h-8zM131 71h8v8h-8zM131 81h8v8h-8zM131 91h8v8h-8zM131 101h8v8h-8zM131 111h8v8h-8zM131 121h8v8h-8zM141 41h8v8h-8zM141 51h8v8h-8zM141 61h8v8h-8zM141 71h8v8h-8zM141 81h8v8h-8zM151 41h8v8h-8zM171 61h8v8h-8zM171 71h8v8h-8zM171 81h8v8h-8zM171 91h8v8h-8zM171 101h8v8h-8zM171 111h8v8h-8zM181 51h8v8h-8zM181 61h8v8h-8zM181 71h8v8h-8zM181 81h8v8h-8zM181 91h8v8h-8zM181 101h8v8h-8zM181 111h8v8h-8zM181 121h8v8h-8zM191 41h8v8h-8zM191 51h8v8h-8zM191 61h8v8h-8zM191 71h8v8h-8zM191 81h8v8h-8zM191 91h8v8h-8zM191 101h8v8h-8zM191 111h8v8h-8zM191 121h8v8h-8zM191 131h8v8h-8zM201 41h8v8h-8zM201 51h8v8h-8zM201 61h8v8h-8zM201 111h8v8h-8zM201 121h8v8h-8zM201 131h8v8h-8zM211 41h8v8h-8zM211 51h8v8h-8zM211 61h8v8h-8zM211 111h8v8h-8zM211 121h8v8h-8zM211 131h8v8h-8zM221 41h8v8h-8zM221 51h8v8h-8zM221 61h8v8h-8zM221 111h8v8h-8zM221 121h8v8h-8zM221 131h8v8h-8zM231 51h8v8h-8zM231 61h8v8h-8zM231 111h8v8h-8zM231 121h8v8h-8zM241 41h8v8h-8zM241 51h8v8h-8zM241 61h8v8h-8zM241 71h8v8h-8zM241 81h8v8h-8zM241 91h8v8h-8zM241 101h8v8h-8zM241 111h8v8h-8zM241 121h8v8h-8zM241 131h8v8h-8zM251 41h8v8h-8zM251 51h8v8h-8zM251 61h8v8h-8zM251 71h8v8h-8zM251 81h8v8h-8zM251 91h8v8h-8zM251 101h8v8h-8zM251 111h8v8h-8zM251 121h8v8h-8zM251 131h8v8h-8zM261 41h8v8h-8zM261 51h8v8h-8zM261 61h8v8h-8zM261 71h8v8h-8zM261 81h8v8h-8zM261 91h8v8h-8zM261 101h8v8h-8zM261 111h8v8h-8zM261 121h8v8h-8zM261 131h8v8h-8zM281 61h8v8h-8zM281 71h8v8h-8zM281 81h8v8h-8zM281 91h8v8h-8zM281 101h8v8h-8zM281 111h8v8h-8zM281 151h8v8h-8zM291 51h8v8h-8zM291 61h8v8h-8zM291 71h8v8h-8zM291 81h8v8h-8zM291 91h8v8h-8zM291 101h8v8h-8zM291 111h8v8h-8zM291 121h8v8h-8zM291 151h8v8h-8zM301 41h8v8h-8zM301 51h8v8h-8zM301 61h8v8h-8zM301 71h8v8h-8zM301 81h8v8h-8zM301 91h8v8h-8zM301 101h8v8h-8zM301 111h8v8h-8zM301 121h8v8h-8zM301 131h8v8h-8zM301 151h8v8h-8zM311 41h8v8h-8zM311 51h8v8h-8zM311 61h8v8h-8zM311 111h8v8h-8zM311 121h8v8h-8zM311 131h8v8h-8zM321 41h8v8h-8zM321 51h8v8h-8zM321 61h8v8h-8zM321 111h8v8h-8zM321 121h8v8h-8zM321 131h8v8h-8zM331 41h8v8h-8zM331 51h8v8h-8zM331 61h8v8h-8zM331 111h8v8h-8zM331 121h8v8h-8zM331 131h8v8h-8zM341 51h8v8h-8zM341 61h8v8h-8zM341 111h8v8h-8zM341 121h8v8h-8zM351 41h8v8h-8zM351 51h8v8h-8zM351 61h8v8h-8zM351 71h8v8h-8zM351 81h8v8h-8zM351 91h8v8h-8zM351 101h8v8h-8zM351 111h8v8h-8zM351 121h8v8h-8zM351 131h8v8h-8zM351 141h8v8h-8zM351 151h8v8h-8zM361 41h8v8h-8zM361 51h8v8h-8zM361 61h8v8h-8zM361 71h8v8h-8zM361 81h8v8h-8zM361 91h8v8h-8zM361 101h8v8h-8zM361 111h8v8h-8zM361 121h8v8h-8zM361 131h8v8h-8zM361 141h8v8h-8zM361 151h8v8h-8zM371 41h8v8h-8zM371 51h8v8h-8zM371 61h8v8h-8zM371 71h8v8h-8zM371 81h8v8h-8zM371 91h8v8h-8zM371 101h8v8h-8zM371 111h8v8h-8zM371 121h8v8h-8zM371 131h8v8h-8zM371 141h8v8h-8zM371 151h8v8h-8zM391 41h8v8h-8zM391 51h8v8h-8zM391 61h8v8h-8zM391 71h8v8h-8zM391 81h8v8h-8zM391 91h8v8h-8zM391 101h8v8h-8zM391 111h8v8h-8zM391 121h8v8h-8zM391 131h8v8h-8zM401 41h8v8h-8zM401 51h8v8h-8zM401 61h8v8h-8zM401 71h8v8h-8zM401 81h8v8h-8zM401 91h8v8h-8zM401 101h8v8h-8zM401 111h8v8h-8zM401 121h8v8h-8zM401 131h8v8h-8zM411 41h8v8h-8zM411 51h8v8h-8zM411 61h8v8h-8zM411 71h8v8h-8zM411 81h8v8h-8zM411 91h8v8h-8zM411 101h8v8h-8zM411 111h8v8h-8zM411 121h8v8h-8zM411 131h8v8h-8zM421 51h8v8h-8zM421 61h8v8h-8zM431 41h8v8h-8zM431 51h8v8h-8zM431 61h8v8h-8zM441 41h8v8h-8zM441 51h8v8h-8zM441 61h8v8h-8zM451 41h8v8h-8zM451 51h8v8h-8zM451 61h8v8h-8zM451 71h8v8h-8zM451 81h8v8h-8zM451 91h8v8h-8zM451 101h8v8h-8zM451 111h8v8h-8zM451 121h8v8h-8zM451 131h8v8h-8zM461 51h8v8h-8zM461 61h8v8h-8zM461 71h8v8h-8zM461 81h8v8h-8zM461 91h8v8h-8zM461 101h8v8h-8zM461 111h8v8h-8zM461 121h8v8h-8zM461 131h8v8h-8zM471 51h8v8h-8zM471 61h8v8h-8zM471 71h8v8h-8zM471 81h8v8h-8zM471 91h8v8h-8zM471 101h8v8h-8zM471 111h8v8h-8zM471 121h8v8h-8zM471 131h8v8h-8zM481 51h8v8h-8zM481 61h8v8h-8zM491 41h8v8h-8zM491 51h8v8h-8zM491 61h8v8h-8zM501 41h8v8h-8zM501 51h8v8h-8zM501 61h8v8h-8zM511 41h8v8h-8zM511 51h8v8h-8zM511 61h8v8h-8zM511 71h8v8h-8zM511 81h8v8h-8zM511 91h8v8h-8zM511 101h8v8h-8zM511 111h8v8h-8zM511 121h8v8h-8zM511 131h8v8h-8zM521 51h8v8h-8zM521 61h8v8h-8zM521 71h8v8h-8zM521 81h8v8h-8zM521 91h8v8h-8zM521 101h8v8h-8zM521 111h8v8h-8zM521 121h8v8h-8zM521 131h8v8h-8zM531 61h8v8h-8zM531 71h8v8h-8zM531 81h8v8h-8zM531 91h8v8h-8zM531 101h8v8h-8zM531 111h8v8h-8zM531 121h8v8h-8zM531 131h8v8h-8zM551 1h8v8h-8zM551 11h8v8h-8zM551 21h8v8h-8zM551 41h8v8h-8zM551 51h8v8h-8zM551 61h8v8h-8zM551 71h8v8h-8zM551 81h8v8h-8zM551 91h8v8h-8zM551 101h8v8h-8zM551 111h8v8h-8zM551 121h8v8h-8zM551 131h8v8h-8zM561 1h8v8h-8zM561 11h8v8h-8zM561 21h8v8h-8zM561 41h8v8h-8zM561 51h8v8h-8zM561 61h8v8h-8zM561 71h8v8h-8zM561 81h8v8h-8zM561 91h8v8h-8zM561 101h8v8h-8zM561 111h8v8h-8zM561 121h8v8h-8zM561 131h8v8h-8zM571 1h8v8h-8zM571 11h8v8h-8zM571 21h8v8h-8zM571 41h8v8h-8zM571 51h8v8h-8zM571 61h8v8h-8zM571 71h8v8h-8zM571 81h8v8h-8zM571 91h8v8h-8zM571 101h8v8h-8zM571 111h8v8h-8zM571 121h8v8h-8zM571 131h8v8h-8z"/>
+<path class="e-mid" d="M300 -4V224"/>
+<path class="e-strip" d="M2.0 178v6h19.1v-6M25.1 178v6h19.1v-6M48.2 178v6h19.1v-6M71.2 178v6h19.1v-6M94.3 178v6h19.1v-6M117.4 178v6h19.1v-6M140.5 178v6h19.1v-6M163.5 178v6h19.1v-6M186.6 178v6h19.1v-6M209.7 178v6h19.1v-6M232.8 178v6h19.1v-6M255.8 178v6h19.1v-6M278.9 178v6h19.1v-6M302.0 178v6h19.1v-6M325.1 178v6h19.1v-6M348.2 178v6h19.1v-6M371.2 178v6h19.1v-6M394.3 178v6h19.1v-6M417.4 178v6h19.1v-6M440.5 178v6h19.1v-6M463.5 178v6h19.1v-6M486.6 178v6h19.1v-6M509.7 178v6h19.1v-6M532.8 178v6h19.1v-6M555.8 178v6h19.1v-6M578.9 178v6h19.1v-6"/>
+<path class="e-link" d="M11.5 184V204M34.6 184V204M57.7 184V204M80.8 184V204M103.8 184V204M126.9 184V204M150.0 184V204M173.1 184V204M196.2 184V204M219.2 184V204M242.3 184V204M265.4 184V204M288.5 184V204M311.5 184V204M334.6 184V204M357.7 184V204M380.8 184V204M403.8 184V204M426.9 184V204M450.0 184V204M473.1 184V204M496.2 184V204M519.2 184V204M542.3 184V204M565.4 184V204M588.5 184V204"/>
+<circle class="e-dot" cx="11.5" cy="214" r="8" fill-opacity="0.17"/><circle class="e-dot" cx="34.6" cy="214" r="8" fill-opacity="0.83"/><circle class="e-dot" cx="57.7" cy="214" r="8" fill-opacity="0.63"/><circle class="e-dot" cx="80.8" cy="214" r="8" fill-opacity="0.68"/><circle class="e-dot" cx="103.8" cy="214" r="8" fill-opacity="0.74"/><circle class="e-dot" cx="126.9" cy="214" r="8" fill-opacity="0.76"/><circle class="e-dot" cx="150.0" cy="214" r="8" fill-opacity="0.32"/><circle class="e-dot" cx="173.1" cy="214" r="8" fill-opacity="0.42"/><circle class="e-dot" cx="196.2" cy="214" r="8" fill-opacity="0.82"/><circle class="e-dot" cx="219.2" cy="214" r="8" fill-opacity="0.59"/><circle class="e-dot" cx="242.3" cy="214" r="8" fill-opacity="0.76"/><circle class="e-dot" cx="265.4" cy="214" r="8" fill-opacity="0.70"/><circle class="e-dot" cx="288.5" cy="214" r="8" fill-opacity="0.69"/><circle class="e-dot" cx="311.5" cy="214" r="8" fill-opacity="0.82"/><circle class="e-dot" cx="334.6" cy="214" r="8" fill-opacity="0.55"/><circle class="e-dot" cx="357.7" cy="214" r="8" fill-opacity="1.00"/><circle class="e-dot" cx="380.8" cy="214" r="8" fill-opacity="0.66"/><circle class="e-dot" cx="403.8" cy="214" r="8" fill-opacity="1.00"/><circle class="e-dot" cx="426.9" cy="214" r="8" fill-opacity="0.40"/><circle class="e-dot" cx="450.0" cy="214" r="8" fill-opacity="0.64"/><circle class="e-dot" cx="473.1" cy="214" r="8" fill-opacity="0.76"/><circle class="e-dot" cx="496.2" cy="214" r="8" fill-opacity="0.28"/><circle class="e-dot" cx="519.2" cy="214" r="8" fill-opacity="0.88"/><circle class="e-dot" cx="542.3" cy="214" r="8" fill-opacity="0.54"/><circle class="e-dot" cx="565.4" cy="214" r="8" fill-opacity="1.00"/><circle class="e-dot" cx="588.5" cy="214" r="8" fill-opacity="0.17"/>
+</svg>
+        <div class="ab-eyelabels" aria-hidden="true"><span>← 13 left eye cells</span><span>13 right eye cells →</span></div>
+        <figcaption><p class="ab-figt">Figure 3 · A real frame</p><p>"wagmi" in the site's pixel font, in front of the eyes. Below it, the 26 strips and their photoreceptors; each dot's brightness is its computed input, from 0.17 to 1.0 here. Computed with the site's own code (<a href="/shared/text.js">/shared/text.js</a>).</p></figcaption>
+      </figure>
+      <aside class="ab-note" data-kind="chosen">
+        <p class="ab-notek"><span class="tag chosen">Chosen</span></p>
+        <p>Which part of the world each real eye cell sees is not in the data, so the strip layout, the gain of 1.6 and the 45% threshold are ours. The pattern is computed identically on the server and in every browser. Letters with more lit pixels simply excite more cells; the worm does not read.</p>
+      </aside>
+
+      <!-- 4.7 -->
+      <h3 class="ab-h3" id="touch">Touch and pokes</h3>
+      <p class="ab-tags"><span class="tag real">Measured: the 53 touch sensors</span><span class="tag chosen">Chosen: the poke</span></p>
+      <p>Tap the worm's body in the 3D view and you poke it: the 6 touch sensors nearest your tap on screen get a drive of 1.2 for 5 steps, a sixth of a second. The "poke a random spot" button pokes 4 neighbouring touch sensors around a random one. Everyone's pokes appear on everyone's screen, with who made them.</p>
+      <p>Which cells a poke reaches, and how hard, is our choice. What happens after that is the wiring's.</p>
+
+      <!-- 4.8 -->
+      <h3 class="ab-h3" id="body">The body and its swimming</h3>
+      <p class="ab-tags"><span class="tag chosen">Chosen: all of it</span></p>
+      <p>The worm's activity drives a simulated body in a virtual, spherical tank about 4.8 mm across. The physics is ours, in the spirit of what the lab describes for <i>Platynereis</i> larvae, and every number is in the manifest:</p>
+      <ul class="ab-list">
+        <li>The cilia push it forward, head first, at up to about half a millimetre a second, and spin it about its long axis. With a slight constant turn, that makes a helical path.</li>
+        <li>Cilia stopped on one side turn it toward that side. Stopped everywhere, it sinks.</li>
+        <li>The body-wall muscles steer: more activity on one side turns it to that side.</li>
+        <li>The startle muscles brake it.</li>
+        <li>When it bumps the wall of the tank, it turns back in.</li>
+      </ul>
+      <p>For something this small, water acts thick: there is no gliding, and the body's speed is proportional to the push (physicists call this low Reynolds number). The body is part of the worm's logged, hashed state, so the live check and every replay cover it. It does not feed back into the nervous system, except through the lamp.</p>
+
+      <!-- 4.9 -->
+      <h3 class="ab-h3" id="lamp">The lamp: a closed loop</h3>
+      <p class="ab-tags"><span class="tag chosen">Chosen, and registered with its test before any lamp was lit</span></p>
+      <p>Anyone can light a lamp in the tank for 30 seconds. It appears about 1.1 mm from the worm, in a random direction, inside the tank. How much light each side's eyes get depends on where the lamp is and which way the body faces:</p>
+      <ul class="ab-list">
+        <li>Each side's eyes look out sideways, a little forward and a little up.</li>
+        <li>A pigment cup lets each eye see light from its own side only, weakening with the angle off its axis.</li>
+        <li>Brightness fades with distance <i>d</i> as 1 / (1 + (<i>d</i> / 1.08 mm)²).</li>
+        <li>Each side's 13 photoreceptors take that light the way they take a lit strip of a message: times 1.6, capped at 1. The non-directional light sensors don't respond.</li>
+      </ul>
+      <p>So while the lamp is lit, where the worm swims changes what its eyes see: a <dfn>closed loop</dfn> from light, through the wiring, to the cilia and muscles, and back to the eyes. The real eyes' fields of view are not in the data. All of this was written down, together with the test that checks it ("Follow the light"), before any lamp was ever lit.</p>
+
+      <!-- 4.10 -->
+      <h3 class="ab-h3" id="labels">Measured, simplified, chosen: the whole list</h3>
+      <div class="ab-ledger">
+        <div class="ab-ledcol" data-kind="real">
+          <p class="ab-notek"><span class="tag real">Measured</span></p>
+          <ul>
+            <li>Every cell, connection and synapse count</li>
+            <li>Each cell's class, side, segment and type</li>
+            <li>1,199 cell positions and the traced cell shapes</li>
+            <li>The transmitters of 79 cells</li>
+            <li>Which cells are eyes, touch sensors, muscles and cilia, read from the data's cell names</li>
+          </ul>
+        </div>
+        <div class="ab-ledcol" data-kind="simp">
+          <p class="ab-notek"><span class="tag simp">Simplified</span></p>
+          <ul>
+            <li>Cells as firing rates, not spikes</li>
+            <li>One strength per synapse, computed from the wiring</li>
+            <li>Every synapse excitatory except serotonergic ones onto the cilia's cholinergic drivers</li>
+            <li>The cilia rule</li>
+            <li>The 71-second stop-and-go rhythm</li>
+          </ul>
+        </div>
+        <div class="ab-ledcol" data-kind="chosen">
+          <p class="ab-notek"><span class="tag chosen">Chosen</span></p>
+          <ul>
+            <li>The threshold, time constants and fatigue</li>
+            <li>The 2-second rhythm burst</li>
+            <li>The eye mapping, its gain and the light sensors' threshold</li>
+            <li>Which cells a poke, a trade or a coin reaches</li>
+            <li>The body's physics, the tank and the lamp</li>
+            <li>Positions of the 1,009 placed cells and the body outline</li>
+            <li>How activity is drawn and sounded</li>
+          </ul>
+        </div>
+      </div>
+      <p>What the model deliberately leaves out, and why, is in <a href="#plainly">Stated plainly</a>.</p>
+    </section>
+
+    <!-- 05 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="live" aria-labelledby="h-live">
+      <header class="ab-sech"><p class="ab-num">05</p><h2 id="h-live">One worm for everyone</h2></header>
+      <p class="ab-lede">There is exactly one worm. It lives in the memory of a single server process, which runs it at 30 steps a second in real time and streams its activity to every visitor up to 15 times a second.</p>
+      <p>Everyone watches the same worm, cell for cell, and everything anyone does reaches that same worm. Every stimulus is applied at an exact step, and that step goes into the public log. Here is what you can do:</p>
+      <dl class="ab-dos">
+        <div><dt>Talk</dt><dd>Type up to 40 characters. Messages play one at a time, each scrolling past its eyes as light.</dd></div>
+        <div><dt>Poke</dt><dd>Tap its body to poke the nearest touch sensors.</dd></div>
+        <div><dt>Tug</dt><dd>Set two words of up to 10 characters against each other, one shown to each eye, in five passes: a warm-up, then A|B, B|A, B|A, A|B, with 3 seconds of dark after each. Each word is scored on each side equally often, so the model's own left/right lean cancels out. The score is how fast its body turned toward a word, from its cilia and muscles. It is not a preference. A calibration runs on a fresh worm whenever the server starts, and is published: the same word on both sides scores about zero, and swapping the words flips the sign.</dd></div>
+        <div><dt>Lamp</dt><dd>Light a lamp in its tank for 30 seconds and watch whether it swims closer.</dd></div>
+        <div><dt>Break the worm</dt><dd>A leaderboard of the most cells firing at once, today and of all time. Only undisturbed messages are ranked. The worm tires, so the same message can score differently.</dd></div>
+        <div><dt>Watch</dt><dd>The 3D view draws every positioned cell in its traced shape, lights connections when their sending cell fires, and shows any cell's real inputs and outputs when you hover it. Every firing cell can click, you can save the last 8 seconds as a clip, and a 16:9 layout at /stream serves live streams, with an optional Twitch chat bridge.</dd></div>
+      </dl>
+      <p>Trades on the blockchain reach the worm the same way, as pokes: $BRAINWORM's trades once it exists, and every buy of a SPAWN coin (sections <a href="#token">08</a> and <a href="#spawn">09</a>). Each one is logged with its transaction signature.</p>
+      <h3 class="ab-h3">Keeping it fair</h3>
+      <ul class="ab-list">
+        <li><b>Proof of work.</b> Before a browser may send anything, it solves a small SHA-256 puzzle in the background, about a tenth of a second on a laptop. Visitors don't notice; a bot farm pays for every connection, and the puzzle gets 4 to 16 times harder when new connections spike.</li>
+        <li><b>Rate limits</b> per tab, per address and overall, for messages, pokes, tugs and new connections.</li>
+        <li><b>No links, no addresses.</b> Chat, tug words and announcements refuse links and wallet or contract addresses, so nobody can post a fake contract. Profanity is starred, and moderators can pause, slow, hide and mute.</li>
+        <li><b>Built to hold.</b> In a load test with 2,000 simultaneous viewers sending constant messages and pokes, one process held real time at 30.0 steps a second, using about 9 KB/s per viewer and about 21% of one CPU core.</li>
+      </ul>
+    </section>
+
+    <!-- 06 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="proof" aria-labelledby="h-proof">
+      <header class="ab-sech"><p class="ab-num">06</p><h2 id="h-proof">Proof: don't trust it, check it</h2></header>
+      <p class="ab-lede">Nearly everything the worm does can be checked by anyone, without trusting the server or us. Three ideas make that possible.</p>
+      <dl class="ab-defs">
+        <div><dt>Deterministic</dt><dd>The same inputs always give exactly the same result, down to the last bit, on every computer. The simulation uses no randomness, no clock, and only arithmetic that every JavaScript engine computes identically. Built-in functions like tanh can differ in their last digit between browsers, so the project builds its own from plain addition, subtraction, multiplication and division. Chrome, Safari and Firefox all match the server bit for bit.</dd></div>
+        <div><dt>Hash</dt><dd>A short fingerprint of any data. BRAINWORM uses SHA-256: change a single bit of the input and the fingerprint changes completely, and nobody can find two different inputs that share one.</dd></div>
+        <div><dt>OpenTimestamps</dt><dd>A free, public service that anchors a hash in the Bitcoin blockchain. It proves the data existed by then, without publishing the data itself.</dd></div>
+      </dl>
+
+      <h3 class="ab-h3">Your browser's live check</h3>
+      <p class="ab-tags"><span class="tag verify">Live</span></p>
+      <p>When you open the site, your browser downloads the worm's exact current state and starts its own copy in a background thread, running the same code the server runs (the files in <a href="/shared/worm.js">/shared/</a>). The server tells it every stimulus and the step it arrives at, and once a second it sends the SHA-256 of its state. Your copy compares. One differing number anywhere, in any cell's activity or fatigue or in the body, changes the hash, and the check fails in public.</p>
+
+      <h3 class="ab-h3">The log, the chain and Bitcoin</h3>
+      <p class="ab-tags"><span class="tag verify">Verifiable</span></p>
+      <figure class="ab-fig">
+        <ol class="ab-flow" aria-label="How an hour of the worm's life is sealed">
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 11.5h5M10 15h5"/></svg></span><div><p class="ab-flowh"><b>Logged</b></p><p>Every stimulus is written to a public log with the step it reached the worm, along with every published result.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4L7.5 20M16.5 4l-2 16M4.5 9h15M4 15h15"/></svg></span><div><p class="ab-flowh"><b>Sealed every hour</b></p><p>Each hour's log starts from a checkpoint, the worm's complete state, so it can be replayed on its own. It ends with the hash of the state it left, and the next hour starts from exactly that state.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="9" width="11" height="6" rx="3"/><rect x="10.5" y="9" width="11" height="6" rx="3"/></svg></span><div><p class="ab-flowh"><b>Chained</b></p><p>A small proof file names the log and its SHA-256, the steps and times it covers, the hash of its end state, and the SHA-256 of the previous proof. Change anything in a past hour and every link after it breaks.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5.2l3.4 2"/></svg></span><div><p class="ab-flowh"><b>Timestamped</b></p><p>Each proof file's hash goes to OpenTimestamps' public calendars, which fold it into a Bitcoin transaction within a few hours.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><p class="ab-flowh"><b>Checked by anyone</b></p><p>Replay the hour and compare every result and hash. Drop a proof's .txt and .ots files on opentimestamps.org to check its timestamp.</p></div></li>
+        </ol>
+        <figcaption><p class="ab-figt">Figure 4 · How an hour of its life becomes permanent</p><p>A hash chain is a list where each entry includes the hash of the one before, so no past entry can change unnoticed.</p></figcaption>
+      </figure>
+
+      <h3 class="ab-h3">Replay any hour</h3>
+      <p>The "Replay this hour" button in the Proof section of the <a href="/#proof">main page</a> downloads the hour's log, starts from its checkpoint, re-applies every stimulus at its step, and checks every published result and the final state hash, all in your browser. From a terminal, with the project's code:</p>
+      <pre><code>npm run replay -- https://&lt;site&gt;/log/current.jsonl</code></pre>
+      <h3 class="ab-h3">Open data</h3>
+      <p><a href="/manifest.json">/manifest.json</a> lists every number the model and the stimuli use, each marked measured or chosen, with the SHA-256 of the wiring, the transmitters and each code file. <a href="/proof.json">/proof.json</a>, <a href="/log/index.json">/log/index.json</a> and every log file are public, and any website or script may read them.</p>
+    </section>
+
+    <!-- 07 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="tests" aria-labelledby="h-tests">
+      <header class="ab-sech"><p class="ab-num">07</p><h2 id="h-tests">The tests</h2></header>
+      <p class="ab-lede">A simulation can be made to look like anything. So BRAINWORM asks the worm specific questions, writes down the rule for passing before the first run, and publishes every answer, including the failures.</p>
+      <h3 class="ab-h3">How a test works</h3>
+      <ul class="ab-list">
+        <li><b>Registered first.</b> Each test's question, stimulus, measure, control, pass rule, every chosen number and its random seed (20260926, the date they were written) were fixed before it ever ran. Model v2 and the tests that came with it were fingerprinted with SHA-256 and timestamped into Bitcoin on 26 September 2026, before any simulation of model v2 was run: <a href="/data/registrations/model-v2.json">/data/registrations/model-v2.json</a>, with its .ots proof beside it.</li>
+        <li><b>Never edited.</b> A rule is never changed after its result is known. If one turns out to be badly posed, it stays, with its result, and a new, separately versioned test is added next to it.</li>
+        <li><b>Compared with 50 rewired worms.</b> Every test that has a control also runs on 50 degree-preserving scrambles of the wiring, made by Maslov–Sneppen swaps (Figure 5). Each rewired worm has exactly the same cells, the same number of inputs and outputs per cell and the same synapse counts, and every sensor and muscle stays where it is; only who connects to whom is shuffled, by 140,660 swaps (10 per connection) from a fixed seed. If the real wiring does no better than those, that is the result.</li>
+        <li><b>Passing means beating 95% of them.</b> A pass/fail test passes only if the real worm's number is above the 95th percentile of the 50 rewired worms (the value 95% of them fall below, the conventional 5% level in science), plus any other condition in its rule.</li>
+      </ul>
+      <figure class="ab-fig ab-scramfig">
+        <svg class="ab-scramsvg" viewBox="0 0 520 150" role="img" aria-labelledby="scram-t">
+          <title id="scram-t">One swap: the connections a to b and c to d become a to d and c to b. Every cell keeps its number of inputs and outputs, and each connection keeps its synapse count and its sending cell.</title>
+          <defs>
+            <marker id="ab-arc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="sc-hc" d="M0 0L10 5L0 10z"/></marker>
+            <marker id="ab-ara" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="sc-ha" d="M0 0L10 5L0 10z"/></marker>
+          </defs>
+          <path class="sc-e" d="M62 38H166" marker-end="url(#ab-arc)"/>
+          <path class="sc-e" d="M62 112H166" marker-end="url(#ab-arc)"/>
+          <path class="sc-swap" d="M234 75H282" marker-end="url(#ab-ara)"/>
+          <path class="sc-e2" d="M348 47L458 101" marker-end="url(#ab-ara)"/>
+          <path class="sc-e2" d="M348 103L458 49" marker-end="url(#ab-ara)"/>
+          <g class="sc-n"><circle cx="40" cy="38" r="20"/><circle cx="190" cy="38" r="20"/><circle cx="40" cy="112" r="20"/><circle cx="190" cy="112" r="20"/><circle cx="330" cy="38" r="20"/><circle cx="480" cy="38" r="20"/><circle cx="330" cy="112" r="20"/><circle cx="480" cy="112" r="20"/></g>
+          <g class="sc-t"><text x="40" y="45">a</text><text x="190" y="45">b</text><text x="40" y="119">c</text><text x="190" y="119">d</text><text x="330" y="45">a</text><text x="480" y="45">b</text><text x="330" y="119">c</text><text x="480" y="119">d</text></g>
+        </svg>
+        <figcaption><p class="ab-figt">Figure 5 · One swap</p><p>Left, before; right, after. The connections a→b and c→d become a→d and c→b, unless that would connect a cell to itself or duplicate a connection. Each connection keeps its sending cell and its synapse count.</p></figcaption>
+      </figure>
+
+      <h3 class="ab-h3">Model v2's results</h3>
+      <p>The first and only run of model v2, as published in <a href="/lab.json">/lab.json</a> and <a href="/data/lab-model-v2-first-run.json">/data/lab-model-v2-first-run.json</a>. "Rewired" means the 50 scrambled worms; "p95" is their 95th percentile.</p>
+      <p class="ab-score"><span class="pill live">3 pass</span><span class="pill no">3 fail</span><span class="pill measured">4 measured</span></p>
+      <ol class="ab-tests">
+        <li>
+          <div class="ab-testh"><h4>Light on one side</h4><span class="pill live">Passes</span></div>
+          <p class="ab-testq">Does light on one side reach one side?</p>
+          <p>Light on one side's eyes makes the ciliary bands and body-wall muscles on the lit side more active. Lateralization 0.0062 against a rewired p95 of 0.0035.</p>
+        </li>
+        <li>
+          <div class="ab-testh"><h4>Touch and startle</h4><span class="pill no">Fails</span></div>
+          <p class="ab-testq">Does touch reach the startle muscles?</p>
+          <p>Driving all 53 touch sensors at once moved the startle muscles only to a peak of 0.0008, below the rewired p95 of 0.0025.</p>
+        </li>
+        <li>
+          <div class="ab-testh"><h4>Light to muscle</h4><span class="pill measured">Measured</span></div>
+          <p class="ab-testq">How long does light take to reach a muscle?</p>
+          <p>7 steps, 233 ms of model time, until the first muscle crossed 0.05. 41 of the 50 rewired worms responded, in 3.7 steps on average. Model time is not measured larval physiology.</p>
+        </li>
+        <li>
+          <div class="ab-testh"><h4>The alphabet</h4><span class="pill measured">Measured</span></div>
+          <p class="ab-testq">Which glyph's light pattern fires the most cells?</p>
+          <p>"@" shown three times fired the most cells (41 at once); "_" the fewest (none). The ranking follows the number of lit pixels almost exactly (rank correlation 0.98). It measures light, not letters: the worm does not read.</p>
+        </li>
+        <li>
+          <div class="ab-testh"><h4>Ten pokes</h4><span class="pill measured">Measured</span></div>
+          <p class="ab-testq">Does the response shrink when the same spot is poked again and again?</p>
+          <p>The first poke fired 25 cells at its peak, the tenth 22 (a ratio of 0.88). With fatigue switched off: 28 and 28. That is the model's built-in fatigue, not learning or memory.</p>
+        </li>
+        <li>
+          <div class="ab-testh"><h4>Touch and startle, one sensor at a time</h4><span class="pill no">Fails</span></div>
+          <p class="ab-testq">Does touch reach the startle muscles? (Registered after the first version's result was known, so weigh it accordingly.)</p>
+          <p>None of the 53 touch sensors, poked alone, moved the startle muscles above 0.05, and neither did any of 368 other sensory neurons.</p>
+        </li>
+        <li>
+          <div class="ab-testh"><h4>Follow the light</h4><span class="pill live">Passes</span></div>
+          <p class="ab-testq">Does it swim toward a light?</p>
+          <p>With the lamp lit, the worm stayed 15.2 µm closer to it on average than with the lamp dark, above the rewired p95 of 8.5 µm and above 96% of the rewired worms. A small margin: it ended closer in only 1 of 8 directions.</p>
+        </li>
+        <li>
+          <div class="ab-testh"><h4>One eyespot, one side</h4><span class="pill live">Passes</span></div>
+          <p class="ab-testq">Does light on one eyespot change the cilia on its own side?</p>
+          <p>Lighting one eyespot stopped the cilia on its own side slightly more than on the other: laterality 0.0065 against a rewired p95 of 0.0032. The cilia rule comes from the same lab's studies, so this shows the wiring carries the known mechanism; it is not an independent prediction.</p>
+        </li>
+        <li>
+          <div class="ab-testh"><h4>The startle reflex</h4><span class="pill no">Fails</span></div>
+          <p class="ab-testq">Does a vibration make it close its cilia and raise its parapodia together?</p>
+          <p>The cilia half works: poking the collar receptors stopped the cilia (average arrest 0.23, against 0.04 for other senses and a rewired p95 of 0.009). The muscle half doesn't: the startle muscles peaked at 0.001, below the rewired p95 of 0.004. The rule needs both.</p>
+        </li>
+        <li>
+          <div class="ab-testh"><h4>Stop and go</h4><span class="pill measured">Measured</span></div>
+          <p class="ab-testq">When the rhythm's MC cell bursts, how much of the ciliary band stops together?</p>
+          <p>At most 15% of the 72 ciliated cells at once: 48% of the prototroch and none of the other bands. Rewired worms: 1% on average.</p>
+        </li>
+      </ol>
+      <aside class="ab-note" data-kind="plain">
+        <p class="ab-notek"><span class="tag verify">Reproducible</span></p>
+        <p>The lab is deterministic like the worm: the same results, with the same SHA-256, in Node and in Bun. Anyone can re-run it with the project's code (<code>npm run lab</code>). Model v1, now retired, passed none of its 4 pass/fail tests; its results stay published. Every test, on its own page: <a href="/lab">/lab</a>. All the data: <a href="/lab.json">/lab.json</a>.</p>
+      </aside>
+      <p>A pass is a statement about this model of the wiring, not about the animal. Real larvae swim toward light (Jékely et al., 2008); "Follow the light" asks whether the model does.</p>
+    </section>
+
+    <!-- 08 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="token" aria-labelledby="h-token">
+      <header class="ab-sech"><p class="ab-num">08</p><h2 id="h-token">$BRAINWORM</h2></header>
+      <p class="ab-lede">$BRAINWORM is the project's token on Solana, created through pump.fun. Its launch is tied to a moment in the worm's life that anyone can check, in five public steps. Their live status is on <a href="/launch">/launch</a>.</p>
+      <ol class="ab-steps">
+        <li><b>Armed.</b> A moderator arms the launch. The step at which it was armed goes into the public log.</li>
+        <li><b>The moment.</b> From then on, the server watches for the first step at which the worm's swimming cilia are stopped: the average arrest of all 72 ciliated cells above 0.05, not counting its own stop-and-go bursts and the 3 seconds after each. It is meant to catch its startle reflex (in real larvae, a vibration makes them close their cilia). That step, the SHA-256 of the worm's state and the hash of the image go into the log. Replaying the log finds the first stop after arming on its own and compares the state hash at that step.</li>
+        <li><b>The image.</b> The token's image is drawn from the worm's exact activity at that step, with the step, the number of cells firing and the state hash printed on it. The image and the token's description are uploaded to <dfn>IPFS</dfn>, a public network that addresses each file by its hash.</li>
+        <li><b>The transaction.</b> The server prepares pump.fun's create transaction with a fresh mint key signed in. The owner's own wallet adds its signature and sends it. The server never holds the owner's key and never sends anything itself.</li>
+        <li><b>Launched.</b> Once the transaction confirms, its mint becomes the only contract address the site shows, and the token's trades start reaching the worm.</li>
+      </ol>
+      <p>After launch, every $BRAINWORM trade becomes a poke, logged with its transaction signature. A buy pokes three touch sensors at the head end and a sell three at the tail end, picked from the bytes of the transaction's signature. Big buys also flash a solid block of light across its eyes. A trade that arrives while a tug is playing, or faster than the rate limit allows, is skipped. The mapping is ours; the worm has no idea what a trade is.</p>
+      <aside class="ab-note" data-kind="warn">
+        <p class="ab-notek"><span class="tag ab-warn">Stated plainly</span></p>
+        <p>The worm doesn't launch anything and doesn't pick the moment. A moderator arms the launch, a published rule finds the step, and the owner signs the transaction with their own wallet. The only $BRAINWORM contract address is the one the site itself shows once the launch confirms; chat, tugs and announcements refuse every link and address, so any other address posted as $BRAINWORM is not it.</p>
+      </aside>
+    </section>
+
+    <!-- 09 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="spawn" aria-labelledby="h-spawn">
+      <header class="ab-sech"><p class="ab-num">09</p><h2 id="h-spawn">SPAWN: every coin hatches its own worm</h2></header>
+      <p class="ab-lede">SPAWN is BRAINWORM's launchpad, on the <a href="/">main page</a> and at <a href="/spawn">/spawn</a>. Anyone can launch a coin there. Every coin gets its own copy of the worm, every buy pokes the live worm, and most of every fee goes to burning $BRAINWORM.</p>
+      <p>The name comes from the animal. <i>Platynereis</i> is known for its spawning: grown worms swim up to the surface in time with the moon, release their eggs and sperm, and die. A larva like ours is what comes of it.</p>
+
+      <figure class="ab-fig">
+        <ol class="ab-flow" aria-label="What one buy of a SPAWN coin does">
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg></span><div><p class="ab-flowh"><b>Someone buys a coin</b></p><p>Signed and sent by their own wallet.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 15.5c2.2-4.6 4.4-4.6 6.6 0s4.4 4.6 6.6 0c1-2 2-3 3.3-3"/><circle cx="20.2" cy="12.4" r="1.4"/></svg></span><div><p class="ab-flowh"><b>Its own worm feels a touch on its head</b></p><p>Three head-end touch sensors, picked from the trade's signature, then 2 seconds of its time.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.6"/><circle cx="12" cy="12" r="6.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></svg></span><div><p class="ab-flowh"><b>The live worm is poked at the coin's spot</b></p><p>Three touch sensors picked from the coin's address, the same for every buy of it.</p></div></li>
+          <li><span class="ab-flowic"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18L18 6"/><circle cx="7.5" cy="7.5" r="2.2"/><circle cx="16.5" cy="16.5" r="2.2"/></svg></span><div><p class="ab-flowh"><b>The trade pays a 1% fee</b></p><p>A fifth to Meteora, a fifth of the rest to the coin's creator.</p></div></li>
+          <li><span class="ab-flowic ab-hot"><svg class="ab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.5c-4 0-6.5-2.7-6.5-6.2 0-4.2 3.6-5.3 4.2-9.6 2.6 1.6 3.2 4.1 3.2 5.8 1-1 1.6-2.6 1.6-4.2 2.6 2.1 4 4.7 4 7.9 0 3.6-2.5 6.3-6.5 6.3z"/></svg></span><div><p class="ab-flowh"><b>The rest goes to burning $BRAINWORM</b></p><p>64% of every fee, claimed and burned in public transactions.</p></div></li>
+        </ol>
+        <figcaption><p class="ab-figt">Figure 6 · What one buy does</p><p>A sell touches its own worm's tail end instead, and doesn't poke the live worm.</p></figcaption>
+      </figure>
+
+      <h3 class="ab-h3">A worm for every coin</h3>
+      <p class="ab-tags"><span class="tag verify">Verifiable</span><span class="tag chosen">Chosen: the mapping</span></p>
+      <p>When a coin is created, a fresh copy of the same larva hatches for it: the same wiring and model as the live worm, with nothing added. The first thing it sees is the coin's ticker, "$TICKER", shown to its eyes like a message. Unless the creator picks a picture, the coin's image is its worm's first sight: its activity as it saw its ticker.</p>
+      <p>From then on it feels that coin's trades and nothing else. A buy touches three touch sensors at its head end, a sell three at its tail end, picked from the trade's transaction signature, and then its time runs for 60 steps (2 seconds). Between trades, its time stands still.</p>
+      <p>So a coin's worm depends only on its ticker and its list of trades. Each coin's record, at /spawn/worm/&lt;coin address&gt;.json, lists both along with the worm's state hash, and the Check button on each coin rebuilds the worm in your browser and compares.</p>
+
+      <h3 class="ab-h3">Every buy pokes the live worm</h3>
+      <p>Each coin also has its own spot on the live worm: three touch sensors picked from the SHA-256 of the coin's address, the same for every buy of that coin. A buy pokes that spot; how far the activity spreads is up to the wiring. Every poke is in the public log with its transaction, and coins can be ranked by how many cells their buys lit today.</p>
+
+      <h3 class="ab-h3">How coins trade</h3>
+      <p>SPAWN coins trade on Meteora's audited Dynamic Bonding Curve. A <dfn>bonding curve</dfn> is a price formula that takes the place of an order book: the price rises with every buy and falls with every sell, and the curve itself is always there to trade against.</p>
+      <ul class="ab-list">
+        <li><b>A fixed supply of 1,000,000,000.</b> Nothing is held back, vested or reserved for anyone: every coin is either on the curve or goes into the graduated pool. There's no mint or freeze authority, and the token's metadata can't be changed.</li>
+        <li><b>Free to launch,</b> apart from about 0.02 SOL of Solana rent for the coin's own accounts, and an optional first buy.</li>
+        <li><b>Graduation.</b> When the curve has raised its target amount, the coin <dfn>graduates</dfn>: Meteora's migrator moves it into a DAMM v2 <dfn>liquidity pool</dfn>, a pair of token reserves that anyone can trade against at a price set by their ratio.</li>
+        <li><b>Liquidity locked for good.</b> The pool's whole position is locked permanently, half as the creator's locked position and half as the launchpad's. Leftover rounding dust goes to the incinerator, an address nobody has a key for.</li>
+      </ul>
+
+      <h3 class="ab-h3">Priced in SOL now, in $BRAINWORM later</h3>
+      <p>Until $BRAINWORM exists, coins are priced in SOL and trade in SOL on their own curve. Once it has launched and the owner has made a config for it, new coins are priced in $BRAINWORM; coins made before keep trading in SOL.</p>
+      <p>For a coin priced in $BRAINWORM, buying with SOL is one transaction through Jupiter, a Solana swap router (SOL → $BRAINWORM → coin), whenever Jupiter finds a route. Otherwise it is two: SOL → $BRAINWORM through Jupiter, then $BRAINWORM → coin on the coin's own curve, which works from the coin's first second. Holders of $BRAINWORM trade on the curve directly, in one. Selling mirrors it.</p>
+
+      <h3 class="ab-h3">The 1% fee and the burn</h3>
+      <p>Every trade pays a 1% fee in the token the coin is priced in, SOL or $BRAINWORM. To <dfn>burn</dfn> tokens is to destroy them with the token program's burn instruction, so they leave the supply for good.</p>
+      <figure class="ab-fig ab-feefig">
+        <div class="ab-feebar" role="img" aria-label="The 1% fee: 20% to Meteora, 16% to the coin's creator, 64% to burning $BRAINWORM"><i class="f-met"></i><i class="f-cre"></i><i class="f-burn"></i></div>
+        <ul class="ab-feekey">
+          <li><i class="f-met"></i><b>20%</b><span>to Meteora · 0.2% of the trade</span></li>
+          <li><i class="f-cre"></i><b>16%</b><span>to the coin's creator (a fifth of the rest) · 0.16%</span></li>
+          <li><i class="f-burn"></i><b>64%</b><span>to burning $BRAINWORM · 0.64%</span></li>
+        </ul>
+        <figcaption><p class="ab-figt">Figure 7 · Where each trade's 1% fee goes</p></figcaption>
+      </figure>
+      <ul class="ab-list">
+        <li><b>Fees in $BRAINWORM</b> are claimed and burned in the same transaction whenever the owner signs a claim and burn.</li>
+        <li><b>Fees in SOL</b> wait in their pools until $BRAINWORM exists. Then they are claimed, swapped for $BRAINWORM, and exactly what that bought is burned.</li>
+        <li><b>After graduation</b> the pool charges 1% in the same token. Meteora keeps 20%, and the rest goes to the pool's two locked positions, about half to the creator and half to the launchpad, whose half is claimed and burned the same way.</li>
+      </ul>
+      <p>Every burn is read back from the chain, and the totals, burned and waiting to burn, are on <a href="/spawn">/spawn</a>. Every claim and burn is a public transaction.</p>
+
+      <h3 class="ab-h3">Your keys stay yours</h3>
+      <p>SPAWN never holds anyone's key and never sends a transaction. The server builds unsigned transactions, and your own wallet (Phantom, Solflare or any wallet that supports Wallet Standard) signs and sends them. The only keys it ever makes are the fresh addresses of a new coin or config, which sign their own part of the transaction and are then discarded. The server keeps every price quote it hands out, so nobody can swap in a doctored one.</p>
+      <p>Only coins made on SPAWN's own configs are listed, read from the chain. A coin made there some other way is listed only if its name passes the chat filter.</p>
+      <aside class="ab-note" data-kind="warn">
+        <p class="ab-notek"><span class="tag ab-warn">Before you buy</span></p>
+        <p>Coins on SPAWN are made by their creators, not by BRAINWORM, and can lose all their value. The worm doesn't know what a coin is and doesn't pick winners: which cells a coin touches is our mapping, and what the poke does next is the wiring's. Nothing on this site is investment advice.</p>
+      </aside>
+    </section>
+
+    <!-- 10 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="plainly" aria-labelledby="h-plainly">
+      <header class="ab-sech"><p class="ab-num">10</p><h2 id="h-plainly">Stated plainly</h2></header>
+      <p class="ab-lede">The limits, in one place.</p>
+      <ul class="ab-plain">
+        <li><b>It can't read.</b> A message reaches it only as light. It understands nothing, and letters with more lit pixels simply excite more cells.</li>
+        <li><b>It doesn't choose.</b> A tug shows which way its body turned, not a preference.</li>
+        <li><b>It predicts nothing.</b> Nothing on this site predicts prices. The worm knows nothing about coins, trades or markets, and it doesn't pick winners.</li>
+        <li><b>It launched nothing.</b> A moderator arms the launch, a published rule finds the moment, and the owner signs the transaction.</li>
+        <li><b>The model is simpler than the animal.</b> Real neurons spike, inhibit and modulate. Here, cells are firing rates, and because the transmitter is known for only 79 of 2,675 cells, almost every synapse is excitatory. Guessing the rest would be inventing.</li>
+        <li><b>Left out on purpose.</b> Spikes, for the reason in <a href="#cells">Cells as firing rates</a>. Serotonin's faster beating, because the lab reports that it happens but not by how much. Neuropeptides, which the lab's table lists for some cells but which say nothing about a synapse's sign.</li>
+        <li><b>Some choices are ours.</b> The eye mapping, the light sensors' threshold, which cells a poke, a trade or a coin reaches, the fatigue settings, the 2-second rhythm burst, the swimming physics, the tank, the lamp, and how activity is drawn and sounded. Every number is in <a href="/manifest.json">/manifest.json</a>.</li>
+        <li><b>Positions are partly placed.</b> 1,199 cells sit at traced positions, 1,009 are placed by segment and side, and 467 fragments aren't drawn. The body outline is derived, not published.</li>
+        <li><b>The body is ours.</b> Only the lamp feeds the body back into the nervous system.</li>
+        <li><b>Model time is not larval time.</b> A step is a thirtieth of a second of model time; the milliseconds in the tests are not measured physiology.</li>
+        <li><b>Tiring is not learning.</b> When a response shrinks with repetition, that is the model's built-in fatigue, not memory.</li>
+        <li><b>Three tests fail, and the passes are small.</b> All of them are published, with their rules written first.</li>
+        <li><b>Where the fees go.</b> Every SPAWN trade pays 1%: Meteora keeps a fifth, the creator gets a fifth of the rest, and the rest goes to burning $BRAINWORM. Coins can lose all their value.</li>
+        <li><b>Not affiliated.</b> The data is the Jékely lab's. BRAINWORM is not affiliated with or endorsed by the authors.</li>
+      </ul>
+    </section>
+
+    <!-- 11 ------------------------------------------------------------------------------------------------ -->
+    <section class="ab-sec" id="credits" aria-labelledby="h-credits">
+      <header class="ab-sech"><p class="ab-num">11</p><h2 id="h-credits">Credits, license and links</h2></header>
+      <h3 class="ab-h3">The data</h3>
+      <p>Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> <a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">eLife (2025)</a> · <a href="https://github.com/JekelyLab/Platynereis_3D_connectome_2024" target="_blank" rel="noopener">data</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Changed: positions derived, data re-encoded, simulation and body added. Not affiliated with the authors.</p>
+      <h3 class="ab-h3">The studies the model relies on</h3>
+      <ul class="ab-refs">
+        <li>Verasztó C, et al. Ciliomotor circuitry underlying whole-body coordination of ciliary activity in the <i>Platynereis</i> larva. <i>eLife</i> 6:e26000 (2017).</li>
+        <li>Jékely G, et al. Mechanism of phototaxis in marine zooplankton. <i>Nature</i> 456:395–399 (2008).</li>
+        <li>Bezares-Calderón LA, et al. Neural circuitry of a polycystin-mediated hydrodynamic startle response for predator avoidance. <i>eLife</i> 7:e36262 (2018).</li>
+        <li>Shiu PK, et al. A <i>Drosophila</i> computational brain model reveals sensorimotor processing. <i>Nature</i> (2024).</li>
+      </ul>
+      <p>Pixel font: rasterised from Poppins Bold (SIL Open Font License).</p>
+      <h3 class="ab-h3">Check it yourself</h3>
+      <ul class="ab-links">
+        <li><a href="/lab"><b>/lab</b><span>Every registered test and its result</span></a></li>
+        <li><a href="/docs"><b>/docs</b><span>The overview and all the code</span></a></li>
+        <li><a href="/manifest.json"><b>/manifest.json</b><span>Every number the model uses, measured or chosen</span></a></li>
+        <li><a href="/lab.json"><b>/lab.json</b><span>All of the lab's data</span></a></li>
+        <li><a href="/data/registrations/model-v2.json"><b>Model v2 registration</b><span>Its fingerprints; the .ots proof sits beside it</span></a></li>
+        <li><a href="/proof.json"><b>/proof.json</b><span>The hourly proof chain</span></a></li>
+        <li><a href="/log/index.json"><b>/log/index.json</b><span>Every hour of the log</span></a></li>
+        <li><a href="/data/wiring.json"><b>/data/wiring.json</b><span>The wiring, as the worm runs it</span></a></li>
+        <li><a href="/spawn"><b>/spawn</b><span>The launchpad: coins, burns, fees</span></a></li>
+        <li><a href="/launch"><b>/launch</b><span>The $BRAINWORM launch, step by step</span></a></li>
+      </ul>
+      <h3 class="ab-h3">Words used on this page</h3>
+      <dl class="ab-gloss">
+        <div><dt>Connectome</dt><dd>A complete map of every nerve cell and every connection between them.</dd></div>
+        <div><dt>Synapse</dt><dd>A contact point where one cell passes a signal to another.</dd></div>
+        <div><dt>Neurotransmitter</dt><dd>The chemical a nerve cell releases at its synapses.</dd></div>
+        <div><dt>Firing rate</dt><dd>How active a cell is; in this model, one number from 0 to just under 1.</dd></div>
+        <div><dt>Deterministic</dt><dd>Same inputs, exactly the same result, on every computer.</dd></div>
+        <div><dt>Hash</dt><dd>A short fingerprint of data (here SHA-256) that changes completely if one bit does.</dd></div>
+        <div><dt>Hash chain</dt><dd>Entries that each include the hash of the one before, so none can change unnoticed.</dd></div>
+        <div><dt>OpenTimestamps</dt><dd>A free public service that anchors a hash in Bitcoin, proving when the data existed.</dd></div>
+        <div><dt>Bonding curve</dt><dd>A price formula that replaces an order book: buys raise the price, sells lower it.</dd></div>
+        <div><dt>Graduation</dt><dd>When a coin's curve reaches its target and moves into a regular liquidity pool.</dd></div>
+        <div><dt>Liquidity pool</dt><dd>A pair of token reserves anyone can trade against, priced by their ratio.</dd></div>
+        <div><dt>Burn</dt><dd>Destroying tokens so they leave the supply for good.</dd></div>
+      </dl>
+      <p class="ab-end"><a class="btn-amber" href="/#top">Launch a coin</a><a class="btn-ghost" href="/">Watch the worm</a><a class="btn-ghost" href="#minute">Back to the top</a></p>
+    </section>
+
+  </main>
+</div>
+
+<footer class="foot">
+  <p>Data: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> <a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">eLife (2025)</a> · <a href="https://github.com/JekelyLab/Platynereis_3D_connectome_2024" target="_blank" rel="noopener">data</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Changed: positions derived, data re-encoded, simulation and body added. Not affiliated with the authors.</p>
+  <p class="footlinks"><a href="/">The worm</a><a href="/#coins">Coins</a><a href="/spawn">SPAWN</a><a href="/lab">Tests</a><a href="/docs">Docs</a><a href="/manifest.json">Manifest</a><a href="/proof.json">Proof</a></p>
+</footer>
+</body>
+</html>

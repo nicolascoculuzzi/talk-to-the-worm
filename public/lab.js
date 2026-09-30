@@ -187,7 +187,7 @@ const KINDS = {
     pctText: (p) => `${num(p, 3)}% of the rewired copies were faster (ties count half)`,
     short: (r) => (r.real?.steps === null
       ? `no response · rewired mean ${num(r.control?.mean, 3)} steps`
-      : `${num(r.real?.steps)} steps (${num(r.real?.ms, 3)} ms) · rewired mean ${num(r.control?.mean, 3)}`),
+      : `${num(r.real?.steps)} steps (${num(r.real?.ms, 3)} ms) · rewired mean ${num(r.control?.mean, 3)} steps`),
     extra: latencyNotes,
   },
   phototaxis: {

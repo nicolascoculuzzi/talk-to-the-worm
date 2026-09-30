@@ -1194,17 +1194,20 @@ fetch('/manifest.json').then((r) => r.json()).then((mf) => {
 
 /* ---------- the lab ---------- */
 const pct = (v) => `${Math.round(v * 100)}%`;
+// small numbers keep two significant digits, so 0.000085 never shows as 0.0001 and 0 stays 0
+const sig = (v) => (v === 0 ? '0' : Math.abs(v) < 0.001 ? v.toPrecision(2) : v.toFixed(4));
 const LAB_SHORT = {
-  'eyes-sides': (x) => `lit side ${x.real.lateralization.toFixed(4)} · rewired p95 ${x.control.p95.toFixed(4)}`,
-  'touch-startle': (x) => `startle ${x.real.touch.toFixed(4)} · rewired p95 ${x.control.p95.toFixed(4)}`,
-  'touch-startle-v2': (x) => `startle ${x.real.touch.toFixed(4)} · rewired p95 ${x.control.p95.toFixed(4)}`,
-  'light-latency': (x) => `${fmt(x.real.ms)} ms · rewired ${fmt((x.control.mean * 1000) / STEPS_PER_SECOND)} ms`,
+  'eyes-sides': (x) => `lit side ${sig(x.real.lateralization)} · rewired p95 ${sig(x.control.p95)}`,
+  'touch-startle': (x) => `startle ${sig(x.real.touch)} · rewired p95 ${sig(x.control.p95)}`,
+  'touch-startle-v2': (x) => `startle ${sig(x.real.touch)} · rewired p95 ${sig(x.control.p95)}`,
+  'light-latency': (x) => `${fmt(x.real.ms)} ms · rewired avg ${fmt((x.control.mean * 1000) / STEPS_PER_SECOND)} ms`,
   alphabet: (x) => { const t = x.real.top && x.real.top[0]; return t ? `“${t.glyph}” fires most · ${fmt(t.peak)} cells` : ''; },
   fatigue: (x) => `10th poke ${Math.round(x.real.ratio * 100)}% of the 1st`,
   'follow-the-light': (x) => `${Math.abs(x.real.attractionUm).toFixed(1)} µm ${x.real.attraction >= 0 ? 'closer' : 'farther'} · rewired p95 ${x.details.controlUm.p95.toFixed(1)} µm`,
-  'eyespot-cilia': (x) => `own side ${x.real.laterality.toFixed(4)} · rewired p95 ${x.control.p95.toFixed(4)}`,
-  'startle-reflex': (x) => `cilia stop ${pct(x.real.arrest)} · startle muscles ${x.real.startle.toFixed(4)}`,
-  'stop-and-go': (x) => `${pct(x.real.peak)} of cilia stop at once · rewired ${pct(x.control.mean)}`,
+  'eyespot-cilia': (x) => `own side ${sig(x.real.laterality)} · rewired p95 ${sig(x.control.p95)}`,
+  // both halves must beat the rewired worms: the muscles decide it here, so they come first
+  'startle-reflex': (x) => { const c = x.details.conditions || {}; return `muscles ${sig(x.real.startle)} · rewired p95 ${sig(x.control.p95)} · cilia half ${c.arrestSpecific && c.arrestAboveScrambles ? 'passes' : 'fails'}`; },
+  'stop-and-go': (x) => `${pct(x.real.peak)} of cilia stop at once · rewired avg ${pct(x.control.mean)}`,
 };
 async function loadLab(tries = 0) {
   let r;
@@ -1226,7 +1229,7 @@ async function loadLab(tries = 0) {
     if (x.protocol && x.protocol.registeredAfter) lt.append(el('small', null, `added after ${x.protocol.registeredAfter.replace(/^the /, '')}`));
     let short = ''; try { short = (LAB_SHORT[x.id] || (() => ''))(x); } catch { /* a result without these fields */ }
     const v = x.verdict === 'fails' ? ['Fails', 'no'] : x.verdict === 'passes' ? ['Passes', 'live'] : ['Measured', 'measured'];
-    if (v1[x.id]) lt.append(el('small', null, `model v1: ${v1[x.id]}`));
+    if (v1[x.id]) lt.append(el('small', null, `retired model v1: ${v1[x.id]}`));
     sum.append(lt, el('span', 'lm', short), el('span', 'pill ' + v[1], v[0]));
     det.append(sum, el('p', null, x.summary), el('p', 'rule', `Rule: ${x.rule}`));
     li.append(det); ol.append(li);
