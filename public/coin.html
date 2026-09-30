@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>A coin on SPAWN · its own worm</title>
+<meta name="description" content="A coin on SPAWN, the BRAINWORM launchpad. It hatched its own worm, a copy of a real larva's wiring, which feels every trade of it. Every buy pokes the live worm too.">
+<meta property="og:title" content="A coin on SPAWN · it hatched its own worm">
+<meta property="og:description" content="Every coin on SPAWN hatches its own copy of a real larva's wiring, which feels every trade of it. Every buy pokes the live worm too.">
+<meta property="og:image" content="%ORIGIN%/spawn-og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#04070B">
+<link rel="icon" href="/spawn-logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/spawn-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200..800&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/coin.css">
+<link rel="modulepreload" href="/coin.js">
+<link rel="modulepreload" href="/chart.js">
+</head>
+<body class="cpage loading">
+<nav class="nav" aria-label="Site">
+  <a class="wordmark" href="/">BRAINWORM</a>
+  <div class="navlinks"><a href="/#coins">Coins</a><a class="navcta" href="/#top">Launch<span class="opt"> a coin</span></a></div>
+</nav>
+
+<main class="cpwrap">
+  <section class="cpmiss" id="miss" aria-live="polite" hidden>
+    <h1 id="missh">No coin here</h1>
+    <p id="misst">This link doesn't name a coin on SPAWN.</p>
+    <a class="btn-ghost" href="/#coins">See every coin</a>
+  </section>
+
+  <header class="cphead" id="head">
+    <div class="cpid">
+      <div class="cppic"><span class="cpinit" id="picph" aria-hidden="true"></span><img id="pic" alt="" width="72" height="72" decoding="async" hidden></div>
+      <div class="cpwho">
+        <h1 class="cpsym"><span id="sym">$SPAWN</span><span class="cpstage-pill" id="stagepill" hidden></span></h1>
+        <p class="cpsub"><span id="name">A coin on SPAWN</span><span class="cpwhen" id="age"></span></p>
+        <p class="cpmeta"><button type="button" class="cpca" id="ca" title="Copy its address" aria-label="Copy its address"><span class="k">CA</span><span id="cashort">…</span><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="9" height="9" rx="2"/><path d="M13 4.5H6A1.5 1.5 0 0 0 4.5 6v7"/></svg></button></p>
+      </div>
+      <button type="button" class="cpshare" id="share" aria-label="Share this coin"><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M6 7l4-4 4 4M4 12v4h12v-4"/></svg><span>Share</span></button>
+    </div>
+    <dl class="cpnums">
+      <div class="cpn-mcap"><dt>Market cap</dt><dd id="mcap">$0</dd></div>
+      <div class="cpn-price"><dt>Price</dt><dd><span id="price">$0</span><small id="pricesol">0 SOL</small></dd></div>
+      <div class="cpn-grad"><dt><span id="gradk">To graduation</span><b id="gradpct">0%</b></dt><dd><div class="cpbar" id="gradbarw"><i id="gradbar"></i></div><small id="gradnote"></small></dd></div>
+    </dl>
+    <p class="cpstate" id="state" role="status" hidden></p>
+  </header>
+
+  <div class="cpgrid" id="grid">
+    <div class="cpcol cpmain">
+      <section class="cpcard cpchartcard" aria-labelledby="charth">
+        <div class="cptop">
+          <p class="cptitle"><span class="cpk" id="charth">Market cap</span><span class="cpchg" id="change"></span></p>
+          <div class="cpranges" role="tablist" aria-label="Time range">
+            <button type="button" role="tab" data-range="1h" aria-selected="false">1H</button>
+            <button type="button" role="tab" data-range="6h" aria-selected="false">6H</button>
+            <button type="button" role="tab" data-range="1d" aria-selected="false">1D</button>
+            <button type="button" role="tab" data-range="all" aria-selected="true">All</button>
+          </div>
+        </div>
+        <div class="cpchart" id="chart">
+          <p class="cpempty" id="chartempty">The chart starts with its first trade.</p>
+        </div>
+      </section>
+
+      <section class="cpcard cptrades" aria-labelledby="tradesh">
+        <div class="cptop">
+          <h2 class="cpk" id="tradesh">Trades</h2>
+          <span class="cpcount" id="tradecount"></span>
+        </div>
+        <ol class="cprows" id="rows"><li class="cpnone">No trades yet.</li></ol>
+        <button type="button" class="btn-ghost cpmore" id="more" hidden>Show all</button>
+      </section>
+    </div>
+
+    <div class="cpcol cpaside">
+      <section class="cpcard cptrade" aria-label="Buy or sell">
+        <div class="cpsides" role="tablist" aria-label="Buy or sell">
+          <button type="button" role="tab" id="tbuy" aria-selected="true">Buy</button>
+          <button type="button" role="tab" id="tsell" aria-selected="false">Sell</button>
+        </div>
+        <div class="cppay" id="paywith" hidden>
+          <span id="paylabel">Pay with</span>
+          <div class="cpseg" role="tablist" aria-label="Currency">
+            <button type="button" role="tab" id="psol" aria-selected="true">SOL</button>
+            <button type="button" role="tab" id="proot" aria-selected="false">$BRAINWORM</button>
+          </div>
+        </div>
+        <label class="cpamt"><span class="sr">Amount</span><input type="text" id="amount" inputmode="decimal" placeholder="0.0" autocomplete="off" spellcheck="false" enterkeyhint="done"><span id="unit">SOL</span></label>
+        <div class="cpchips" id="chips">
+          <button type="button" data-v="0.1">0.1 SOL</button>
+          <button type="button" data-v="0.5">0.5 SOL</button>
+          <button type="button" data-v="1">1 SOL</button>
+        </div>
+        <dl class="cpquote" id="quote"></dl>
+        <button type="button" class="cpgo connect" id="go">Connect wallet</button>
+        <p class="cpwallet" id="wallet" hidden></p>
+        <p class="cplog" id="log" role="status" aria-live="polite"></p>
+        <button type="button" class="btn-ghost cpclaim" id="claim" hidden>Claim your creator fees</button>
+      </section>
+
+      <section class="cpcard cpworm" aria-labelledby="wormh">
+        <div class="cptop">
+          <h2 class="cpk" id="wormh">Its worm</h2>
+          <span class="cppill">In your browser</span>
+        </div>
+        <p class="cplede" id="wormlede">Every coin on SPAWN hatches its own copy of a real larva's wiring. Its first sight was its ticker. Since then it feels every trade: a buy touches its head, a sell its tail.</p>
+        <figure class="cpfig">
+          <div class="cpstage" id="stage">
+            <canvas id="wormcv" width="480" height="480" role="img" aria-label="Its worm, replayed in your browser"></canvas>
+            <div class="cphud" aria-hidden="true"><span id="hudpart"></span><span class="cpslow" id="hudslow" hidden>Slowed down</span></div>
+            <p class="cpfire" id="hudfirew" aria-hidden="true" hidden><b id="hudfire">0</b> cells firing</p>
+            <p class="cpwait" id="wwait">Hatching it again in your browser…</p>
+          </div>
+          <figcaption class="cpgrow" id="grow">Drawn bigger as it nears graduation. Same wiring, same model.</figcaption>
+        </figure>
+        <dl class="cpstats">
+          <div><dt>Trades felt</dt><dd id="s-trades">0</dd></div>
+          <div><dt>Cells lit</dt><dd id="s-cells">0</dd></div>
+          <div><dt>Most at once</dt><dd id="s-best">0</dd></div>
+          <div><dt>Swum</dt><dd id="s-swim">0</dd></div>
+          <div><dt>First sight</dt><dd id="s-birth">0</dd></div>
+          <div><dt>Buys · sells</dt><dd id="s-sides">0 · 0</dd></div>
+        </dl>
+        <div class="cpcheck"><button type="button" class="btn-ghost" id="check">Check it yourself</button><span class="cpcheckout" id="checkout" role="status" aria-live="polite"></span></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="foot">
+  <p>Coins here are made by their creators, not by BRAINWORM, and can lose all their value. Trades route through <a href="https://jup.ag" target="_blank" rel="noopener">Jupiter</a>; curves and graduation are <a href="https://meteora.ag" target="_blank" rel="noopener">Meteora</a>'s audited Dynamic Bonding Curve. Nothing here is investment advice.</p>
+  <p>Its worm's wiring: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> <a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">eLife (2025)</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Not affiliated with the authors.</p>
+</footer>
+<script type="module" src="/coin.js"></script>
+</body>
+</html>
