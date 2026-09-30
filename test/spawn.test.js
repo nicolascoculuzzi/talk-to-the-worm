@@ -260,6 +260,62 @@ test('with a Jupiter key: its API, its header, and routes through less-traded mi
   sp.stop();
 });
 
+test('pictures kept here: named by their content, kept once a transaction names them, deleted once the chain says their coin never launched', async () => {
+  const { sp, f, dir } = await openSpawn();
+  const meta = path.join(dir, 'spawn', 'meta'), files = () => fs.readdirSync(meta).sort();
+  f.dbc.buildCreatePool = async (o) => { f.calls.push(['create', o]); return { mint: addr(), pool: addr(), tx: 'Q1JF', firstBuy: null }; };
+  assert.equal(sp.publicState().pictures, true);
+
+  // the same picture for two coins: one picture file, and each coin its own metadata, which neither can overwrite
+  const a = await sp.create({ creator: CREATOR, name: 'Alpha', symbol: 'ALPHA', image: PNG });
+  const b = await sp.create({ creator: CREATOR, name: 'Beta', symbol: 'BETA', image: PNG });
+  const uri = (m) => f.calls.filter((c) => c[0] === 'create').at(m)[1].uri, uriA = uri(-2), uriB = uri(-1);
+  assert.notEqual(uriA, uriB);
+  const read = (u) => JSON.parse(fs.readFileSync(sp.metaFile(u.split('/').pop())));
+  assert.deepEqual([read(uriA).name, read(uriB).name], ['Alpha', 'Beta']);
+  assert.equal(read(uriA).image, read(uriB).image);
+  assert.equal(files().length, 3);
+  const again = await sp.create({ creator: CREATOR, name: 'Alpha', symbol: 'ALPHA', image: PNG });
+  assert.equal(uri(-1), uriA, 'the same coin again names the same file');
+  assert.equal(read(uriA).name, 'Alpha');
+
+  // nothing is kept for a transaction that was never built, or for a coin with its worm's first sight
+  f.dbc.buildCreatePool = async () => { throw new Error('boom'); };
+  const other = 'data:image/png;base64,' + Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.from('another picture')]).toString('base64');
+  await assert.rejects(sp.create({ creator: CREATOR, name: 'Gamma', symbol: 'GAMMA', image: other }));
+  assert.equal(files().length, 3);
+  f.dbc.buildCreatePool = async (o) => { f.calls.push(['create', o]); return { mint: addr(), pool: addr(), tx: 'Q1JF', firstBuy: null }; };
+  const w = await sp.create({ creator: CREATOR, name: 'Wormy', symbol: 'WORMY', image: 'worm' });
+  assert.equal(uri(-1)(w.mint), `https://worm.example/spawn/m/${w.mint}.json`, 'its metadata is rebuilt from the chain here');
+  assert.equal(files().length, 3);
+  const c = await sp.create({ creator: CREATOR, name: 'Gamma', symbol: 'GAMMA', image: other });
+  assert.equal(files().length, 5);
+
+  // later: Alpha is on the chain, Beta and Gamma never landed. Their metadata goes, and Gamma's picture; Alpha's stays
+  await sleep(700);
+  const st = JSON.parse(fs.readFileSync(path.join(dir, 'spawn', 'state.json')));
+  for (const u of Object.values(st.uploads)) u.at -= 3 * 3600_000;
+  fs.writeFileSync(path.join(dir, 'spawn', 'state.json'), JSON.stringify(st));
+  f.pools.push(f.pool(a.mint));
+  const later = createSpawn({ dir, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts: { rpc: 'http://rpc.test', publicUrl: 'https://worm.example', localMeta: true }, logger: quiet });
+  await later.fresh(true);
+  assert.ok(later.metaFile(uriA.split('/').pop()), 'a launched coin keeps its metadata');
+  assert.ok(later.metaFile(read(uriA).image.split('/').pop()), 'and its picture');
+  assert.equal(later.metaFile(uriB.split('/').pop()), null);
+  assert.equal(files().length, 2);
+  assert.ok(f.calls.some((x) => x[0] === 'rpc' && x[1] === 'getAccountInfo' && x[2] === b.mint), 'the chain was asked first');
+  assert.ok(!f.calls.some((x) => x[0] === 'rpc' && x[1] === 'getAccountInfo' && x[2] === again.mint), 'Alpha\'s file is in use: a copy that never launched changes nothing');
+  assert.ok(!f.calls.some((x) => x[0] === 'rpc' && x[1] === 'getAccountInfo' && x[2] === a.mint), 'a coin on the chain is not asked about');
+  void c;
+
+  // a full disk budget: no more picked pictures, and its worm's first sight still works
+  const full = createSpawn({ dir, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts: { rpc: 'http://rpc.test', publicUrl: 'https://worm.example', localMeta: true, metaBudget: 10 }, logger: quiet });
+  await full.fresh(true);
+  assert.equal(full.publicState().pictures, false);
+  await assert.rejects(full.create({ creator: CREATOR, name: 'Delta', symbol: 'DELTA', image: other }), /full/);
+  assert.ok((await full.create({ creator: CREATOR, name: 'Delta', symbol: 'DELTA', image: 'worm' })).mint);
+});
+
 test('pictures go to Pinata with SPAWN named as where the coin was made', async () => {
   const up = [];
   const { sp } = await openSpawn({}, { pinataJwt: 'jwt', uploadPinata: async (o) => { up.push(o); return { metadataUri: 'https://ipfs.io/ipfs/bafkmeta', metadata: { image: 'https://ipfs.io/ipfs/bafkimage' } }; } });

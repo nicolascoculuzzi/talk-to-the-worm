@@ -34,6 +34,8 @@ export const FEE = Object.freeze({ bps: 100, protocolShare: 0.2, creatorShare: 0
 export const SLIPPAGE_BPS = 300;
 const QUOTE_TTL_MS = 120_000, REFRESH_MS = 20_000, SCAN_MS = 180_000, STALE_COIN_MS = 3600_000, CLAIM_LOCK_MS = 90_000, STUCK_MS = 600_000;
 const MAX_IMAGE = 1_500_000, CHART_POINTS = 2000, SUPPLY = 1_000_000_000;
+// pictures kept on this server's disk: at most this much, and one whose coin never reached the chain is deleted after a while
+const META_BUDGET = 1e9, UPLOAD_GRACE_MS = 2 * 3600_000, SWEEP_MS = 600_000;
 const ROOT_DECIMALS = 6;                 // $BRAINWORM, like every pump.fun coin
 const LAUNCH_RENT_SOL = 0.02;            // what a new coin's own accounts cost its creator, about
 const IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
@@ -62,7 +64,7 @@ const human = (e) => new Error(String(e?.message || e).replace(/^(dbc|solana): /
  * @param {object} o.dbc            server/dbc.js (injected so tests can fake the chain)
  * @param {() => string} o.rootMint $BRAINWORM's mint once it exists ('' before)
  * @param {(text: string) => {ok: boolean, text?: string, message?: string}} o.moderate  the site's chat filter
- * @param {object} o.opts           { rpc, ws, WebSocketImpl, publicUrl, pinataJwt, uploadPinata, jupiterKey, owner, localMeta }
+ * @param {object} o.opts           { rpc, ws, WebSocketImpl, publicUrl, pinataJwt, uploadPinata, jupiterKey, owner, localMeta, metaBudget }
  * @param {(t: object) => void} o.onTrade  every confirmed trade of a SPAWN coin
  * @param {object} [o.coinWorms]   server/coinworms.js: each coin's own worm
  * @param {object} [o.render]      server/render.js and the wiring D, for pictures drawn by a coin's worm
@@ -74,8 +76,13 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
   const file = root && path.join(root, 'state.json');
   let s = { configs: [], coins: {}, images: {}, burns: [], day: { key: dayKey(), worm: {} } };
   try { if (file) s = { ...s, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { /* first run */ }
+  s.uploads ||= {};   // pictures kept here: metadata file -> { mints that named it, at, image, live }
   let saveTimer = null;
-  const save = () => { if (!file || saveTimer) return; saveTimer = setTimeout(() => { saveTimer = null; fs.writeFile(file, JSON.stringify(s), () => {}); }, 500); };
+  // written whole or not at all (a new file, then renamed over the old one): a restart mid-write can't leave half a file
+  const save = () => { if (!file || saveTimer) return; saveTimer = setTimeout(() => { saveTimer = null; fs.writeFile(file + '.tmp', JSON.stringify(s), (e) => { if (!e) fs.rename(file + '.tmp', file, () => {}); }); }, 500); };
+  const metaDir = root && path.join(root, 'meta');
+  let metaBytes = 0;   // what the kept pictures and their metadata take on disk
+  if (metaDir) for (const n of fs.readdirSync(metaDir)) { try { metaBytes += fs.statSync(path.join(metaDir, n)).size; } catch { /* gone */ } }
   const chain = { url: opts.rpc, fetchImpl };
   // Jupiter's free API routes only through tokens it trusts as a middle hop; a key (a paid plan) lifts that
   const jupBase = opts.jupiterKey ? 'https://api.jup.ag' : 'https://lite-api.jup.ag';
@@ -100,7 +107,10 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
   // A picked picture and its metadata must stay up for good: on IPFS through Pinata, or on this server's own disk when that
   // disk lasts. A coin with its worm's first sight needs neither: its picture and metadata are a function of the chain,
   // served from here (coinMetadata), so launching works as soon as there's a config and an address to serve them from.
-  const canHost = () => !!(opts.pinataJwt && opts.uploadPinata) || !!(opts.localMeta && root && opts.publicUrl);
+  const pinata = () => !!(opts.pinataJwt && opts.uploadPinata);
+  const canHost = () => pinata() || !!(opts.localMeta && root && opts.publicUrl);
+  const budget = () => opts.metaBudget ?? META_BUDGET;
+  const canPick = () => pinata() || (canHost() && metaBytes < budget());   // room for one more picked picture
   const canTrade = () => !!current();
   const canLaunch = () => canTrade() && (canHost() || !!opts.publicUrl);
   const ownMeta = (mint) => `${opts.publicUrl}/spawn/m/${mint}.json`, wormPicture = (symbol) => `${opts.publicUrl}/spawn/hatch/${symbol}.png`;
@@ -207,11 +217,11 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
       if (!c.quoteMint && d.quoteMint) c.quoteMint = d.quoteMint;
     }
     // every pool on SPAWN's configs every few minutes (getProgramAccounts is the call RPC nodes ration), the known ones in between
-    let list;
+    let list, scanStarted = -1;
     if (!scannedAt || found || Date.now() - scannedAt > SCAN_MS) {
       list = [];
       for (const address of cfgs.keys()) list.push(...await dbc.listPools({ config: address, ...chain }));
-      scannedAt = Date.now();
+      scannedAt = scanStarted = Date.now();
     } else list = (await dbc.fetchPools({ addresses: [...cache.pools.values()].map((p) => p.address), ...chain })).filter(Boolean);
     const pools = new Map();
     for (const p of list) if (cfgs.has(p.config)) { const c = cfgs.get(p.config); pools.set(p.baseMint, { ...p, cfg: c, ...dbc.poolPrice(p, c, decimalsOf(c)) }); }
@@ -241,8 +251,9 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
         creatorFees: Number(p.creatorQuoteFee) / 10 ** decimalsOf(p.cfg),
       });
     }
-    // coins spawned on the page that never made it on chain are forgotten after an hour
+    // coins spawned on the page that never made it on chain are forgotten after an hour, and their kept pictures later
     for (const [mint, c] of Object.entries(s.coins)) if (!pools.has(mint) && Date.now() - c.createdAt > STALE_COIN_MS) delete s.coins[mint];
+    if (scannedAt === scanStarted) await sweepUploads(pools).catch((e) => logger.warn(`[spawn] sweeping pictures: ${e.message}`));
     cache = { at: Date.now(), coins, pools, byPool, prices: { solUsd, rootUsd, rootSol }, waiting: Number(waiting) / 10 ** ROOT_DECIMALS, waitingSol: Number(waitingSol) / 1e9, stuck };
     // every coin shown hatches its own worm (a few each refresh, so a first listing of many coins doesn't stall the server)
     if (coinWorms) { let n = 0; for (const c of coins) if (!coinWorms.has(c.mint) && n++ < 10) coinWorms.hatch(c.mint, c.symbol); }
@@ -294,7 +305,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
       open: canLaunch(),
       reason: !cur ? 'Opening soon.' : !canLaunch() ? 'Opening soon: coin pictures are being set up.' : null,
       quote: cur ? quoteName(cur) : null,      // what new coins are priced in
-      pictures: canHost(),                     // a picked picture can be kept for good (else every coin gets its worm's)
+      pictures: canPick(),                     // a picked picture can be kept for good (else every coin gets its worm's)
       root: {
         mint: brainworm() || null, priceSol: cache.prices.rootSol || 0, priceUsd: cache.prices.rootUsd || 0, solUsd: cache.prices.solUsd || 0,
         burned: round(s.burns.reduce((n, b) => n + b.amount, 0), 2), waiting: round(cache.waiting, 2), waitingSol: round(cache.waitingSol, 4),
@@ -443,11 +454,50 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
       return { uri: r.metadataUri, image: r.metadata?.image || '' };
     }
     if (!opts.localMeta || !root || !opts.publicUrl) throw new Error('Picture hosting is not set up yet (PINATA_JWT).');
-    const id = crypto.createHash('sha256').update(image).digest('hex').slice(0, 24);
-    fs.writeFileSync(path.join(root, 'meta', `${id}.${IMAGE_TYPES[type]}`), image);
-    const imageUrl = `${opts.publicUrl}/spawn/meta/${id}.${IMAGE_TYPES[type]}`;
-    fs.writeFileSync(path.join(root, 'meta', `${id}.json`), JSON.stringify({ name, symbol, description, image: imageUrl, website: site }));
-    return { uri: `${opts.publicUrl}/spawn/meta/${id}.json`, image: imageUrl };
+    // Each file is named by the hash of what's in it, so a name can only ever hold that content: two coins with the same
+    // picture share the picture, never each other's metadata. Nothing is written until a transaction names it (keep).
+    const hash = (b) => crypto.createHash('sha256').update(b).digest('hex').slice(0, 24);
+    const imageName = `${hash(image)}.${IMAGE_TYPES[type]}`, imageUrl = `${opts.publicUrl}/spawn/meta/${imageName}`;
+    const json = JSON.stringify({ name, symbol, description, image: imageUrl, website: site }), jsonName = `${hash(json)}.json`;
+    if (metaBytes + image.length + json.length > budget()) throw new Error('Picture uploads are full for now. Launch it with its worm\'s first sight, or try again later.');
+    const keep = (mint) => {
+      for (const [n, b] of [[imageName, image], [jsonName, json]]) {
+        const f = path.join(metaDir, n);
+        if (!fs.existsSync(f)) { fs.writeFileSync(f, b); metaBytes += Buffer.byteLength(b); }
+      }
+      const u = s.uploads[jsonName] ||= { mints: [], at: 0, image: imageName };
+      if (!u.live) { if (!u.mints.includes(mint)) u.mints.push(mint); u.at = Date.now(); }
+    };
+    return { uri: `${opts.publicUrl}/spawn/meta/${jsonName}`, image: imageUrl, keep };
+  }
+  const dropMeta = (n) => { const f = path.join(metaDir, n); try { metaBytes -= fs.statSync(f).size; fs.rmSync(f); } catch { /* already gone */ } };
+  /** Pictures kept for coins that never reached the chain (nobody signed, or it never landed) are deleted once the chain
+   *  itself says that no coin named them: none of SPAWN's coins uses the file, and none of the mints that named it
+   *  exists. One a coin uses stays for good. */
+  let sweptAt = 0;
+  async function sweepUploads(pools) {
+    if (!metaDir || Date.now() - sweptAt < SWEEP_MS) return;
+    sweptAt = Date.now();
+    const used = new Set([...pools.values()].map((p) => p.uri));
+    for (const [n, u] of Object.entries(s.uploads)) {
+      if (u.live) continue;
+      if (used.has(`${opts.publicUrl}/spawn/meta/${n}`) || u.mints.some((m) => pools.has(m))) { u.live = true; continue; }
+      if (Date.now() - u.at < UPLOAD_GRACE_MS) continue;
+      let exists = false, known = true;
+      for (const m of u.mints) {
+        try {
+          const info = await rpc('getAccountInfo', [m, { encoding: 'base64', commitment: 'confirmed' }], chain);
+          if (!info || !('value' in info)) { known = false; break; }
+          if (info.value) { exists = true; break; }
+        } catch { known = false; break; }
+      }
+      if (exists) { u.live = true; continue; }
+      if (!known) continue;   // ask again next time
+      delete s.uploads[n];
+      dropMeta(n);
+      if (!Object.values(s.uploads).some((o) => o.image === u.image)) dropMeta(u.image);
+    }
+    save();
   }
 
   /** The create transaction for the creator's wallet (the coin's fresh mint key already signed in it). */
@@ -466,7 +516,8 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     if (!(buy >= 0) || !Number.isFinite(buy)) throw new Error(`The first buy is a number of ${quoteName(cfg)}.`);
     let m, bytes;
     if (image !== 'worm' && !canHost()) throw new Error('Picked pictures open soon. For now every coin gets its worm\'s first sight.');
-    const fromChain = image === 'worm' && !canHost();   // its picture and metadata served from here, nothing uploaded
+    // its worm's first sight is a function of the chain: served from here, nothing kept (it goes to IPFS only with Pinata)
+    const fromChain = image === 'worm' && !pinata();
     if (image === 'worm') {
       // the picture its worm will see first: a fresh worm shown the ticker, drawn from the real wiring
       if (!fromChain && (!render || !D)) throw new Error('Pictures from the worm are not available here.');
@@ -488,6 +539,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     const meta = fromChain ? { uri: ownMeta, image: wormPicture(sy.text) } : await uploadMeta({ image: bytes, type: m[1], name: nm.text, symbol: sy.text, cfg });
     let built;
     try { built = await dbc.buildCreatePool({ config: cfg.address, creator, name: nm.text, symbol: sy.text, uri: meta.uri, firstBuyQuote: buy, ...chain }); } catch (e) { throw human(e); }
+    meta.keep?.(built.mint);
     s.coins[built.mint] = { name: nm.text, symbol: sy.text, image: meta.image, uri: typeof meta.uri === 'function' ? meta.uri(built.mint) : meta.uri, creator, createdAt: Date.now() };
     save();
     return { tx: built.tx, mint: built.mint, firstBuy: built.firstBuy, quote: quoteName(cfg) };

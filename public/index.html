@@ -88,10 +88,11 @@
       <h2 class="lctitle" id="lch">Launch a coin.<span>It hatches its own worm.</span></h2>
       <p class="lcsub">Every coin gets its own copy of a real worm larva's brain, simulated live. It feels every trade. <a href="#spawnhow">How?</a></p>
       <form id="launchform" class="lf lfcard" autocomplete="off" aria-labelledby="lch">
-        <label class="lfpic" title="Its picture: its worm's first sight, unless you pick one">
-          <input type="file" data-lf="pic" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Pick a picture (optional)">
+        <label class="lfpic" title="Upload your coin's picture, or keep its worm's first sight">
+          <input type="file" data-lf="pic" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Upload your coin's picture (optional)">
           <img data-lf="picimg" alt="Its picture" hidden>
-          <span class="ph" data-lf="picph" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 5v10M5 10h10"/></svg>Picture</span>
+          <span class="ph" data-lf="picph" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 5v10M5 10h10"/></svg>Upload</span>
+          <span class="up" data-lf="up" aria-hidden="true" hidden>Upload</span>
           <button type="button" class="unpick" data-lf="unpick" aria-label="Use its worm's first sight instead" hidden>×</button>
         </label>
         <input type="text" data-lf="name" id="lname" maxlength="32" placeholder="Coin name" aria-label="Coin name" enterkeyhint="next">

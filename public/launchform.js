@@ -41,12 +41,12 @@ async function shrink(file) {
 }
 
 /**
- * Wires up a launch form: elements marked data-lf="pic|picimg|picph|unpick|name|ticker|buy|unit|go|note".
+ * Wires up a launch form: elements marked data-lf="pic|picimg|picph|up|unpick|name|ticker|buy|unit|go|note".
  * Returns { update({ open, quote, reason }) } for the page to pass on what /spawn.json says.
  */
 export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
   const $f = (k) => form.querySelector(`[data-lf="${k}"]`);
-  const pic = $f('pic'), img = $f('picimg'), ph = $f('picph'), unpick = $f('unpick'), name = $f('name'), ticker = $f('ticker'), buy = $f('buy'), unit = $f('unit'), go = $f('go'), note = $f('note');
+  const pic = $f('pic'), img = $f('picimg'), ph = $f('picph'), up = $f('up'), unpick = $f('unpick'), name = $f('name'), ticker = $f('ticker'), buy = $f('buy'), unit = $f('unit'), go = $f('go'), note = $f('note');
   let custom = null;            // a picked picture, as a data URL; without one it gets its worm's first sight
   let state = { open: false, quote: null, reason: 'Opening soon.', pictures: true };
   let busy = false, hatchTimer = null, hatchLine = '', done = false;
@@ -74,12 +74,13 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
     if (busy || done) return;
     const w = connected(), who = w ? ` · ${short(w.address)}` : '';
     if (!state.open) say(`${state.reason || 'Opening soon.'} You can already see what its worm will see first.`);
-    else if (hatchLine) say(hatchLine + who);
-    else say(`Free to launch. ${custom ? 'Your picture' : state.pictures ? 'Its picture: its worm\'s first sight, unless you pick one' : 'Its picture: its worm\'s first sight'}.${who}`);
+    else if (hatchLine) say(hatchLine + (state.pictures && !custom ? ' Upload your own picture, or keep this one.' : '') + who);
+    else say(`Free to launch. ${custom ? 'Your picture.' : state.pictures ? 'Upload your own picture, or it gets its worm\'s first sight.' : 'Its picture: its worm\'s first sight.'}${who}`);
   }
   function showPic() {
     const src = custom || (TICKER.test(ticker.value) ? `/spawn/hatch/${ticker.value}.png` : '');
     img.hidden = !src; ph.hidden = !!src; unpick.hidden = !custom;
+    if (up) up.hidden = !src || !!custom || !state.pictures;   // over its worm's first sight: this can be your own
     if (src && img.getAttribute('src') !== src) img.src = src;
   }
   function hatch() {
@@ -156,8 +157,9 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
       // without lasting picture hosting every coin gets its worm's first sight, which needs none
       pic.disabled = !state.pictures;
       form.classList.toggle('nopics', !state.pictures);
-      ph.lastChild.textContent = state.pictures ? 'Picture' : 'Its worm';
-      if (!state.pictures && custom) { custom = null; showPic(); }
+      ph.lastChild.textContent = state.pictures ? 'Upload' : 'Its worm';
+      if (!state.pictures && custom) custom = null;
+      showPic();
       unit.textContent = state.quote === '$BRAINWORM' ? '$BRAINWORM' : 'SOL';
       go.disabled = busy || !state.open;
       go.textContent = state.open ? 'Launch' : 'Opening soon';
