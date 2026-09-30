@@ -199,7 +199,7 @@ export function createWormServer(overrides = {}) {
   const headTouch = worm.roles.touch.filter((i) => ['episphere', 'segment_0', 'segment_1'].includes(segOf(i)));
   const tailTouch = worm.roles.touch.filter((i) => ['segment_2', 'segment_3', 'pygidium'].includes(segOf(i)));
   const launch = dataDir ? createLaunch({
-    dir: dataDir, worm, D, writeLog, render, solana, publicUrl: config.publicUrl, pinataJwt: config.token.pinataJwt, rpcUrl: config.token.solanaRpc, configuredMint: config.token.mint,
+    dir: dataDir, worm, D, writeLog, render, solana, publicUrl: config.publicUrl, pinataJwt: config.token.pinataJwt, hostMetadata: config.spawn.localMeta, rpcUrl: config.token.solanaRpc, configuredMint: config.token.mint,
     onChange: (st) => broadcast({ t: 'launch', launch: st }),
     onLaunched: (l) => startTrades(l.mint),
   }) : null;
@@ -822,6 +822,12 @@ export function createWormServer(overrides = {}) {
     if (p === '/proof') { res.writeHead(302, { Location: '/#proof' }); return res.end(); }
     if (p === '/launch/status.json') { res.setHeader('Access-Control-Allow-Origin', '*'); return launch ? json(res, 200, { ...launch.status(), description: launch.description() }) : json(res, 404, { error: 'off' }); }
     if (p === '/launch/moment.png') return launch ? sendFile(req, res, launch.imagePath, 'image/png', 'no-cache') : notFound(res);
+    if (p.startsWith('/launch/meta/')) {   // $WORM's metadata, when it is kept here rather than on IPFS
+      const f = launch?.metaFile(p.slice('/launch/meta/'.length));
+      if (!f) return notFound(res);
+      res.setHeader('Access-Control-Allow-Origin', '*');   // wallets and explorers read coin metadata from anywhere
+      return sendFile(req, res, f, META_TYPES[path.extname(f)], 'public, max-age=31536000, immutable');
+    }
     if (p === '/launch' || p === '/launch/') { res.setHeader('X-Robots-Tag', 'noindex'); return statics.serve(req, res, '/launch.html') || notFound(res); }
     if (p === '/spawn' || p === '/spawn/') return statics.serve(req, res, '/spawn.html') || notFound(res);
     if (p === '/about' || p === '/about/') return statics.serve(req, res, '/about.html') || notFound(res);  // what BRAINWORM is, all of it

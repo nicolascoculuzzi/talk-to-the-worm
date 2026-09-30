@@ -142,3 +142,48 @@ test('with a Pinata JWT configured, the launch uploads through Pinata', async ()
   assert.equal(meta.uri, 'https://ipfs.io/ipfs/bafymeta');
   assert.deepEqual(calls, [['pinata', 'jwt-test', 'WORM']]);
 });
+
+test('if the uploader refuses the server, the metadata is kept on the site under links that never change', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'launch-'));
+  const worm = new WormCore(D);
+  let refuse = true;
+  const solana = {
+    uploadPumpMetadata: async () => { if (refuse) throw new Error('pump.fun ipfs: HTTP 403'); return { metadataUri: 'https://ipfs.example/meta.json' }; },
+    prepareLaunch: async (o) => ({ mint: 'Mint1111111111111111111111111111111111111111', tx: 'AA==', uri: o.uri, summary: { feePayer: o.creator, signers: [o.creator], programIds: [] } }),
+    confirmLaunch: async () => ({ confirmed: true, err: null, mintExists: true }),
+  };
+  const render = { renderActivityPNG: () => Buffer.from('the moment png') };
+  const open = (o) => createLaunch({ dir, worm, D, writeLog: () => {}, render, solana, publicUrl: 'https://worm.example', watchEveryMs: 3600_000, logger: { log() {}, warn() {} }, ...o });
+  const off = open({ hostMetadata: false });
+  off.arm();
+  worm.poke('p', worm.roles.touch.slice(0, 6));
+  for (let t = 0; t < 600 && !off.status().moment; t++) { worm.tick(); off.onStep(); }
+  await assert.rejects(off.uploadMetadata(), /403/, 'no lasting disk: the uploader\'s refusal is shown');
+  off.stop();
+
+  const launch = open({ hostMetadata: true });
+  const meta = await launch.uploadMetadata({ twitter: 'https://x.com/brainworm' });
+  const m = meta.uri.match(/^https:\/\/worm\.example\/launch\/meta\/([A-Za-z0-9_-]{12}\.json)$/);
+  assert.ok(m, meta.uri);
+  assert.equal(launch.status().metadata.onSite, true);
+  const json = JSON.parse(fs.readFileSync(launch.metaFile(m[1]), 'utf8'));
+  assert.deepEqual([json.name, json.symbol, json.twitter, json.showName], ['BRAINWORM', 'WORM', 'https://x.com/brainworm', true]);
+  const img = json.image.match(/^https:\/\/worm\.example\/launch\/meta\/([0-9a-f]{24}\.png)$/);
+  assert.ok(img, json.image);
+  assert.equal(fs.readFileSync(launch.metaFile(img[1]), 'utf8'), 'the moment png');
+  assert.equal(launch.metaFile('../state.json'), null);
+  assert.equal(launch.metaFile('AAAAAAAAAAAA.json'), null);
+
+  // uploading again once pump.fun takes it replaces the link; the file kept earlier still shows what it showed
+  refuse = false;
+  assert.equal((await launch.uploadMetadata()).uri, 'https://ipfs.example/meta.json');
+  assert.equal(launch.status().metadata.onSite, false);
+  assert.ok(launch.metaFile(m[1]));
+  refuse = true;
+  const kept = await launch.uploadMetadata({ twitter: 'https://x.com/brainworm' });
+  assert.equal(kept.uri, meta.uri, 'the same content, the same link');
+  assert.equal((await launch.prepare({ creator: 'Creator11111111111111111111111111111111111' })).uri, meta.uri, 'the coin is made with it');
+  await launch.confirm({ signature: 'sig' });
+  await assert.rejects(launch.uploadMetadata(), /already launched/, 'after the launch its metadata is never replaced');
+  launch.stop();
+});

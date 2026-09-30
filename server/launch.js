@@ -7,7 +7,8 @@
 //                the moment go into the event log, so a replay shows it really was the first one.
 //  2. moment:    the server renders the token image from the worm's exact activity at that step and
 //                publishes the step, the state hash and the image hash.
-//  3. metadata:  on a mod's click, the image and metadata are uploaded to pump.fun's IPFS.
+//  3. metadata:  on a mod's click, the image and metadata are uploaded to pump.fun's IPFS (or Pinata's). If the
+//                uploader refuses the server, they are kept on the site's lasting disk (LOG_DIR) instead.
 //  4. prepared:  the site builds the pump.fun create transaction for the owner's wallet, with a fresh
 //                mint key signed in. The owner's wallet adds its signature and sends it. The server
 //                never holds the owner's key and never sends anything itself.
@@ -28,8 +29,8 @@ const commas = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');   // same
 
 const WATCH_MS = 3600_000;   // how long a prepared transaction is looked for on the chain (it can land for about a minute)
 
-export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}, publicUrl = '', pinataJwt = '', rpcUrl, configuredMint = '', watchEveryMs = 15_000, onChange = () => {}, onLaunched = () => {}, logger = console }) {
-  const root = path.join(dir, 'launch');
+export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}, publicUrl = '', pinataJwt = '', hostMetadata = false, rpcUrl, configuredMint = '', watchEveryMs = 15_000, onChange = () => {}, onLaunched = () => {}, logger = console }) {
+  const root = path.join(dir, 'launch'), metaDir = path.join(root, 'meta');
   fs.mkdirSync(root, { recursive: true });
   const file = path.join(root, 'state.json');
   let s = { armed: null, moment: null, metadata: null, launched: null, prepared: [] };
@@ -42,7 +43,7 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
       token: { ...TOKEN },
       armed: s.armed && { at: s.armed.at, step: s.armed.step, rule: s.armed.rule },
       moment: s.moment && { ...s.moment, image: '/launch/moment.png' },
-      metadata: s.metadata && { uri: s.metadata.uri },
+      metadata: s.metadata && { uri: s.metadata.uri, onSite: !!s.metadata.onSite },
       uploader: pinataJwt ? 'Pinata' : 'pump.fun',
       // launched: by this page, or already (TOKEN_MINT is set) though this server doesn't have the record
       launched: s.launched || (configuredMint ? { mint: configuredMint, signature: null, fromSettings: true } : null),
@@ -89,13 +90,41 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
   }
 
   async function uploadMetadata({ twitter = '', telegram = '', website = publicUrl, fetchImpl } = {}) {
+    if (done()) throw new Error('$WORM has already launched.');
     if (!s.moment) throw new Error('Capture the moment first.');
     const image = fs.readFileSync(path.join(root, 'moment.png'));
     const opts = { image, filename: 'brainworm.png', ...TOKEN, description: description(), twitter, telegram, website, fetchImpl };
-    const r = pinataJwt ? await solana.uploadPinataMetadata({ ...opts, jwt: pinataJwt }) : await solana.uploadPumpMetadata(opts);
-    s.metadata = { uri: r.metadataUri, uploadedAt: Date.now() };
+    let uri, onSite = '';
+    try {
+      uri = (pinataJwt ? await solana.uploadPinataMetadata({ ...opts, jwt: pinataJwt }) : await solana.uploadPumpMetadata(opts)).metadataUri;
+    } catch (e) {
+      // pump.fun's uploader sits behind bot protection and can refuse a server: then the image and metadata are kept
+      // on this site's lasting disk instead, so the launch never waits on it
+      if (!hostMetadata || !publicUrl) throw e;
+      uri = keepMetadata(image, { twitter, telegram, website });
+      onSite = e.message;
+      logger.warn(`[launch] the ${pinataJwt ? 'Pinata' : 'pump.fun'} upload failed (${e.message}); the metadata is kept on this site: ${uri}`);
+    }
+    s.metadata = { uri, uploadedAt: Date.now(), ...(onSite && { onSite }) };
     save();
     return s.metadata;
+  }
+  // What pump.fun's uploader would have made, kept here. Each file is named by the hash of what's in it, so the link that
+  // goes on chain can only ever show this content.
+  function keepMetadata(image, { twitter, telegram, website }) {
+    fs.mkdirSync(metaDir, { recursive: true });
+    const imageName = `${sha256(image).slice(0, 24)}.png`;
+    fs.writeFileSync(path.join(metaDir, imageName), image);
+    const json = JSON.stringify({ name: TOKEN.name, symbol: TOKEN.symbol, description: description(), image: `${publicUrl}/launch/meta/${imageName}`, showName: true, createdOn: 'https://pump.fun', ...(twitter && { twitter }), ...(telegram && { telegram }), ...(website && { website }) });
+    const jsonName = `${crypto.createHash('sha256').update(json).digest('base64url').slice(0, 12)}.json`;
+    fs.writeFileSync(path.join(metaDir, jsonName), json);
+    return `${publicUrl}/launch/meta/${jsonName}`;
+  }
+  /** A file kept by keepMetadata: <12 characters>.json or the moment's picture, <24 hex>.png. */
+  function metaFile(name) {
+    if (!/^([A-Za-z0-9_-]{12}\.json|[0-9a-f]{24}\.png)$/.test(name)) return null;
+    const f = path.join(metaDir, name);
+    return fs.existsSync(f) ? f : null;
   }
 
   async function prepare({ creator, amountSol = 0, slippage = 10, priorityFee = 0.0005, fetchImpl } = {}) {
@@ -166,5 +195,5 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
   const timer = setInterval(() => { watch().catch((e) => logger.warn(`[launch] watching the chain: ${e.message}`)); }, watchEveryMs);
   timer.unref?.();
 
-  return { status, arm, disarm, onStep, uploadMetadata, prepare, confirm, watch, stop: () => clearInterval(timer), description, get mint() { return s.launched ? s.launched.mint : null; }, get creator() { return s.creator || ''; }, imagePath: path.join(root, 'moment.png') };
+  return { status, arm, disarm, onStep, uploadMetadata, metaFile, prepare, confirm, watch, stop: () => clearInterval(timer), description, get mint() { return s.launched ? s.launched.mint : null; }, get creator() { return s.creator || ''; }, imagePath: path.join(root, 'moment.png') };
 }

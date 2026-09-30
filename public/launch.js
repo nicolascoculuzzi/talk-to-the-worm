@@ -22,7 +22,7 @@ async function refresh() {
   const set = (k, on, text) => { const li = document.querySelector(`[data-k="${k}"]`); li.classList.toggle('on', !!on); $('st-' + k).textContent = text; };
   set('armed', s.armed, s.armed ? `Armed at step ${s.armed.step.toLocaleString('en-US')} (${fmtTime(s.armed.at)}). Rule: the ${s.armed.rule}.` : 'Not armed yet.');
   set('moment', s.moment, s.moment ? `Step ${s.moment.step.toLocaleString('en-US')}: ${s.moment.nAct.toLocaleString('en-US')} cells firing, cilia stopped ${Math.round((s.moment.stop ?? s.moment.startle ?? 0) * 100)}%.` : s.armed ? 'Armed. Waiting for the first time a touch stops its cilia.' : 'Waiting for the launch to be armed.');
-  set('metadata', s.metadata, s.metadata ? `Uploaded: ${s.metadata.uri}` : 'Uploaded to IPFS after the moment.');
+  set('metadata', s.metadata, s.metadata ? `${s.metadata.onSite ? 'Kept on this site (the uploader refused the server)' : 'Uploaded'}: ${s.metadata.uri}` : 'Uploaded to IPFS after the moment.');
   set('launched', s.launched, s.launched ? `Mint ${s.launched.mint}` : 'Created on pump.fun from the moment.');
   if (s.launched) {
     const p = $('st-launched'); p.replaceChildren(`Mint ${s.launched.mint}`);
@@ -74,9 +74,9 @@ const act = (btn, fn) => $(btn).addEventListener('click', async () => {
 act('lparm', async () => { await admin('arm'); log('Armed. Now tap the worm\'s head on the main page (the top of its body) until its cilia stop: the first touch that does is the moment.'); });
 act('lpdisarm', async () => { await admin('disarm'); log('Disarmed.'); });
 act('lpmeta', async () => {
-  if (!confirm(`Upload the moment image and metadata to IPFS (through ${launchStatus?.uploader || 'pump.fun'})? This publishes them.`)) return;
+  if (!confirm(`Upload the moment image and metadata to IPFS (through ${launchStatus?.uploader || 'pump.fun'})? This publishes them. If the uploader refuses, they are kept on this site instead.`)) return;
   const j = await admin('metadata', { twitter: $('lptw').value.trim(), telegram: $('lptg').value.trim() });
-  log('✓ Metadata: ' + j.metadata.uri);
+  log(j.metadata.onSite ? `✓ Metadata kept on this site (the uploader said: ${j.metadata.onSite}): ${j.metadata.uri}` : '✓ Metadata: ' + j.metadata.uri);
 });
 
 /* ---------- the owner's wallet (Wallet Standard): it signs and sends; the server never holds a key ---------- */

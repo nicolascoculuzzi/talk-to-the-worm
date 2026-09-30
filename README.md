@@ -52,7 +52,7 @@ The project's own coin is named BRAINWORM, ticker $WORM, created on pump.fun.
 
 1. A mod arms the launch on `/launch`. The first time a touch makes the worm stop swimming after that (its cilia stop, outside its own stop-and-go rhythm) is the launch moment; the arming and the moment go into the log, and a replay confirms the moment was the first stop after arming and matches the logged state hash.
 2. The token image is rendered from the worm's exact activity at that step (`server/render.js`).
-3. On the owner's click, the image and metadata go to IPFS (through Pinata if `PINATA_JWT` is set, otherwise pump.fun's own uploader, which PumpPortal's docs now say is being retired).
+3. On the owner's click, the image and metadata go to IPFS (through Pinata if `PINATA_JWT` is set, otherwise pump.fun's own uploader, which PumpPortal's docs now say is being retired). If the uploader refuses the server and `LOG_DIR` is a lasting disk, they are kept there instead and served at `/launch/meta/`, each file named by the hash of its content.
 4. The server prepares the pump.fun create transaction (PumpPortal) with a fresh mint key signed in; the owner's wallet (Phantom, Solflare… via Wallet Standard) adds its signature and sends it. The server never holds the owner's key.
 5. When it confirms, the mint becomes the site's contract and trades reach the worm: buys poke the head end, sells the tail end, big buys flash light, each logged with its signature.
 
