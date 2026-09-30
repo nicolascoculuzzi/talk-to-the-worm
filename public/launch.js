@@ -14,6 +14,7 @@ const log = (line) => { const p = $('lplog'); p.textContent = (p.textContent + '
 const fmtTime = (ts) => new Date(ts).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
 
 /* ---------- public status ---------- */
+let launchedMint = '';   // $BRAINWORM's mint, once its launch has confirmed
 async function refresh() {
   const s = await fetch('/launch/status.json', { cache: 'no-store' }).then((r) => r.json()).catch(() => null);
   if (!s) return;
@@ -37,6 +38,10 @@ async function refresh() {
     row('Captured', fmtTime(s.moment.capturedAt));
     $('lpdesc').textContent = 'Token description: ' + s.description;
   }
+  const was = launchedMint;
+  launchedMint = s.launched?.mint || '';
+  if (launchedMint && launchedMint !== was && !$('lpcontrols').hidden) { spawnView(); loadPrice(); }   // it just launched: SPAWN's side of it
+  todo();
 }
 refresh(); setInterval(refresh, 5000);
 
@@ -50,7 +55,7 @@ async function admin(path, params = {}, area = 'launch') {
   if (!j.ok) throw new Error(j.error || 'Failed.');
   return j;
 }
-function lock() { token = ''; sessionStorage.removeItem('wormAdminToken'); $('lpcontrols').hidden = true; $('lplock').hidden = false; }
+function lock() { token = ''; sessionStorage.removeItem('wormAdminToken'); $('lpcontrols').hidden = true; $('lplock').hidden = false; todo(); }
 async function unlock() {
   const r = await fetch('/admin/state', { headers: { Authorization: 'Bearer ' + token } });
   if (!r.ok) { lock(); log('That token is not right.'); return; }
@@ -107,12 +112,15 @@ act('lpsign', async () => {
 // builds each config transaction with the config's fresh key signed in; the owner's wallet pays its rent (about
 // 0.008 SOL), signs and sends it. Fees in $BRAINWORM are claimed and burned in the same transactions. Fees in SOL wait
 // in their pools until $BRAINWORM exists; then they are claimed, swapped for $BRAINWORM, and exactly what that bought is burned.
-let spPrice = null, spState = null;
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
+let spPrice = null, spState = null, siteMint = '';
 async function spawnView() {
   const r = await fetch('/admin/state', { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
   if (!r || !r.ok) return;
-  const st = spState = (await r.json()).spawn;
-  const cur = st.configs.find((c) => c.address === st.current), inRoot = (c) => c.quoteMint && c.quoteMint !== 'So11111111111111111111111111111111111111112';
+  const a = await r.json(), st = spState = a.spawn;
+  siteMint = a.trades?.mint || '';   // what the site itself knows: TOKEN_MINT, or the launch record while the disk lasts
+  todo();
+  const cur = st.configs.find((c) => c.address === st.current), inRoot = (c) => c.quoteMint && c.quoteMint !== SOL_MINT;
   const parts = [];
   if (!cur) parts.push('No config yet. Make one priced in SOL and SPAWN opens: coins can be launched from then on.');
   else parts.push(`${st.open ? 'Open' : 'Not open yet'}. New coins go on ${cur.address}, priced in ${inRoot(cur) ? '$BRAINWORM' : 'SOL'}, graduating at ${compact(cur.graduationQuote)} ${inRoot(cur) ? '$BRAINWORM' : 'SOL'} (${st.configs.length} config${st.configs.length > 1 ? 's' : ''} in all).`);
@@ -122,25 +130,46 @@ async function spawnView() {
   if (st.stuck?.length) parts.push(`Waiting over 10 minutes to graduate: ${st.stuck.map((x) => '$' + (x.symbol || x.mint.slice(0, 4))).join(', ')}. Meteora's migrator usually does it; migrator.meteora.ag can do it by hand.`);
   $('spstatus').textContent = parts.join(' ');
 }
+// What the owner still has to do once $BRAINWORM exists: set TOKEN_MINT (without a disk a deploy forgets the launch
+// record; after one that already has, SPAWN may have found the mint in the owner's configs on chain), and make SPAWN's
+// config priced in it. Shown to the owner only.
+const breakable = (s) => s.match(/.{1,22}/g).flatMap((x, i) => (i ? [el('wbr'), x] : [x]));   // an address can wrap on a phone
+function todo() {
+  const owner = !$('lpcontrols').hidden, mint = launchedMint || (!siteMint && spState?.foundRoot) || '', root = mint || siteMint;
+  const setMint = () => { const b = el('b'); b.append('TOKEN_MINT=', ...breakable(mint)); return ['Set ', b, ' in Railway\'s variables now: without a disk, a deploy forgets the launch.']; };
+  $('lpmint').hidden = !(owner && mint);
+  if (!$('lpmint').hidden) $('lpmint').replaceChildren(...setMint());
+  const lines = [...(mint ? [setMint()] : []), ...(root && spState?.configs.every((c) => c.quoteMint === SOL_MINT) ? [['Make SPAWN\'s $BRAINWORM config below: new coins will be priced in it.']] : [])];
+  $('sptodo').hidden = !(owner && lines.length);
+  $('sptodo').replaceChildren(...lines.flatMap((l, i) => (i ? [el('br'), ...l] : l)));
+}
+// What buyers put in before a coin graduates, in SOL (its constant-product curve between the two caps), and priced in
+// $BRAINWORM, that as a share of all of it (1,000,000,000) at today's price, in %.
+const raisedSol = (start, grad) => { const r = Math.sqrt(start / grad); return grad * r / (1 + r); };
+const rootShare = (start, grad) => raisedSol(start, grad) / spPrice.rootSol / 1e7;
 function calc() {
   const start = Number($('spstart').value), grad = Number($('spgrad').value), root = $('spquote').value === 'root';
   const usd = (x) => (spPrice?.solUsd ? ` ≈ $${compact(x * spPrice.solUsd)}` : '');
   if (!(start > 0 && grad > start)) { $('spcalc').textContent = 'The graduation market cap has to be above the starting one.'; return null; }
-  const r = Math.sqrt(start / grad), raisedSol = grad * r / (1 + r);
+  const raised = raisedSol(start, grad);
   if (!root) {
-    $('spcalc').textContent = `Coins start at ${compact(start)} SOL${usd(start)} and graduate at ${compact(grad)} SOL${usd(grad)}, once buyers have put in ${raisedSol.toFixed(1)} SOL.`;
+    $('spcalc').textContent = `Coins start at ${compact(start)} SOL${usd(start)} and graduate at ${compact(grad)} SOL${usd(grad)}, once buyers have put in ${raised.toFixed(1)} SOL.`;
     return { startMcap: start, graduationMcap: grad };
   }
-  if (!spPrice?.rootSol) { $('spcalc').textContent = '$BRAINWORM has no price yet (it has to launch first).'; return null; }
-  const startMcap = start / spPrice.rootSol, graduationMcap = grad / spPrice.rootSol, raised = raisedSol / spPrice.rootSol;
-  $('spcalc').textContent = `At today's price that is ${compact(startMcap)} → ${compact(graduationMcap)} $BRAINWORM. A coin graduates once buyers have put in ${compact(raised)} $BRAINWORM (≈ ${raisedSol.toFixed(1)} SOL, ${(raised / 1e7).toFixed(2)}% of all $BRAINWORM).`;
-  return { startMcap, graduationMcap };
+  if (!spPrice?.rootSol) { $('spcalc').textContent = spPrice?.root ? '$BRAINWORM has no price yet. Try again in a minute.' : '$BRAINWORM has no price yet (it has to launch first).'; return null; }
+  const startMcap = start / spPrice.rootSol, graduationMcap = grad / spPrice.rootSol, share = rootShare(start, grad);
+  const text = `At today's price that is ${compact(startMcap)} → ${compact(graduationMcap)} $BRAINWORM. A coin graduates once buyers have put in ${compact(raised / spPrice.rootSol)} $BRAINWORM (≈ ${raised.toFixed(1)} SOL, ${share.toFixed(2)}% of all $BRAINWORM).`;
+  // right after its launch $BRAINWORM is cheap: caps set in SOL can take more of it than there is, and no coin could graduate
+  $('spcalc').textContent = share <= 10 ? text : `${text} Too big for today's price: a coin would need ${share.toFixed(share < 100 ? 1 : 0)}% of all $BRAINWORM to graduate. Keep new coins in SOL until $BRAINWORM's market cap is higher (about ${compact(Math.ceil(raised * 10 / 50) * 50)} SOL for these caps), or lower the caps.`;
+  return share > 25 ? null : { startMcap, graduationMcap };
 }
 for (const id of ['spstart', 'spgrad', 'spquote']) $(id).addEventListener('input', calc);
 async function loadPrice() {
   try { spPrice = (await admin('price', {}, 'spawn')).price; } catch { spPrice = null; }
   $('spquote').querySelector('[value="root"]').disabled = !spPrice?.root;
-  if (spPrice?.root && !$('spquote').dataset.touched) $('spquote').value = 'root';
+  // it picks $BRAINWORM by itself only when a graduation would take at most 10% of all of it at these caps
+  const start = Number($('spstart').value), grad = Number($('spgrad').value);
+  if (spPrice?.root && !$('spquote').dataset.touched) $('spquote').value = spPrice.rootSol && start > 0 && grad > start && rootShare(start, grad) <= 10 ? 'root' : 'sol';
   calc();
 }
 $('spquote').addEventListener('change', () => { $('spquote').dataset.touched = '1'; });

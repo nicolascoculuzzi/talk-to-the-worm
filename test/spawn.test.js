@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { createSpawn, SOL_MINT } from '../server/spawn.js';
 import { createWormServer } from '../server/server.js';
-import { generateKeypair, b58encode } from '../server/solana.js';
+import { generateKeypair, b58encode, b58decode, findProgramAddress, PUMP_PROGRAM } from '../server/solana.js';
 import { checkMessage } from '../server/moderation.js';
 
 const addr = () => generateKeypair().address;
@@ -19,8 +19,9 @@ const PNG = 'data:image/png;base64,' + Buffer.concat([Buffer.from([137, 80, 78, 
 const moderate = (t) => checkMessage(t, []);
 
 // the chain (server/dbc.js), Jupiter and a Solana RPC, faked
-function fakes({ noDirect = false } = {}) {
+function fakes({ noDirect = false, rootUsd = 0.02 } = {}) {
   const pools = [], calls = [], configs = new Map(), tradesFor = new Map(), txs = new Map(), pictures = new Map(), NEW = addr();
+  const sigsFor = new Map(), accounts = new Map();   // getSignaturesForAddress and getAccountInfo, by address
   const dbc = {
     fetchConfig: async ({ address }) => configs.get(address) || null,
     listPools: async ({ config }) => pools.filter((p) => p.config === config),
@@ -38,12 +39,12 @@ function fakes({ noDirect = false } = {}) {
     buildBurnReceived: async (o) => { calls.push(['burnReceived', o]); return { tx: 'QlVSTg==', burns: [{ mint: ROOT, amount: 4 }] }; },
     ata: (owner, mint) => `ata:${owner}:${mint}`,
   };
-  const f = { nextConfig: null, balance: 5e9, wsol: '0' };
+  const f = { nextConfig: null, balance: 5e9, wsol: '0', rootUsd };
   const reply = (o, status = 200) => new Response(JSON.stringify(o), { status });
   const fetchImpl = async (url, init = {}) => {
     const u = String(url);
     calls.push(['fetch', u, init.headers || {}]);
-    if (/\/price\/v3/.test(u)) return reply({ [SOL_MINT]: { usdPrice: 200 }, [ROOT]: { usdPrice: 0.02 } });
+    if (/\/price\/v3/.test(u)) return reply({ [SOL_MINT]: { usdPrice: 200 }, ...(f.rootUsd ? { [ROOT]: { usdPrice: f.rootUsd } } : {}) });
     if (/\/swap\/v1\/quote/.test(u)) {
       const q = new URL(u).searchParams, i = q.get('inputMint'), o = q.get('outputMint');
       calls.push(['quote', Object.fromEntries(q)]);
@@ -54,11 +55,15 @@ function fakes({ noDirect = false } = {}) {
     if (/\/swap\/v1\/swap/.test(u)) { calls.push(['swap', JSON.parse(init.body)]); return reply({ swapTransaction: 'U1dBUA==' }); }
     if (u.startsWith('http://rpc.test')) {
       const { method, params } = JSON.parse(init.body);
+      calls.push(['rpc', method, params[0]]);
       if (method === 'getSignatureStatuses') return reply({ jsonrpc: '2.0', id: 1, result: { value: [{ confirmationStatus: 'confirmed', err: null }] } });
       if (method === 'getTransaction') return reply({ jsonrpc: '2.0', id: 1, result: txs.get(params[0]) ?? null });
-      if (method === 'getSignaturesForAddress') return reply({ jsonrpc: '2.0', id: 1, result: [] });
+      if (method === 'getSignaturesForAddress') return reply({ jsonrpc: '2.0', id: 1, result: sigsFor.get(params[0]) || [] });
       if (method === 'getBalance') return reply({ jsonrpc: '2.0', id: 1, result: { value: f.balance } });
-      if (method === 'getAccountInfo') {   // a token account: its amount at byte 64
+      if (method === 'getAccountInfo') {
+        const a = accounts.get(params[0]);
+        if (a) return reply({ jsonrpc: '2.0', id: 1, result: { value: { data: [a.data.toString('base64'), 'base64'], owner: a.owner } } });
+        // else the wrapped-SOL account: its amount at byte 64
         if (f.wsol === '0') return reply({ jsonrpc: '2.0', id: 1, result: { value: null } });
         const d = Buffer.alloc(165); d.writeBigUInt64LE(BigInt(f.wsol), 64);
         return reply({ jsonrpc: '2.0', id: 1, result: { value: { data: [d.toString('base64'), 'base64'], owner: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' } } });
@@ -70,7 +75,18 @@ function fakes({ noDirect = false } = {}) {
   const pool = (mint, extra = {}) => ({ address: addr(), config: CFG, baseMint: mint, creator: CREATOR, baseVault: addr(), quoteVault: addr(), partnerQuoteFee: 3_000_000n, creatorQuoteFee: 2_000_000n, activationPoint: 1, name: '', symbol: '', ...extra });
   // a parsed transaction in which `authority` burned `amount` of `mint`
   const burnTx = (mint, authority, amount) => ({ meta: { err: null }, transaction: { message: { instructions: [{ program: 'spl-token', parsed: { type: 'burnChecked', info: { mint, authority, tokenAmount: { amount: String(amount * 1e6), decimals: 6 } } } }] } } });
-  return Object.assign(f, { dbc, fetchImpl, pools, calls, configs, tradesFor, txs, pictures, pool, burnTx, NEW });
+  // a pump.fun coin's bonding curve: virtual token reserves, virtual SOL reserves (lamports), graduated or not; a
+  // newer curve priced in another token names it at byte 83. Returns its address.
+  const curve = (mint, { tokens, lamports, complete = false, quoteMint = null }) => {
+    const address = findProgramAddress(['bonding-curve', mint], PUMP_PROGRAM)[0], d = Buffer.alloc(151);
+    d.writeBigUInt64LE(tokens, 8); d.writeBigUInt64LE(lamports, 16); d[48] = complete ? 1 : 0;
+    if (quoteMint) Buffer.from(b58decode(quoteMint)).copy(d, 83);
+    accounts.set(address, { data: d, owner: PUMP_PROGRAM });
+    return address;
+  };
+  // the transaction that made a config, paid for by `payer`: the oldest one that mentions it
+  const madeBy = (config, payer) => { const s = sig(); sigsFor.set(config, [{ signature: sig() }, { signature: s }]); txs.set(s, { meta: { err: null }, transaction: { message: { accountKeys: [payer, config] } } }); };
+  return Object.assign(f, { dbc, fetchImpl, pools, calls, configs, tradesFor, txs, pictures, sigsFor, accounts, pool, burnTx, curve, madeBy, NEW });
 }
 const openConfig = (f) => f.configs.set(CFG, { address: CFG, quoteMint: ROOT, feeClaimer: OWNER, collectFeeMode: 0, creatorShare: 20 });
 // a launchpad that is already open, with one coin spawned on the page
@@ -270,8 +286,8 @@ test('the server: SPAWN buys poke the worm at the coin\'s own spot, logged with 
   fs.writeFileSync(path.join(logDir, 'spawn', 'state.json'), JSON.stringify({ configs: [{ address: CFG, partner: OWNER, graduationQuote: 1234 }], coins: { [MINT]: { name: 'Good Coin', symbol: 'GOOD', image: '', creator: CREATOR, createdAt: Date.now() } } }));
   openConfig(f);
   f.pools.push(p);
-  f.tradesFor.set(S1, [{ pool: p.address, config: CFG, side: 'buy', quote: 2_000_000n, coins: 1n, trader: addr() }]);
-  f.tradesFor.set(S2, [{ pool: p.address, config: CFG, side: 'sell', quote: 2_000_000n, coins: 1n, trader: addr() }]);
+  f.tradesFor.set(S1, [{ pool: p.address, config: CFG, side: 'buy', quote: 2_000_000n, coins: 1n, sqrtPrice: 2n ** 64n, trader: addr() }]);   // 1 $BRAINWORM a coin after it
+  f.tradesFor.set(S2, [{ pool: p.address, config: CFG, side: 'sell', quote: 2_000_000n, coins: 1n, sqrtPrice: 2n ** 63n, trader: addr() }]);   // 0.25 after it
   FakeWS.all = [];
   const app = createWormServer({
     logDir, speed: 10, ots: false, lab: false, pow: { bits: 0 }, publicUrl: 'https://worm.example', token: { mint: ROOT, solanaRpc: 'http://rpc.test' }, spawn: { localMeta: true },
@@ -339,6 +355,15 @@ test('the server: SPAWN buys poke the worm at the coin\'s own spot, logged with 
     const nope = await fetch(`${base}/c/${addr()}`, { redirect: 'manual' });
     assert.equal(nope.status, 302); assert.equal(nope.headers.get('location'), '/spawn');
     assert.equal((await fetch(base + '/spawn/hatch/nope!.json')).status, 404);
+    // its price chart: each trade with its price after it, in $BRAINWORM, for anyone to draw
+    const ch = await fetch(`${base}/spawn/chart/${MINT}.json`);
+    assert.equal(ch.status, 200);
+    assert.deepEqual([ch.headers.get('access-control-allow-origin'), ch.headers.get('cache-control')], ['*', 'public, max-age=5']);
+    const chart = await ch.json();
+    assert.deepEqual({ ...chart, points: chart.points.map((x) => x.slice(1)) }, { mint: MINT, symbol: 'GOOD', quote: '$BRAINWORM', supply: 1e9, points: [[0.25, 'sell', 2, S2], [1, 'buy', 2, S1]] });
+    assert.ok(chart.points[0][0] <= chart.points[1][0] && chart.points[1][0] <= Date.now());
+    assert.equal((await fetch(`${base}/spawn/chart/${addr()}.json`)).status, 404, 'not a SPAWN coin');
+    assert.equal((await fetch(`${base}/spawn/chart/nope.json`)).status, 404);
     // metadata served from here only for SPAWN coins that point here
     assert.equal((await fetch(`${base}/spawn/m/${MINT}.json`)).status, 404, 'its metadata lives elsewhere');
     assert.equal((await fetch(`${base}/spawn/m/nope.json`)).status, 404);
@@ -513,4 +538,136 @@ test('with nowhere lasting to keep pictures, SPAWN still opens: a coin gets its 
   assert.equal(await sp.coinMetadata(ELSEWHERE), null, 'its metadata is elsewhere');
   assert.equal(await sp.coinMetadata(addr()), null, 'not a SPAWN coin');
   sp.stop();
+});
+
+const near = (a, b) => Math.abs(a - b) <= Math.abs(b) * 1e-9;
+
+test('right after $BRAINWORM launches, Jupiter has no price for it: its pump.fun curve gives one (read every 20 s at most), none once it graduates', async () => {
+  const f = fakes({ rootUsd: 0 }), MINT = addr();
+  openConfig(f);
+  f.pools.push(f.pool(MINT, { name: 'Good Coin', symbol: 'GOOD' }));
+  const CURVE = f.curve(ROOT, { tokens: 800_000_000_000_000n, lamports: 40_000_000_000n });   // 40 SOL against 800,000,000 tokens: 5e-8 SOL each
+  const opts = { rpc: 'http://rpc.test', owner: OWNER };
+  f.dbc.findConfigs = async () => [f.configs.get(CFG)];
+  f.dbc.isSpawnConfig = () => true;
+  const sp = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
+  await sp.fresh(true);
+  const st = sp.publicState();
+  assert.ok(near(st.root.priceSol, 5e-8) && near(st.root.priceUsd, 5e-8 * 200), 'its price in SOL from the curve, in dollars at SOL\'s');
+  assert.ok(near(st.coins[0].priceSol, 0.5 * 5e-8), 'a coin priced in $BRAINWORM, in SOL');
+  const p = await sp.rootPrice();
+  assert.equal(p.root, ROOT); assert.equal(p.solUsd, 200); assert.ok(near(p.rootSol, 5e-8) && near(p.rootUsd, 1e-5));
+  assert.equal(f.calls.filter((c) => c[0] === 'rpc' && c[2] === CURVE).length, 1, 'read once in 20 s');
+  sp.stop();
+
+  // graduated to PumpSwap, or priced in another token: no price from the curve
+  for (const shape of [{ complete: true }, { quoteMint: addr() }]) {
+    f.curve(ROOT, { tokens: 800_000_000_000_000n, lamports: 40_000_000_000n, ...shape });
+    const later = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
+    assert.equal((await later.rootPrice()).rootSol, 0, JSON.stringify(Object.keys(shape)));
+    later.stop();
+  }
+  // once Jupiter has a price, it is the one
+  f.rootUsd = 0.02;
+  const priced = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
+  assert.ok(near((await priced.rootPrice()).rootSol, 0.0001));
+  priced.stop();
+});
+
+test('after a deploy without TOKEN_MINT, SPAWN finds $BRAINWORM in the config the owner paid for; a look-alike config someone else made counts for nothing', async () => {
+  const f = fakes(), SOLCFG = addr(), ROOTCFG = addr(), FAKE = addr(), MINT = addr();
+  const cfg = (address, quoteMint) => ({ address, quoteMint, feeClaimer: OWNER, collectFeeMode: 0, creatorShare: 20, migrationQuoteThreshold: 84_000_000_000n });
+  f.configs.set(SOLCFG, cfg(SOLCFG, SOL_MINT)); f.configs.set(ROOTCFG, cfg(ROOTCFG, ROOT)); f.configs.set(FAKE, cfg(FAKE, addr()));
+  f.dbc.findConfigs = async ({ feeClaimer }) => [...f.configs.values()].filter((c) => c.feeClaimer === feeClaimer);
+  f.dbc.isSpawnConfig = () => true;   // all made with SPAWN's parameters
+  f.madeBy(ROOTCFG, OWNER); f.madeBy(FAKE, addr());
+  f.pools.push(f.pool(MINT, { config: ROOTCFG, name: 'Root Coin', symbol: 'ROOTC' }));
+  const opts = { rpc: 'http://rpc.test', owner: OWNER, publicUrl: 'https://worm.example' };
+  const sp = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => '', moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
+  await sp.fresh(true);
+  assert.equal(sp.foundRoot, ROOT);
+  assert.equal(sp.status().foundRoot, ROOT);
+  assert.deepEqual(sp.status().configs.map((c) => c.address).sort(), [SOLCFG, ROOTCFG].sort(), 'not the look-alike');
+  assert.deepEqual([sp.publicState().quote, sp.publicState().config, sp.publicState().root.mint], ['$BRAINWORM', ROOTCFG, ROOT]);
+  assert.deepEqual(sp.publicState().coins.map((c) => [c.symbol, c.quote]), [['ROOTC', '$BRAINWORM']]);
+  assert.ok(near(sp.publicState().coins[0].priceSol, 0.5 * 0.0001), 'priced with $BRAINWORM\'s price');
+  assert.equal((await sp.rootPrice()).root, ROOT);
+  assert.equal((await sp.buildConfig({ partner: OWNER, startMcap: 1e6, graduationMcap: 1.3e7 })).quote, '$BRAINWORM');
+  assert.equal(f.calls.filter((c) => c[0] === 'config').at(-1)[1].quoteMint, ROOT);
+  sp.stop();
+
+  // the site knows it: nothing is looked up
+  const known = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
+  const asked = f.calls.filter((c) => c[0] === 'rpc' && c[1] === 'getSignaturesForAddress' && [ROOTCFG, FAKE].includes(c[2])).length;
+  await known.fresh(true);
+  assert.equal(known.foundRoot, '');
+  assert.equal(f.calls.filter((c) => c[0] === 'rpc' && c[1] === 'getSignaturesForAddress' && [ROOTCFG, FAKE].includes(c[2])).length, asked);
+  known.stop();
+
+  // only the look-alike, or the owner's configs in two mints: no $BRAINWORM, new coins stay in SOL
+  for (const setup of [() => f.configs.delete(ROOTCFG), () => { f.configs.set(ROOTCFG, cfg(ROOTCFG, ROOT)); f.madeBy(FAKE, OWNER); }]) {
+    setup();
+    const none = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => '', moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
+    await none.fresh(true);
+    assert.equal(none.foundRoot, '');
+    assert.deepEqual([none.publicState().quote, none.publicState().config, none.publicState().root.mint], ['SOL', SOLCFG, null]);
+    none.stop();
+  }
+});
+
+test('each coin\'s chart: every trade with its price after it, from the live stream, and read back from the chain after a restart', async () => {
+  const f = fakes(), MINT = addr(), T0 = 1_750_000_000, S1 = sig(), S2 = sig(), S3 = sig(), BIG = sig();
+  const sqrtOf = (price) => BigInt(Math.round(Math.sqrt(price * 1e3) * 2 ** 64));   // priced in SOL: (√ / 2^64)² × 10^(6 − 9)
+  f.configs.set(CFG, { address: CFG, quoteMint: SOL_MINT, feeClaimer: OWNER, collectFeeMode: 0, creatorShare: 20, migrationQuoteThreshold: 84_000_000_000n, tokenDecimal: 6, sqrtStartPrice: sqrtOf(2.8e-8) });
+  f.dbc.findConfigs = async () => [f.configs.get(CFG)];
+  f.dbc.isSpawnConfig = () => true;
+  const p = f.pool(MINT, { name: 'Chart Coin', symbol: 'CHRT', activationPoint: T0 });
+  f.pools.push(p);
+  const swap = (side, lamports, price) => ({ pool: p.address, config: CFG, side, quote: BigInt(lamports), coins: 1n, sqrtPrice: sqrtOf(price), trader: addr() });
+  f.tradesFor.set(S1, [swap('buy', 2e9, 3e-8)]);
+  f.tradesFor.set(S2, [swap('buy', 1e9, 3.2e-8), swap('sell', 5e8, 3.1e-8)]);   // two swaps of the coin in one transaction
+  FakeWS.all = [];
+  const opts = { rpc: 'http://rpc.test', ws: 'wss://rpc.test', WebSocketImpl: FakeWS, owner: OWNER };
+  const sp = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => '', moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
+  await sp.fresh(true);
+  // a new coin's chart starts at its curve's first price, when it was made
+  const c0 = sp.chart(MINT);
+  assert.deepEqual([c0.mint, c0.symbol, c0.quote, c0.supply, c0.points.length], [MINT, 'CHRT', 'SOL', 1e9, 1]);
+  assert.deepEqual([c0.points[0][0], c0.points[0][2], c0.points[0][3], c0.points[0][4]], [T0 * 1000, 'start', 0, '']);
+  assert.ok(near(c0.points[0][1], 2.8e-8));
+  assert.equal(sp.chart(addr()), null, 'not a SPAWN coin');
+
+  // the stream: each swap as it arrives, with its price after it and what it paid
+  for (let k = 0; k < 100 && !FakeWS.all.some((w) => w.sent.length); k++) await sleep(20);
+  const t = Date.now();
+  FakeWS.note(S1); FakeWS.note(S2);
+  let pts = [];
+  for (let k = 0; k < 200 && pts.length < 4; k++) { await sleep(25); pts = sp.chart(MINT).points; }
+  assert.deepEqual(pts.map((x) => [x[2], x[3], x[4]]), [['start', 0, ''], ['buy', 2, S1], ['buy', 1, S2], ['sell', 0.5, S2]]);
+  assert.ok(near(pts[1][1], 3e-8) && near(pts[2][1], 3.2e-8) && near(pts[3][1], 3.1e-8));
+  assert.ok(pts[1][0] >= t && pts[3][0] <= Date.now(), 'timed when they arrive');
+  // at most 2000 points a coin: the oldest go first
+  f.tradesFor.set(BIG, Array.from({ length: 1998 }, () => swap('buy', 1e6, 4e-8)));
+  FakeWS.note(BIG);
+  for (let k = 0; k < 200 && sp.chart(MINT).points.at(-1)[4] !== BIG; k++) await sleep(25);
+  const capped = sp.chart(MINT).points;
+  assert.equal(capped.length, 2000);
+  assert.deepEqual(capped.slice(0, 3).map((x) => [x[2], x[4]]), [['buy', S2], ['sell', S2], ['buy', BIG]]);
+  sp.stop();
+
+  // a restart: the chart is read back from the chain, timed by its blocks, oldest first
+  FakeWS.all = [];
+  f.sigsFor.set(p.address, [{ signature: S3, blockTime: T0 + 300 }, { signature: S2, blockTime: T0 + 200 }, { signature: S1, blockTime: T0 + 100 }]);   // newest first, as the RPC lists them
+  f.tradesFor.set(S3, [swap('sell', 1e9, 2.9e-8)]);
+  const again = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => '', moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
+  await again.fresh(true);
+  let back = [];
+  for (let k = 0; k < 200 && back.length < 5; k++) { await sleep(25); back = again.chart(MINT).points; }
+  assert.deepEqual(back.map((x) => [x[0], x[2], x[3], x[4]]), [[T0 * 1000, 'start', 0, ''], [(T0 + 100) * 1000, 'buy', 2, S1], [(T0 + 200) * 1000, 'buy', 1, S2], [(T0 + 200) * 1000, 'sell', 0.5, S2], [(T0 + 300) * 1000, 'sell', 1, S3]]);
+  // the same trade from the stream too counts once
+  for (let k = 0; k < 100 && !FakeWS.all.some((w) => w.sent.length); k++) await sleep(20);
+  FakeWS.note(S3);
+  await sleep(700);
+  assert.equal(again.chart(MINT).points.length, 5);
+  again.stop();
 });
