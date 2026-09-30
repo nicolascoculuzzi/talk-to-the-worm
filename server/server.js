@@ -810,6 +810,7 @@ export function createWormServer(overrides = {}) {
     if (p === '/launch/moment.png') return launch ? sendFile(req, res, launch.imagePath, 'image/png', 'no-cache') : notFound(res);
     if (p === '/launch' || p === '/launch/') { res.setHeader('X-Robots-Tag', 'noindex'); return statics.serve(req, res, '/launch.html') || notFound(res); }
     if (p === '/spawn' || p === '/spawn/') return statics.serve(req, res, '/spawn.html') || notFound(res);
+    if (p === '/about' || p === '/about/') return statics.serve(req, res, '/about.html') || notFound(res);  // what BRAINWORM is, all of it
     if (p === '/lab' || p === '/lab/') return statics.serve(req, res, '/lab.html') || notFound(res);     // every registered test and its result
     if (p === '/docs' || p === '/docs/') return statics.serve(req, res, '/docs.html') || notFound(res);  // the overview and all the code
     if (p === '/spawn.json') { const send = () => json(res, 200, spawn.publicState()); spawn.fresh().then(send, send); return; }

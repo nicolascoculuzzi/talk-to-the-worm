@@ -43,7 +43,7 @@
   <div class="navlinks" id="navlinks">
     <a href="#coins">Coins</a>
     <a href="#spawnhow">How it works</a>
-    <a href="#what">The worm</a>
+    <a href="/about">About</a>
     <a href="/lab">Tests</a>
     <a href="/docs">Docs</a>
     <a href="#coin" id="navcoin" hidden></a>
@@ -86,6 +86,7 @@
     <section class="launchcard" id="launchcard" aria-labelledby="lch">
       <p class="lceyebrow">SPAWN · the BRAINWORM launchpad <span class="pill" id="spawnopen">Opening soon</span></p>
       <h2 class="lctitle" id="lch">Launch a coin.<span>It hatches its own worm.</span></h2>
+      <p class="lcsub">Every coin gets its own copy of a real worm larva's brain, simulated live. It feels every trade. <a href="#spawnhow">How?</a></p>
       <form id="launchform" class="lf lfcard" autocomplete="off" aria-labelledby="lch">
         <label class="lfpic" title="Its picture: its worm's first sight, unless you pick one">
           <input type="file" data-lf="pic" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Pick a picture (optional)">
@@ -175,6 +176,40 @@
 </main>
 
 <div class="page">
+  <section class="section wide spawnhow" id="spawnhow" data-scene="experiments" aria-labelledby="howh">
+    <p class="eyebrow">How it works · in 30 seconds</p>
+    <h2 class="display" id="howh">A real worm's brain, a copy for every coin</h2>
+    <ol class="story4">
+      <li>
+        <span class="n">01</span>
+        <svg class="ic" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 6c8 0 11 6 9 13s-3 11 0 19M24 6c-8 0-11 6-9 13s3 11 0 19"/><circle cx="18" cy="16" r="2.2"/><circle cx="30" cy="22" r="2.2"/><circle cx="21" cy="30" r="2.2"/><path d="M18 16l12 6-9 8"/></svg>
+        <h3>The worm is real</h3>
+        <p>BRAINWORM runs a simulation of a real sea worm larva's whole nervous system: all 2,675 cells and 26,881 synapses, exactly as scientists mapped them (<i>eLife</i>, 2025). Nothing invented, nothing trained. One copy runs live, and everyone watching sees the same worm.</p>
+        <p class="links"><a href="/about">How the digital worm was made →</a></p>
+      </li>
+      <li>
+        <span class="n">02</span>
+        <figure class="ex"><img src="/spawn/hatch/YOURCOIN.png" alt="What a fresh worm makes of the ticker $YOURCOIN" width="120" height="120" loading="lazy"><figcaption>A coin called $YOURCOIN would hatch this</figcaption></figure>
+        <h3>Every coin hatches its own</h3>
+        <p>Launch a coin and a fresh copy of that worm hatches for it. The first thing it sees is your ticker. After that it feels every trade of your coin, and nothing else: a buy touches its head, a sell its tail.</p>
+      </li>
+      <li>
+        <span class="n">03</span>
+        <svg class="ic" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 42c-8 0-13-5-13-12 0-8 7-10 8-18 5 3 6 8 6 11 2-2 3-5 3-8 5 4 9 9 9 15 0 7-5 12-13 12z"/><path d="M24 42c-3 0-5-2-5-5 0-4 3-5 5-9 2 4 5 5 5 9 0 3-2 5-5 5z"/></svg>
+        <h3>Every trade feeds $BRAINWORM</h3>
+        <p>Coins trade on a Meteora bonding curve. Each trade pays 1%: a fifth to Meteora, a fifth of the rest to the coin's creator, and the rest goes to burning $BRAINWORM. Every buy also pokes the big worm above, live.</p>
+      </li>
+      <li>
+        <span class="n">04</span>
+        <svg class="ic" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5l15 6v11c0 10-6 17-15 21C15 39 9 32 9 22V11z"/><path d="M17 24l5 5 10-11"/></svg>
+        <h3>You can check all of it</h3>
+        <p>Your browser runs its own copy of the worm and checks the server's every second. Every hour of its life is sealed into Bitcoin. Its tests were written down before they ran. All the code is on this site.</p>
+        <p class="links"><a href="/lab">The tests →</a><a href="#proof">The proof →</a><a href="/docs">The code →</a></p>
+      </li>
+    </ol>
+    <p class="howcta"><a class="btn-amber" href="#top" data-go="launch">Launch a coin</a><a class="btn-ghost" href="#coins">See the coins</a></p>
+  </section>
+
   <section class="section wide homecoins" id="coins" data-scene="experiments" aria-labelledby="coinsh">
     <div class="sectop">
       <div>
@@ -190,18 +225,23 @@
     </div>
     <div class="spgrid" id="homecoins"><p class="empty">No coins yet.</p></div>
     <p class="homemore"><a class="btn-ghost" href="/spawn" id="homeall">All coins →</a></p>
+    <p class="homefee small" id="homefee"></p>
   </section>
 
-  <section class="section wide spawnhow" id="spawnhow" data-scene="experiments" aria-labelledby="howh">
-    <p class="eyebrow">How it works</p>
-    <h2 class="display" id="howh">Launch a coin. It hatches its own worm.</h2>
-    <ol class="howsteps">
-      <li><b>01</b><h3>Your coin goes live</h3><p>Free to launch, on Meteora's bonding curve. A fixed billion coins, none held back for anyone. When it graduates, its liquidity is locked for good.</p></li>
-      <li><b>02</b><h3>It hatches its own worm</h3><p>A fresh copy of this larva's real wiring. The first thing it sees is your ticker; after that it feels every trade of your coin. Anyone can rebuild it and check.</p></li>
-      <li><b>03</b><h3>Every trade feeds $BRAINWORM</h3><p>1% of each trade: Meteora keeps a fifth, the coin's creator gets a fifth of the rest, and the rest goes to $BRAINWORM's burn. Every buy also pokes the big worm.</p></li>
+
+  <section class="section wide techsec" id="tech" data-scene="experiments" aria-labelledby="techh">
+    <p class="eyebrow">The tech, in plain words</p>
+    <h2 class="display" id="techh">What's under the hood, and why it matters</h2>
+    <p class="lede">The short version is below. The full story, from the study to the digital worm to the launchpad, is on <a href="/about">About</a>; every test is on <a href="/lab">Tests</a>; every line of code is on <a href="/docs">Docs</a>.</p>
+    <p class="flow" aria-label="What happens when someone buys a coin"><span class="hot">Someone buys a coin</span><i>→</i><span>its own worm feels a touch on its head</span><i>→</i><span>the big worm is poked at the coin's own spot</span><i>→</i><span>neurons fire, the body swims</span><i>→</i><span class="hot">1% fee: most of it burns $BRAINWORM</span></p>
+    <ol class="tech6">
+      <li><span class="k">A real connectome</span><h3>Not AI. A real nervous system.</h3><p>A connectome is a complete map of every nerve cell and every connection between them. Ours is the published whole-body map of a three-day-old <i>Platynereis</i> larva: 2,675 cells, 26,881 synapses. We run it as it was mapped; nothing is invented or trained.</p><p class="why"><b>Why it matters:</b> what you see it do comes from real wiring, not from a model someone tuned to look good.</p></li>
+      <li><span class="k">One worm, live</span><h3>Everyone sees the same worm</h3><p>One simulation runs on the server, 30 steps a second, and streams to every visitor. Messages you type reach its eyes as light; pokes touch its touch sensors; a lamp in its tank closes the loop with its body.</p><p class="why"><b>Why it matters:</b> it is one shared, living thing, not a video or a random animation.</p></li>
+      <li><span class="k">Checked by your browser</span><h3>Your browser re-runs it</h3><p>The simulation is exactly reproducible, so your browser runs its own copy and compares a fingerprint of its state with the server's every second. One wrong number anywhere and the check fails, in public.</p><p class="why"><b>Why it matters:</b> nobody, not even us, can fake what the worm does. <a href="#proof">See the live check</a></p></li>
+      <li><span class="k">Sealed in Bitcoin</span><h3>Every hour, on the record</h3><p>Everything that happens to the worm is logged with its step. Each hour is sealed, chained to the last, and timestamped into Bitcoin. Anyone can replay any hour and get the same result.</p><p class="why"><b>Why it matters:</b> its history can't be edited after the fact. <a href="#proof">Replay an hour</a></p></li>
+      <li><span class="k">Tests written first</span><h3>Science, not vibes</h3><p>Each question we ask the worm had its rule written down and timestamped before it ever ran, and runs on the real wiring and on 50 scrambled copies. Passes and failures are both published.</p><p class="why"><b>Why it matters:</b> results you can trust, including the ones that failed. <a href="/lab">See every test</a></p></li>
+      <li><span class="k">SPAWN, the launchpad</span><h3>Your coin, its own worm, your keys</h3><p>Coins launch on Meteora's audited bonding curve: fixed supply, nothing held back, liquidity locked for good at graduation. Every coin's worm can be rebuilt from its trades in any browser. Your wallet signs every transaction; the site never holds a key. All the code is published here.</p><p class="why"><b>Why it matters:</b> a launchpad you can check end to end. <a href="/docs">Read the code</a></p></li>
     </ol>
-    <p class="homefee small" id="homefee"></p>
-    <p class="howcta"><a class="btn-amber" href="#top" data-go="launch">Launch a coin</a><a class="btn-ghost" href="/docs">Docs and all the code</a></p>
   </section>
 
   <aside class="rail" id="rail" aria-label="The worm right now: activity, body and feed">
@@ -263,7 +303,7 @@
   </section>
 
   <section class="section wide" id="experiments" data-scene="experiments">
-    <p class="eyebrow">Experiments</p>
+    <p class="eyebrow">Talk to the worm</p>
     <h2 class="display">What you can do to it</h2>
     <div class="exps">
       <article class="exp">
@@ -349,7 +389,7 @@
 
   <section class="section story" id="how" data-scene="how">
     <div class="col">
-      <p class="eyebrow">How it works</p>
+      <p class="eyebrow">Inside the simulation</p>
       <h2 class="display">From your keyboard to its muscles</h2>
       <ol class="steps">
         <li data-step="eyes"><span class="n">00</span><div><h3>Your message becomes light</h3><p>Drawn in a pixel font, one column per step. Each eye cell gets its strip's brightness; which strip is our choice.</p><span class="tag chosen">Chosen</span></div></li>

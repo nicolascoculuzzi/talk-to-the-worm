@@ -333,7 +333,7 @@ test('the server: SPAWN buys poke the worm at the coin\'s own spot, logged with 
     assert.equal(cp.status, 200);
     assert.match(html, /<title>\$GOOD · its own worm, on SPAWN<\/title>/);
     assert.match(html, new RegExp(`<meta property="og:image" content="https://worm\\.example/spawn/worm/${MINT}-og\\.png">`));
-    assert.match(html, /What the worm has to do with it/);
+    assert.match(html, /src="\/coin\.js"/, 'the coin\'s own page');
     const og = await fetch(`${base}/spawn/worm/${MINT}-og.png`);
     assert.equal(og.status, 200); assert.equal(og.headers.get('content-type'), 'image/png');
     const nope = await fetch(`${base}/c/${addr()}`, { redirect: 'manual' });

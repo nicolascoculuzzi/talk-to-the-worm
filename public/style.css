@@ -759,3 +759,39 @@ body.stream .launchcard,body.stream .talkpill{display:none!important}
 .howcta a{text-decoration:none}
 .homefee:empty{display:none}
 @media (max-width:860px){.howsteps{grid-template-columns:1fr}}
+
+/* ---------- the 30-second story, and the tech in plain words ---------- */
+.lcsub{margin:-4px 0 0;font:400 13.5px/1.5 var(--sans);color:var(--mute)}
+.lcsub a{color:var(--amber);text-decoration:none;white-space:nowrap}
+.story4{list-style:none;margin:10px 0 28px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.story4 li{position:relative;display:grid;grid-template-rows:auto 124px auto 1fr;gap:12px;align-content:start;padding:22px 20px 20px;border-radius:18px;
+  background:linear-gradient(180deg,rgba(14,22,31,.92),rgba(7,12,18,.96));border:1px solid var(--rule)}
+.story4 .n{font:500 11px var(--mono);letter-spacing:.14em;color:var(--amber)}
+.story4 .ic{width:76px;height:76px;align-self:center;fill:none;stroke:var(--amber);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 14px rgba(255,184,77,.25))}
+.story4 .ic circle{fill:var(--amber);stroke:none}
+.story4 .ex{margin:0;display:flex;align-items:center;gap:12px}
+.story4 .ex img{width:112px;height:112px;border-radius:12px;border:1px solid var(--rule2);background:#04070B;flex:none}
+.story4 .ex figcaption{font:400 10.5px/1.45 var(--mono);color:var(--faint);letter-spacing:.04em}
+.story4 h3{margin:0;font:650 22px/1.12 var(--display);letter-spacing:-.025em;color:var(--bright)}
+.story4 p{margin:0;color:var(--mute);font-size:14.5px;line-height:1.6}
+.story4 p i{font-style:italic}
+.story4 .links{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px}
+.story4 .links a{font:500 12px var(--mono);color:var(--cyan);text-decoration:none}
+.story4 .links a:hover{text-decoration:underline}
+@media (max-width:1100px){.story4{grid-template-columns:1fr 1fr}}
+@media (max-width:620px){.story4{grid-template-columns:1fr}.story4 li{grid-template-rows:auto auto auto auto}}
+
+.tech6{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:16px;overflow:hidden}
+.tech6 li{background:rgba(7,12,18,.97);padding:24px 22px;display:grid;gap:10px;align-content:start}
+.tech6 .k{font:500 10px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--amber)}
+.tech6 h3{margin:0;font:650 20px/1.2 var(--display);letter-spacing:-.02em;color:var(--bright)}
+.tech6 p{margin:0;color:var(--mute);font-size:14px;line-height:1.6}
+.tech6 .why{color:var(--ink)}
+.tech6 .why b{color:var(--green);font-weight:600}
+.tech6 a{color:var(--cyan)}
+@media (max-width:980px){.tech6{grid-template-columns:1fr 1fr}}
+@media (max-width:620px){.tech6{grid-template-columns:1fr}}
+.flow{margin:6px 0 30px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font:500 12px var(--mono);color:var(--ink)}
+.flow span{padding:8px 12px;border:1px solid var(--rule2);border-radius:999px;background:rgba(7,12,18,.9);white-space:nowrap}
+.flow span.hot{border-color:rgba(255,184,77,.5);color:var(--amber)}
+.flow i{font-style:normal;color:var(--faint)}
