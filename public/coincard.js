@@ -15,9 +15,10 @@ export const usd = (n) => (n > 0 ? '$' + (n >= 1 ? fmt(n, 2) : n >= 0.0001 ? fmt
 export const coinPicture = (c) => c.image || (c.own ? `/spawn/worm/${c.mint}.png?t=${c.own.trades}` : '');
 export const stageText = (c) => (c.stage === 'graduating' ? 'Graduating to its Meteora pool…' : c.graduated ? 'Graduated · LP locked' : `${Math.round((c.progress || 0) * 100)}% to graduation`);
 
-/** The card; its Buy button calls onBuy(c), or links to buyHref when there's no trade window on the page. */
+/** The card; its Buy button calls onBuy(c), or else the whole card links to the coin's own page. */
 export function coinCard(c, { onBuy = null, buyHref = null } = {}) {
-  const card = el('article', 'spcoin');
+  const card = onBuy ? el('article', 'spcoin') : el('a', 'spcoin link');
+  if (!onBuy) { card.href = buyHref || `/c/${c.mint}`; card.setAttribute('aria-label', `$${c.symbol}, ${c.name}`); }
   const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.width = 56; img.height = 56;
   const src = coinPicture(c); if (src) img.src = src;
   const head = el('div', 'ch'), t = el('div');
@@ -34,8 +35,10 @@ export function coinCard(c, { onBuy = null, buyHref = null } = {}) {
   foot.append(el('span', null, stageText(c)));
   let buy;
   if (onBuy) { buy = el('button', 'btn-amber', 'Buy'); buy.type = 'button'; buy.disabled = c.stage === 'graduating'; buy.addEventListener('click', () => onBuy(c)); }
-  else { buy = el('a', 'btn-amber', 'Buy'); buy.href = buyHref || `/c/${c.mint}`; }
+  else buy = el('span', 'btn-amber', c.stage === 'graduating' ? 'Graduating' : 'Trade');
   foot.append(buy);
+  // a coin minutes old says so
+  if (Date.now() - (c.createdAt || 0) < 3600e3) t.firstChild.append(el('i', 'newtag', 'new'));
   card.append(head, stats, prog, foot);
   return card;
 }

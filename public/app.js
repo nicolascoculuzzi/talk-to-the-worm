@@ -323,17 +323,22 @@ function toast(text, ok = false) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.textContent = ''; }, 4200);
 }
 
-// composer: launching a coin first, then what you can send the worm
-const tabs = { launch: $('tab-launch'), say: $('tab-say'), tug: $('tab-tug'), lamp: $('tab-lamp') };
+// the worm's own controls fold behind one button: the launch card is what the page is for
+const tabs = { say: $('tab-say'), tug: $('tab-tug'), lamp: $('tab-lamp') };
 function setTab(which) {
-  if (!tabs[which]) which = 'launch';
+  if (!tabs[which]) which = 'say';
   for (const [k, b] of Object.entries(tabs)) b.setAttribute('aria-selected', String(k === which));
-  $('launchform').hidden = which !== 'launch'; $('talk').hidden = which !== 'say'; $('tugform').hidden = which !== 'tug'; $('lampform').hidden = which !== 'lamp';
+  $('talk').hidden = which !== 'say'; $('tugform').hidden = which !== 'tug'; $('lampform').hidden = which !== 'lamp';
   $('chips').hidden = which !== 'say';
-  $('dock').dataset.tab = which;   // the eye strip is for what you send it; launching doesn't need it
 }
-setTab('launch');
-tabs.launch.addEventListener('click', () => { setTab('launch'); $('lname').focus(); });
+function openDock(open) {
+  $('dock').classList.toggle('closed', !open);
+  $('talkbtn').setAttribute('aria-expanded', String(open));
+  if (open && !store.get('coached', false)) $('coach').hidden = false;
+  if (open) $('msg').focus({ preventScroll: true });
+}
+$('talkbtn').addEventListener('click', () => openDock(true));
+$('dockx').addEventListener('click', () => { openDock(false); dismissCoach(); });
 tabs.say.addEventListener('click', () => { setTab('say'); $('msg').focus(); });
 tabs.tug.addEventListener('click', () => { setTab('tug'); $('tugwa').focus(); });
 tabs.lamp.addEventListener('click', () => setTab('lamp'));
@@ -353,8 +358,8 @@ for (const a of document.querySelectorAll('[data-go]')) {
     e.preventDefault();
     if (a.dataset.go === 'swim') { $('swim').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' }); $('swim').classList.remove('lit'); void $('swim').offsetWidth; $('swim').classList.add('lit'); return; }
     scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
-    setTab(a.dataset.go);
     const go = a.dataset.go;
+    if (go !== 'launch') { openDock(true); setTab(go); }
     setTimeout(() => (go === 'tug' ? $('tugwa') : go === 'lamp' ? $('lampform').querySelector('button') : go === 'say' ? $('msg') : $('lname')).focus({ preventScroll: true }), 500);
   });
 }
@@ -402,19 +407,27 @@ function fitBox(box) {
   const dist = Math.max(WORM.h * f / Math.max(80, box.height), WORM.w * f / Math.max(80, box.width)) * 1.04;
   return { dist, ox: ((box.left + box.right) / 2 - VW / 2) / (VW / 2), oy: -((box.top + box.bottom) / 2 - VH / 2) / (VH / 2), ty: WORM.cy, size: WORM.h * f / dist, box };
 }
+const wideHero = matchMedia('(min-width: 1024px)');
 function measureLayout() {
-  const brand = $('brand');
+  const brand = $('brand'), stage = $('stage'), card = $('launchcard');
   const saved = brand.style.transform; brand.style.transform = 'none';
   ui.brand = rectOf(brand); brand.style.transform = saved;
   ui.hudr = rectOf(document.querySelector('.hudr'));
+  ui.hero = rectOf(stage);
+  // the launch card: under the title on the left of wide screens, along the bottom of narrow ones
+  const wide = wideHero.matches && !STREAM;
+  stage.style.setProperty('--cardtop', `${Math.round(ui.brand.bottom - ui.hero.top + 22)}px`);
+  ui.card = STREAM ? null : rectOf(card);
+  stage.style.setProperty('--cardh', `${Math.round(ui.card?.height || 0)}px`);
+  stage.style.setProperty('--cardr', wide && ui.card ? `${Math.round(ui.card.right - ui.hero.left)}px` : '0px');
   ui.dock = STREAM ? null : rectOf($('dock'));
-  ui.hero = rectOf($('stage'));
   const g = VW < 720 ? 16 : 24, nav = STREAM ? 0 : 46;
-  const top = ui.hero.top + nav + 14, bottom = (ui.dock ? ui.dock.top : ui.hero.bottom - (STREAM ? 150 : 0)) - 14;
-  const heroRight = ui.hero.right;
-  // option A: the column between the title and the readouts; option B: the band below both
-  const A = { left: Math.max(ui.hero.left + g, ui.brand.right + 28), right: Math.min(heroRight - g, ui.hudr.left - 28), top, bottom };
-  const B = { left: ui.hero.left + g, right: heroRight - g, top: Math.max(ui.brand.bottom, ui.hudr.bottom) + 16, bottom };
+  const top = ui.hero.top + nav + 14;
+  const bottom = Math.min(ui.dock ? ui.dock.top : ui.hero.bottom - (STREAM ? 150 : 0), !wide && ui.card ? ui.card.top : Infinity) - 14;
+  const heroRight = ui.hero.right, leftEdge = wide && ui.card ? Math.max(ui.brand.right, ui.card.right) : ui.brand.right;
+  // option A: the column between the title (and the launch card) and the readouts; option B: the band below both
+  const A = { left: Math.max(ui.hero.left + g, leftEdge + 28), right: Math.min(heroRight - g, ui.hudr.left - 28), top, bottom };
+  const B = { left: wide && ui.card ? ui.card.right + 28 : ui.hero.left + g, right: heroRight - g, top: Math.max(ui.brand.bottom, ui.hudr.bottom) + 16, bottom };
   for (const r of [A, B]) { r.width = r.right - r.left; r.height = r.bottom - r.top; }
   const fa = A.width > 160 && A.height > 160 ? fitBox(A) : null, fb = B.width > 160 && B.height > 120 ? fitBox(B) : null;
   const best = fa && (!fb || fa.size >= fb.size * 0.92) ? fa : fb || fitBox({ left: ui.hero.left, right: heroRight, top, bottom, width: heroRight - ui.hero.left, height: bottom - top });
@@ -953,34 +966,41 @@ function renderFeed(reset = false) {
   });
 }
 
-/* ---------- SPAWN, the launchpad: the launch form, the newest coins, and the three busiest coins' own worms ---------- */
-const launchForm = mountLaunchForm($('launchform'), { onLaunched: () => { dismissCoach(); setTimeout(loadSpawn, 4000); } });
-$('launchform').addEventListener('focusin', () => dismissCoach());
-let spawnData = null;
+/* ---------- SPAWN, the launchpad: the launch card, every coin, and the three busiest coins' own worms ---------- */
+const launchForm = mountLaunchForm($('launchform'), { onLaunched: () => setTimeout(loadSpawn, 4000) });
+let spawnData = null, homeSort = 'new';
 async function loadSpawn() {
   const j = await fetch('/spawn.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (!j) return;
   spawnData = j;
   launchForm.update(j);
   for (const id of ['spawnpill', 'spawnopen']) { const p = $(id); p.textContent = j.open ? (j.quote === 'SOL' ? 'Open · priced in SOL' : 'Open') : 'Opening soon'; p.classList.toggle('live', !!j.open); }
+  const r = j.root || {}, inSol = !r.mint || j.quote === 'SOL';
+  $('lccoins').textContent = compact(j.coins?.length || 0);
+  $('lcwaitk').textContent = inSol ? 'Buyback SOL' : 'Burned';
+  $('lcwait').textContent = inSol ? compact(r.waitingSol || 0) : compact(r.burned || 0);
+  $('lcpokes').textContent = compact(j.pokesToday || 0);
   renderHomeCoins(j);
   showSpawnCoins(j);
 }
+const HOME_SORTS = { new: (a, b) => b.createdAt - a.createdAt, hot: (a, b) => (b.worm?.cells || 0) - (a.worm?.cells || 0) || b.createdAt - a.createdAt, grad: (a, b) => (b.progress || 0) - (a.progress || 0), mcap: (a, b) => (b.mcapSol || 0) - (a.mcapSol || 0) };
+for (const b of $('homesorts').querySelectorAll('button')) b.addEventListener('click', () => {
+  homeSort = b.dataset.sort;
+  for (const x of $('homesorts').querySelectorAll('button')) x.setAttribute('aria-selected', String(x === b));
+  if (spawnData) renderHomeCoins(spawnData);
+});
 function renderHomeCoins(j) {
-  const grid = $('homecoins'), coins = [...(j.coins || [])].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
-  grid.replaceChildren(...(coins.length ? coins.map((c) => coinCard(c)) : [el('p', 'empty', j.open ? 'No coins yet. Launch the first one from the panel above.' : 'Opening soon.')]));
+  const all = [...(j.coins || [])].sort(HOME_SORTS[homeSort]), coins = all.slice(0, 12);
+  $('homecoins').replaceChildren(...(coins.length ? coins.map((c) => coinCard(c)) : [el('p', 'empty', j.open ? 'No coins yet. Launch the first one: it takes a minute.' : 'Opening soon. The first coins will show up here.')]));
+  $('homeall').textContent = all.length > coins.length ? `All ${all.length} coins →` : 'All coins →';
   const f = j.fee, r = j.root || {};
   if (!f) return;
-  const protocol = Math.round(f.protocolShare * 100), creator = Math.round((1 - f.protocolShare) * f.creatorShare * 100), rest = 100 - protocol - creator;
-  const burned = r.burned ? ` ${compact(r.burned)} $BRAINWORM burned so far.` : '', waiting = r.waitingSol ? ` ${compact(r.waitingSol)} SOL waiting to buy $BRAINWORM when it launches.` : '';
-  $('homefee').textContent = `Each trade pays ${f.bps / 100}%: ${rest}% of it goes to $BRAINWORM's burn, ${creator}% to the coin's creator, ${protocol}% to Meteora.${burned}${waiting}`;
+  const burned = r.burned ? `${compact(r.burned)} $BRAINWORM burned so far. ` : '', waiting = r.waitingSol ? `${compact(r.waitingSol)} SOL of fees waiting to buy $BRAINWORM${r.mint ? '' : ' when it launches'}.` : '';
+  $('homefee').textContent = burned + waiting;
 }
 setInterval(() => { if (!document.hidden) loadSpawn(); }, 30_000);
 loadSpawn();
-// where the live readouts stack under the hero (phones, tablets), the coins come first
-const stacked = matchMedia('(max-width: 1199px)');
-const placeCoins = () => { if (stacked.matches) $('rail').before($('coins')); else document.querySelector('.page').prepend($('coins')); };
-placeCoins(); stacked.addEventListener?.('change', placeCoins);
+new ResizeObserver(() => measureLayout()).observe($('launchcard'));
 function showSpawnCoins(j) {
   const coins = (j?.coins || []).filter((c) => c.own).sort((a, b) => (b.own.cells - a.own.cells) || (b.createdAt - a.createdAt)).slice(0, 3);
   if (!coins.length) { $('spawnnote').textContent = j?.open ? 'Open · no coins yet' : 'Opening soon'; return; }
@@ -1422,7 +1442,6 @@ function endIntro() {
   if (!body.classList.contains('intro')) return;
   body.classList.remove('intro'); body.classList.add('ready');
   setTimeout(measureLayout, 800);
-  if (!STREAM && !store.get('coached', false)) setTimeout(() => { $('coach').hidden = false; }, 900);
   if (anatomyOn) setTimeout(loadAnatomy, 600);
   setTimeout(dismissHint, 16000);
 }

@@ -42,11 +42,10 @@
   <a class="wordmark" href="#top">BRAINWORM</a>
   <div class="navlinks" id="navlinks">
     <a href="#coins">Coins</a>
-    <a href="#experiments">Experiments</a>
-    <a href="#board">Break the worm</a>
-    <a href="#how">How it works</a>
+    <a href="#spawnhow">How it works</a>
+    <a href="#what">The worm</a>
     <a href="#proof">Proof</a>
-    <a href="#plainly">Stated plainly</a>
+    <a href="/docs">Docs</a>
     <a href="#coin" id="navcoin" hidden></a>
     <a class="navcta" href="#top" data-go="launch">Launch<span class="opt"> a coin</span></a>
   </div>
@@ -84,7 +83,31 @@
     </div>
 
 
-    <div class="dock" id="dock">
+    <section class="launchcard" id="launchcard" aria-labelledby="lch">
+      <p class="lceyebrow">SPAWN · the BRAINWORM launchpad <span class="pill" id="spawnopen">Opening soon</span></p>
+      <h2 class="lctitle" id="lch">Launch a coin.<span>It hatches its own worm.</span></h2>
+      <form id="launchform" class="lf lfcard" autocomplete="off" aria-labelledby="lch">
+        <label class="lfpic" title="Its picture: its worm's first sight, unless you pick one">
+          <input type="file" data-lf="pic" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Pick a picture (optional)">
+          <img data-lf="picimg" alt="Its picture" hidden>
+          <span class="ph" data-lf="picph" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 5v10M5 10h10"/></svg>Picture</span>
+          <button type="button" class="unpick" data-lf="unpick" aria-label="Use its worm's first sight instead" hidden>×</button>
+        </label>
+        <input type="text" data-lf="name" id="lname" maxlength="32" placeholder="Coin name" aria-label="Coin name" enterkeyhint="next">
+        <input type="text" data-lf="ticker" maxlength="10" placeholder="TICKER" aria-label="Ticker" autocapitalize="characters" spellcheck="false" enterkeyhint="next">
+        <label class="lfbuy"><input type="text" data-lf="buy" inputmode="decimal" placeholder="First buy" aria-label="First buy (optional)" enterkeyhint="go"><span data-lf="unit">SOL</span></label>
+        <button class="btn-amber" type="submit" data-lf="go" disabled>Opening soon</button>
+        <p class="lfnote" data-lf="note" role="status" aria-live="polite"></p>
+      </form>
+      <dl class="lcstats">
+        <div><dt>Coins</dt><dd id="lccoins">0</dd></div>
+        <div><dt id="lcwaitk">Buyback SOL</dt><dd id="lcwait">0</dd></div>
+        <div><dt>Pokes today</dt><dd id="lcpokes">0</dd></div>
+      </dl>
+      <p class="lcfoot"><a href="#coins">See every coin ↓</a><a href="#spawnhow">How it works</a></p>
+    </section>
+
+    <div class="dock closed" id="dock">
       <div class="stack" id="stack">
         <div class="banner" id="banner" hidden><span class="bk" id="bannerk"></span><span class="bt" id="bannert"></span><span class="bs" id="banners"></span></div>
         <div class="tugbar" id="tugbar" hidden aria-live="polite">
@@ -92,35 +115,22 @@
           <div class="rope"><i class="mid"></i><i class="knot" id="tugknot"></i></div>
           <div class="tugnote" id="tugnote">Each word goes to each eye in turn</div>
         </div>
-        <div class="coach" id="coach" hidden><b>Launch a coin here.</b> It hatches its own worm, which feels every trade of it.</div>
+        <div class="coach" id="coach" hidden><b>Type anything.</b> It reaches the worm's eyes as light.</div>
         <p class="hint" id="hint">Tap to poke · drag to turn</p>
       </div>
-      <div class="dockhead"><span class="dot" id="nowdot"></span><span id="nowtext">Eyes · dark</span><span id="queuetext"></span></div>
+      <button type="button" class="talkpill" id="talkbtn" aria-expanded="false" aria-controls="dock"><span class="dot"></span>Talk to the worm</button>
+      <div class="dockhead"><span class="dot" id="nowdot"></span><span id="nowtext">Eyes · dark</span><span id="queuetext"></span><button type="button" class="dockx" id="dockx" aria-label="Close">×</button></div>
       <div class="ledwrap">
         <canvas id="eyeview" width="960" height="128" aria-label="What the worm's eyes are seeing right now"></canvas>
         <span class="ledl">left eyes</span><span class="ledr">right eyes</span>
       </div>
       <div class="composer">
-        <div class="tabs" role="tablist" aria-label="What to do">
-          <button type="button" role="tab" id="tab-launch" class="hot" aria-selected="true" aria-controls="launchform">Launch<span class="opt"> a coin</span></button>
-          <button type="button" role="tab" id="tab-say" aria-selected="false" aria-controls="talk">Message</button>
+        <div class="tabs" role="tablist" aria-label="What to send the worm">
+          <button type="button" role="tab" id="tab-say" aria-selected="true" aria-controls="talk">Message</button>
           <button type="button" role="tab" id="tab-tug" aria-selected="false" aria-controls="tugform">Tug</button>
           <button type="button" role="tab" id="tab-lamp" aria-selected="false" aria-controls="lampform">Lamp</button>
         </div>
-        <form id="launchform" class="lf" autocomplete="off" role="tabpanel" aria-labelledby="tab-launch">
-          <label class="lfpic" title="Its picture: its worm's first sight, unless you pick one">
-            <input type="file" data-lf="pic" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Pick a picture (optional)">
-            <img data-lf="picimg" alt="Its picture" hidden>
-            <span class="ph" data-lf="picph" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 5v10M5 10h10"/></svg>Picture</span>
-            <button type="button" class="unpick" data-lf="unpick" aria-label="Use its worm's first sight instead" hidden>×</button>
-          </label>
-          <input type="text" data-lf="name" id="lname" maxlength="32" placeholder="Coin name" aria-label="Coin name" enterkeyhint="next">
-          <input type="text" data-lf="ticker" maxlength="10" placeholder="TICKER" aria-label="Ticker" autocapitalize="characters" spellcheck="false" enterkeyhint="next">
-          <label class="lfbuy"><input type="text" data-lf="buy" inputmode="decimal" placeholder="First buy" aria-label="First buy (optional)" enterkeyhint="go"><span data-lf="unit">SOL</span></label>
-          <button class="btn-amber" type="submit" data-lf="go" disabled>Opening soon</button>
-          <p class="lfnote" data-lf="note" role="status" aria-live="polite"></p>
-        </form>
-        <form id="talk" autocomplete="off" role="tabpanel" aria-labelledby="tab-say" hidden>
+        <form id="talk" autocomplete="off" role="tabpanel" aria-labelledby="tab-say">
           <input type="text" id="msg" maxlength="40" placeholder="Say something to the worm" aria-label="Message to show the worm" enterkeyhint="send">
           <button class="btn-amber" type="submit">Shine it</button>
         </form>
@@ -162,7 +172,39 @@
     <ol class="streamboard" id="streamboard" hidden></ol>
   </section>
 
-  <aside class="rail" id="rail" aria-label="Live activity and feed">
+</main>
+
+<div class="page">
+  <section class="section wide homecoins" id="coins" data-scene="experiments" aria-labelledby="coinsh">
+    <div class="sectop">
+      <div>
+        <p class="eyebrow">SPAWN · every coin launched here</p>
+        <h2 class="display" id="coinsh">Coins</h2>
+      </div>
+      <div class="sorts" role="tablist" aria-label="Sort coins" id="homesorts">
+        <button type="button" role="tab" data-sort="new" aria-selected="true">New</button>
+        <button type="button" role="tab" data-sort="hot" aria-selected="false">Moving the worm</button>
+        <button type="button" role="tab" data-sort="grad" aria-selected="false">Near graduation</button>
+        <button type="button" role="tab" data-sort="mcap" aria-selected="false">Market cap</button>
+      </div>
+    </div>
+    <div class="spgrid" id="homecoins"><p class="empty">No coins yet.</p></div>
+    <p class="homemore"><a class="btn-ghost" href="/spawn" id="homeall">All coins →</a></p>
+  </section>
+
+  <section class="section wide spawnhow" id="spawnhow" data-scene="experiments" aria-labelledby="howh">
+    <p class="eyebrow">How it works</p>
+    <h2 class="display" id="howh">Launch a coin. It hatches its own worm.</h2>
+    <ol class="howsteps">
+      <li><b>01</b><h3>Your coin goes live</h3><p>Free to launch, on Meteora's bonding curve. A fixed billion coins, none held back for anyone. When it graduates, its liquidity is locked for good.</p></li>
+      <li><b>02</b><h3>It hatches its own worm</h3><p>A fresh copy of this larva's real wiring. The first thing it sees is your ticker; after that it feels every trade of your coin. Anyone can rebuild it and check.</p></li>
+      <li><b>03</b><h3>Every trade feeds $BRAINWORM</h3><p>1% of each trade: Meteora keeps a fifth, the coin's creator gets a fifth of the rest, and the rest goes to $BRAINWORM's burn. Every buy also pokes the big worm.</p></li>
+    </ol>
+    <p class="homefee small" id="homefee"></p>
+    <p class="howcta"><a class="btn-amber" href="#top" data-go="launch">Launch a coin</a><a class="btn-ghost" href="/docs">Docs and all the code</a></p>
+  </section>
+
+  <aside class="rail" id="rail" aria-label="The worm right now: activity, body and feed">
     <section class="card activity" aria-labelledby="acth">
       <h2 id="acth">Activity <span id="actnote"></span></h2>
       <div class="big"><output id="ncells">0</output><span>of 2,675 cells firing</span></div>
@@ -201,21 +243,6 @@
       <ul id="feed"><li class="empty">Nothing yet.</li></ul>
     </section>
   </aside>
-</main>
-
-<div class="page">
-  <section class="section wide homecoins" id="coins" data-scene="experiments" aria-labelledby="coinsh">
-    <div class="sectop">
-      <div>
-        <p class="eyebrow">SPAWN · the launchpad <span class="pill" id="spawnopen">Opening soon</span></p>
-        <h2 class="display" id="coinsh">Every coin hatches its own worm</h2>
-      </div>
-      <a class="btn-ghost" href="/spawn">All coins and trading →</a>
-    </div>
-    <p class="lede">Launch one from the panel above: free, a fixed billion coins, liquidity locked for good when it graduates. It hatches its own copy of this larva, whose first sight is its ticker; after that it feels every trade of its coin and nothing else, and every buy also pokes the worm above.</p>
-    <div class="spgrid" id="homecoins"><p class="empty">No coins yet.</p></div>
-    <p class="small homefee" id="homefee"></p>
-  </section>
 
   <section class="section story" id="what" data-scene="what">
     <div class="col">

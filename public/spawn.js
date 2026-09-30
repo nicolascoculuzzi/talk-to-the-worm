@@ -95,7 +95,7 @@ function renderCoins() {
   $('coincount').textContent = coins.length ? fmt(coins.length) : '';
   grid.replaceChildren();
   if (!coins.length) { grid.append(el('p', 'empty', data?.open ? 'No coins yet. Launch the first one.' : 'No coins yet.')); return; }
-  for (const c of coins) grid.append(coinCard(c, { onBuy: openTrade }));
+  for (const c of coins) grid.append(coinCard(c));   // each opens the coin's own page
 }
 
 /* ---------- trading: one Jupiter transaction, signed in the visitor's wallet ---------- */
