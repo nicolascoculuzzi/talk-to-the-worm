@@ -89,12 +89,13 @@ for (const b of document.querySelectorAll('.sorts button')) b.addEventListener('
 });
 const SORTS = { new: (a, b) => b.createdAt - a.createdAt, mcap: (a, b) => b.mcapSol - a.mcapSol, grad: (a, b) => b.progress - a.progress, worm: (a, b) => (b.worm?.cells || 0) - (a.worm?.cells || 0), own: (a, b) => (b.own?.cells || 0) - (a.own?.cells || 0) };
 
+$('coinsearch').addEventListener('input', () => renderCoins());
 function renderCoins() {
-  const grid = $('spgrid');
-  const coins = [...(data?.coins || [])].sort(SORTS[sort]);
+  const grid = $('spgrid'), q = $('coinsearch').value.trim().toLowerCase().replace(/^\$/, '');
+  const coins = [...(data?.coins || [])].filter((c) => !q || c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)).sort(SORTS[sort]);
   $('coincount').textContent = coins.length ? fmt(coins.length) : '';
   grid.replaceChildren();
-  if (!coins.length) { grid.append(el('p', 'empty', data?.open ? 'No coins yet. Launch the first one.' : 'No coins yet.')); return; }
+  if (!coins.length) { grid.append(el('p', 'empty', q ? 'No coin matches that.' : data?.open ? 'No coins yet. Launch the first one below.' : 'No coins yet.')); return; }
   for (const c of coins) grid.append(coinCard(c));   // each opens the coin's own page
 }
 

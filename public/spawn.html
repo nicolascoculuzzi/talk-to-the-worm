@@ -20,7 +20,7 @@
 <body class="sp">
 <nav class="nav" aria-label="Site">
   <a class="wordmark" href="/">BRAINWORM</a>
-  <div class="navlinks"><a href="/">The worm</a><a href="#coins">Coins</a><a class="navcta" href="#spawn">Launch<span class="opt"> a coin</span></a></div>
+  <div class="navlinks"><a href="/">Home</a><a href="#coins">Coins</a><a href="/docs">Docs</a><a class="navcta" href="#spawn">Launch<span class="opt"> a coin</span></a></div>
 </nav>
 
 <main class="spwrap">
@@ -37,6 +37,21 @@
     </dl>
     <p class="small lastburn" id="lastburn" hidden></p>
   </header>
+
+  <section class="spsec" id="coins" aria-labelledby="coinh">
+    <div class="sectop">
+      <h2 id="coinh">Coins <span id="coincount"></span></h2>
+      <input type="search" id="coinsearch" class="coinsearch" placeholder="Search a ticker or name" aria-label="Search coins" autocomplete="off" spellcheck="false">
+      <div class="sorts" role="tablist" aria-label="Sort">
+        <button type="button" role="tab" data-sort="new" aria-selected="true">New</button>
+        <button type="button" role="tab" data-sort="mcap" aria-selected="false">Mcap</button>
+        <button type="button" role="tab" data-sort="grad" aria-selected="false">Near graduation</button>
+        <button type="button" role="tab" data-sort="worm" aria-selected="false">Moves the worm</button>
+        <button type="button" role="tab" data-sort="own" aria-selected="false">Its worm</button>
+      </div>
+    </div>
+    <div class="spgrid" id="spgrid"><p class="empty">No coins yet.</p></div>
+  </section>
 
   <section class="spsec spform" id="spawn" aria-labelledby="spawnh">
     <h2 id="spawnh">Launch a coin</h2>
@@ -56,19 +71,7 @@
     <p class="small" id="spawnnote">Free to launch. No mint or freeze authority, and nothing held back for anyone: all 1,000,000,000 coins are on the curve or go to the graduated pool. It graduates to Meteora DAMM v2 with its liquidity locked for good. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.</p>
   </section>
 
-  <section class="spsec" id="coins" aria-labelledby="coinh">
-    <div class="sectop">
-      <h2 id="coinh">Coins <span id="coincount"></span></h2>
-      <div class="sorts" role="tablist" aria-label="Sort">
-        <button type="button" role="tab" data-sort="new" aria-selected="true">New</button>
-        <button type="button" role="tab" data-sort="mcap" aria-selected="false">Mcap</button>
-        <button type="button" role="tab" data-sort="grad" aria-selected="false">Near graduation</button>
-        <button type="button" role="tab" data-sort="worm" aria-selected="false">Moves the worm</button>
-        <button type="button" role="tab" data-sort="own" aria-selected="false">Its worm</button>
-      </div>
-    </div>
-    <div class="spgrid" id="spgrid"><p class="empty">No coins yet.</p></div>
-  </section>
+
 
   <section class="spsec" id="movers" aria-labelledby="movh">
     <h2 id="movh">Moves the worm <span>today</span></h2>
