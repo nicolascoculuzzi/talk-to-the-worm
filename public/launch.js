@@ -128,8 +128,12 @@ async function spawnView() {
   parts.push(st.owner ? `Rewards wallet: ${st.owner}${st.ownerFromEnv ? ' (set by SPAWN_OWNER)' : ''}.` : 'No rewards wallet yet: connect the one that will collect SPAWN\'s creator rewards (not the one that launches $WORM) and press "Use this wallet for SPAWN".');
   parts.push(`${st.coins} coin${st.coins === 1 ? '' : 's'}.`);
   parts.push(`Creator rewards: ${sol((v.curve || 0) + (v.amm || 0))} SOL waiting in SPAWN's vaults, ${sol(w.collected)} SOL collected, ${sol(w.spent)} SOL spent on $WORM, ${sol(w.owed)} SOL owed to the buyback. ${compact(st.burned)} $WORM burned.`);
+  if (st.pendingBuyback) parts.push(`A buyback of ${sol(st.pendingBuyback.sol)} SOL is being settled${st.pendingBuyback.signature ? '' : ' (its transaction not seen yet)'}.`);
+  if (st.heldWorm > 0) parts.push(`${compact(st.heldWorm)} $WORM in SPAWN's wallet waiting to be burned.`);
+  if (st.broken) parts.push('Its records could not be read: SPAWN is shut until someone looks at them.');
   $('spstatus').textContent = parts.join(' ');
   $('spowner').hidden = !!st.ownerFromEnv;
+  $('spburn').hidden = !(st.heldWorm > 0);
 }
 // What the owner still has to do: set TOKEN_MINT once $WORM exists (a second record of the launch), and give SPAWN its
 // rewards wallet. Shown to the owner only.
@@ -183,7 +187,19 @@ act('spcollect', async () => {
   }
   log('Not confirmed yet. Check it on Solscan.');
 });
-// 64% of everything collected buys $WORM; then exactly what that bought is burned
+// 64% of everything collected buys $WORM; then exactly what that bought is burned. The server keeps the buyback until
+// it is settled, so pressing this again after a closed page or a slow confirmation picks it up instead of buying twice.
+async function settleAndBurn(swap) {
+  let r = null;
+  for (let k = 0; k < 30 && !(r && (r.ok || r.failed)); k++) { await sleep(3000); r = await admin('bought', { signature: swap }, 'spawn').catch((e) => ({ ok: false, error: e.message })); }
+  if (!r?.ok) { log(r?.failed ? '✗ That buy failed on chain: nothing was spent.' : 'The buy has not confirmed yet. Press the button again in a minute: it picks up where it left off, and never buys twice.'); spawnView(); return; }
+  if (!r.tx) { log('Its $WORM was already burned.'); spawnView(); return; }
+  if (!confirm(`It bought ${compact(r.amount)} $WORM. Burn all of it now? Your wallet signs one transaction.`)) { log('Not burned yet: "Burn the $WORM still in SPAWN\'s wallet" does it later.'); spawnView(); return; }
+  const bs = await signAndSend(r.tx);
+  log(`Burning ${compact(r.amount)} $WORM: ${bs}`);
+  await recordBurn(bs);
+  spawnView();
+}
 act('spbuyback', async () => {
   if (!connected()) throw new Error('Connect SPAWN\'s rewards wallet first.');
   const me = connected().address;
@@ -191,8 +207,13 @@ act('spbuyback', async () => {
   if (!confirm(`Spend ${sol(bb.sol)} SOL (64% of the creator rewards collected, less earlier buybacks) on about ${compact(bb.worm)} $WORM (at least ${compact(bb.min)}), then burn all of it? Your wallet signs two transactions.`)) return;
   const swap = await signAndSend(bb.tx);
   log(`Bought: ${swap}`);
-  if (!(await landed(swap))) { log('The buy has not landed or failed; nothing was burned. Run this again.'); return; }
-  const b = await admin('burn-bought', { signature: swap }, 'spawn');
+  await settleAndBurn(swap);
+});
+// $WORM a buyback bought but whose burn wasn't signed: burn every bit of it
+act('spburn', async () => {
+  if (!connected()) throw new Error('Connect SPAWN\'s rewards wallet first.');
+  const b = await admin('burn-held', { wallet: connected().address }, 'spawn');
+  if (!confirm(`Burn the ${compact(b.amount)} $WORM in this wallet? Your wallet signs one transaction.`)) return;
   const bs = await signAndSend(b.tx);
   log(`Burning ${compact(b.amount)} $WORM: ${bs}`);
   await recordBurn(bs);

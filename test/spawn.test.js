@@ -38,10 +38,16 @@ function tradeLogs({ mint, side = 'buy', lamports = 100_000_000n, tokens = 3_000
 const collectLogs = (creator, lamports) => frame(realPump.PUMP_PROGRAM, Buffer.concat([disc('event:CollectCreatorFeeEvent'), u64(Math.floor(Date.now() / 1000)), pk(creator), u64(lamports), pk(SOL_MINT)]));
 const ammCollectLogs = (creator, lamports) => frame(realPump.PUMP_AMM_PROGRAM, Buffer.concat([disc('event:CollectCoinCreatorFeeEvent'), u64(Math.floor(Date.now() / 1000)), pk(creator), u64(lamports), pk(addr()), pk(addr())]));
 const curve = (extra = {}) => ({ ...realPump.freshCurve(GLOBAL, OWNER), ...extra });
+const swapTx = ({ wallet = OWNER, atoms, lamports, failed = false }) => ({
+  blockTime: Math.floor(Date.now() / 1000),
+  meta: { err: failed ? { InstructionError: [0, 'x'] } : null, preBalances: [10e9, 0], postBalances: [10e9 - Number(lamports), 0],
+    preTokenBalances: [], postTokenBalances: failed ? [] : [{ accountIndex: 1, mint: WORM, owner: wallet, uiTokenAmount: { amount: String(atoms), decimals: 6 } }] },
+  transaction: { message: { accountKeys: [{ pubkey: wallet }, { pubkey: addr() }] } },
+});
 
 // the chain, pump.fun (only what talks to it; its maths and decoders are the real ones), Jupiter and an RPC
 function fakes() {
-  const calls = [], curves = new Map(), logs = new Map(), accounts = new Map(), burns = new Map();
+  const calls = [], curves = new Map(), logs = new Map(), accounts = new Map(), burns = new Map(), txs = new Map(), sigsFor = new Map(), held = new Map();
   const f = { balance: 5e9, vaults: { curve: 0n, amm: 0n }, NEW: null, wormUsd: 0, pools: new Set() };
   const buildCreate = async (o) => { calls.push(['create', o]); const mint = f.NEW || addr(); return { tx: 'Q1JF', mint, firstBuy: o.firstBuySol ? { lamports: 1n, tokens: 12_345_000_000n, minTokens: 12_000_000_000n } : null }; };
   const pump = {
@@ -54,6 +60,8 @@ function fakes() {
     buildSell: async (o) => { calls.push(['sell', o]); return 'U0VMTA=='; },
     buildCollect: async (o) => { calls.push(['collect', o]); return 'Q09MTA=='; },
     buildBurnReceived: async (o) => { calls.push(['burnReceived', o]); return { tx: 'QlVSTg==', amount: 1234.5, atoms: 1_234_500_000n }; },
+    fetchTokenBalance: async ({ owner: w }) => ({ atoms: held.get(w) || 0n, tokenProgram: realPump.TOKEN_2022_PROGRAM, account: addr() }),
+    buildBurn: async (o) => { calls.push(['burn', o]); return 'QlVSTg=='; },
     fetchLogs: async ({ signature }) => (logs.has(signature) ? { logs: logs.get(signature), blockTime: Date.now() / 1000, signer: OWNER } : null),
   };
   const reply = (o, status = 200) => new Response(JSON.stringify(o), { status });
@@ -69,10 +77,11 @@ function fakes() {
       const ok = (result) => reply({ jsonrpc: '2.0', id: 1, result });
       if (method === 'getBalance') return ok({ value: f.balance });
       if (method === 'getSignatureStatuses') return ok({ value: [{ confirmationStatus: 'confirmed', err: null }] });
-      if (method === 'getSignaturesForAddress') return ok([]);
+      if (method === 'getSignaturesForAddress') return ok(sigsFor.get(params[0]) || []);
       if (method === 'getAccountInfo') return ok({ value: accounts.has(params[0]) ? { data: ['', 'base64'], owner: SOL_MINT, lamports: 1 } : null });
-      if (method === 'getMultipleAccounts') return ok({ value: params[0].map((a) => (f.pools.has(a) ? { data: ['', 'base64'], owner: realPump.PUMP_AMM_PROGRAM, lamports: 1 } : null)) });
+      if (method === 'getMultipleAccounts') return ok({ value: params[0].map((a) => (f.pools.has(a) || accounts.has(a) ? { data: ['', 'base64'], owner: realPump.PUMP_AMM_PROGRAM, lamports: 1 } : null)) });
       if (method === 'getTransaction') {
+        if (txs.has(params[0])) return ok(txs.get(params[0]));
         const amount = burns.get(params[0]);
         if (amount == null) return ok(null);
         return ok({ meta: { err: null }, transaction: { message: { instructions: [{ program: 'spl-token-2022', parsed: { type: 'burnChecked', info: { mint: WORM, authority: OWNER, tokenAmount: { amount: String(amount * 1e6), decimals: 6 } } } }] } } });
@@ -80,7 +89,7 @@ function fakes() {
     }
     throw new Error('unexpected fetch ' + u);
   };
-  return Object.assign(f, { pump, buildCreate, fetchImpl, calls, curves, logs, accounts, burns });
+  return Object.assign(f, { pump, buildCreate, fetchImpl, calls, curves, logs, accounts, burns, txs, sigsFor, held });
 }
 function open(f, { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-')), owner = OWNER, extra = {}, rootMint = () => WORM } = {}) {
   const sp = createSpawn({ dir, pump: f.pump, rootMint, moderate, fetchImpl: f.fetchImpl, opts: { rpc: 'http://rpc.test', publicUrl: 'https://worm.example', localMeta: true, owner, ...extra }, logger: quiet });
@@ -106,7 +115,7 @@ test('SPAWN on pump.fun: shut until it has a rewards wallet; then every launch n
   // launching: the name and ticker are checked, the picture is checked, the coin's creator is SPAWN's wallet
   await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: 'no way!', image: PNG }), /Tickers/);
   await assert.rejects(sp.create({ creator: CREATOR, name: 'see https://scam.example', symbol: 'OK', image: PNG }));
-  for (const t of ['WORM', 'BRAINWORM']) await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: t, image: PNG }), /taken/);
+  for (const t of ['WORM', 'BRAINWORM']) await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: t, image: PNG }), /looks like the site's own coin/);
   await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: 'GOOD', image: 'data:text/html;base64,AAAA' }), /picture/);
   await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: 'GOOD', image: 'data:image/png;base64,' + Buffer.from('<svg onload=x>').toString('base64') }), /not the picture/);
   f.balance = 0.01e9;
@@ -123,9 +132,9 @@ test('SPAWN on pump.fun: shut until it has a rewards wallet; then every launch n
   assert.ok(sp.metaFile(meta.image.split('/').pop()));
   assert.equal(sp.metaFile('../state.json'), null);
   // with its worm's first sight, only its metadata is kept: the picture is drawn here on request
-  await sp.create({ creator: CREATOR, name: 'Wormy', symbol: 'WORMY', image: 'worm' });
+  await sp.create({ creator: CREATOR, name: 'Larva', symbol: 'LARVA', image: 'worm' });
   const wm = JSON.parse(fs.readFileSync(sp.metaFile(f.calls.filter((x) => x[0] === 'create').at(-1)[1].uri.split('/').pop() + '.json')));
-  assert.equal(wm.image, 'https://worm.example/spawn/hatch/WORMY.png');
+  assert.equal(wm.image, 'https://worm.example/spawn/hatch/LARVA.png', 'its worm\'s drawing (kept for good once it is on chain)');
 });
 
 test('the listing: only coins launched here whose curve names SPAWN\'s wallet; one that never lands is forgotten', async () => {
@@ -208,17 +217,26 @@ test('creator rewards: collected (as pump.fun\'s events say), 64% buys $WORM on 
   f.logs.set(S, [...collectLogs(OWNER, 2_000_000_000n), ...ammCollectLogs(OWNER, 500_000_000n), ...collectLogs(addr(), 9_000_000_000n)]);
   const got = await sp.collected({ signature: S });
   assert.deepEqual([got.ok, got.sol, got.owed], [true, 2.5, 1.6], 'only what came to SPAWN\'s wallet; 64% of it is owed to the buyback');
-  assert.deepEqual(await sp.collected({ signature: S }), { ok: true }, 'recorded once');
+  assert.equal((await sp.collected({ signature: S })).ok, true);
+  assert.equal(sp.publicState().rewards.collected, 2.5, 'recorded once');
   // the buyback: $WORM still on its pump.fun curve
   f.curves.set(WORM, curve({ creator: WORM_CREATOR }));
   const bb = await sp.buyback({ wallet: OWNER });
   assert.equal(bb.sol, 1.6);
   const buy = f.calls.find((x) => x[0] === 'buy')[1];
   assert.deepEqual([buy.mint, buy.user, buy.creator, buy.lamports], [WORM, OWNER, WORM_CREATOR, 1_600_000_000n]);
-  const burn = await sp.burnBought({ signature: sig() });
-  assert.equal(burn.amount, 1234.5);
-  assert.equal(f.calls.find((x) => x[0] === 'burnReceived')[1].mint, WORM);
+  await assert.rejects(sp.buyback({ wallet: OWNER }), /may still land/, 'one buyback at a time');
+  const SW = sig();
+  assert.deepEqual(await sp.bought({ signature: SW }), { ok: false, error: 'Not confirmed yet.' });
+  f.txs.set(SW, swapTx({ atoms: 1_234_500_000n, lamports: 1_600_005_000n }));
+  f.held.set(OWNER, 1_300_000_000n);
+  const burn = await sp.bought({ signature: SW });
+  assert.deepEqual([burn.ok, burn.amount], [true, 1234.5], 'the burn of exactly what it bought');
+  const bc = f.calls.filter((x) => x[0] === 'burn').at(-1)[1];
+  assert.deepEqual([bc.owner, bc.mint, bc.amount], [OWNER, WORM, 1_234_500_000n]);
   assert.equal(sp.publicState().rewards.owed, 0, 'all of it spent');
+  assert.equal((await sp.bought({ signature: SW })).ok, true, 'asking again records nothing twice');
+  assert.equal(sp.publicState().rewards.spentOnWorm, 1.6);
   const SB = sig();
   f.burns.set(SB, 1234.5);
   assert.deepEqual(await sp.burned({ signature: SB }), { ok: true, amount: 1234.5 });
@@ -262,10 +280,11 @@ test('pictures kept here: named by content, kept once a transaction names them, 
   fs.writeFileSync(path.join(dir, 'spawn', 'state.json'), JSON.stringify(st));
   const { sp: later } = open(f, { dir });
   await later.fresh(true);
+  await sleep(50);   // the sweep runs in the background
   assert.ok(later.metaFile(uriA.split('/').pop() + '.json'));
   assert.equal(later.metaFile(uriB.split('/').pop() + '.json'), null);
   assert.equal(files().length, 2);
-  assert.ok(f.calls.some((x) => x[0] === 'rpc' && x[1] === 'getAccountInfo' && x[2] === b.mint), 'the chain was asked first');
+  assert.ok(f.calls.some((x) => x[0] === 'rpc' && x[1] === 'getMultipleAccounts' && x[2].includes(b.mint)), 'the chain was asked first');
   // a full disk budget: no more picked pictures
   const { sp: full } = open(f, { dir, extra: { metaBudget: 10 } });
   await full.fresh(true);
@@ -393,9 +412,17 @@ test('robust: a coin seen on chain is never forgotten; a buyback survives a rest
   assert.equal(bb.sol, 0.64);
   sp.stop();
   const { sp: again } = open(f, { dir });
-  await again.burnBought({ signature: sig() });
+  await assert.rejects(again.buyback({ wallet: OWNER }), /may still land/, 'the buyback in progress survived the restart');
+  // its transaction was never reported by the page: found among the wallet's latest ones
+  const SW = sig();
+  f.txs.set(SW, swapTx({ atoms: 500_000_000n, lamports: 640_010_000n }));
+  f.sigsFor.set(OWNER, [{ signature: sig(), blockTime: Math.floor(Date.now() / 1000) }, { signature: SW, blockTime: Math.floor(Date.now() / 1000) }]);
+  f.txs.set(f.sigsFor.get(OWNER)[0].signature, swapTx({ atoms: 7n, lamports: 5000n }));   // a stray gift of $WORM is not it
+  await assert.rejects(again.buyback({ wallet: OWNER }), /Less than 0\.001/, 'settled, so nothing more is owed');
   assert.equal(again.publicState().rewards.owed, 0, 'not owed twice');
   assert.equal(again.publicState().rewards.spentOnWorm, 0.64);
+  f.held.set(OWNER, 500_000_000n);
+  assert.equal((await again.burnHeld({ wallet: OWNER })).amount, 500, 'what the wallet holds can always be burned');
 
   // trades of a coin someone else made naming SPAWN's wallet: no refresh, no poke, nothing
   const reads = () => f.calls.filter((x) => x[0] === 'fetch' && /price\/v3/.test(x[1])).length;
@@ -409,4 +436,65 @@ test('robust: a coin seen on chain is never forgotten; a buyback survives a rest
   assert.equal(reads(), base, 'no refreshes for coins that aren\'t SPAWN\'s');
   assert.deepEqual(seen, [], 'and no pokes');
   live.stop();
+});
+
+test('collections made anywhere count, once; a new coin\'s first trades all count; look-alikes and broken records are refused', async (t) => {
+  // anyone can make pump.fun pay SPAWN's vaults out to its wallet: every collection the stream sees is recorded
+  const f = fakes(), ws = [], seen = [];
+  class WS extends EventEmitter { constructor() { super(); ws.push(this); setImmediate(() => this.emit('open')); } send() {} ping() {} terminate() {} }
+  const note = (signature, logs) => { for (const w of ws) w.emit('message', JSON.stringify({ method: 'logsNotification', params: { result: { value: { signature, err: null, logs } } } })); };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-'));
+  const sp = createSpawn({ dir, pump: f.pump, rootMint: () => WORM, moderate, fetchImpl: f.fetchImpl, onTrade: (t) => seen.push(t), opts: { rpc: 'http://rpc.test', publicUrl: 'https://worm.example', localMeta: true, owner: OWNER, ws: 'wss://x', WebSocketImpl: WS, rescanMs: [] }, logger: quiet });
+  t.after(() => sp.stop());
+  await sp.fresh(true);
+  const C = sig();
+  note(C, [...collectLogs(OWNER, 700_000_000n), ...ammCollectLogs(OWNER, 300_000_000n)]);
+  note(C, collectLogs(OWNER, 700_000_000n));
+  assert.equal(sp.publicState().rewards.collected, 1, 'both vaults, once');
+  assert.equal(sp.publicState().rewards.owed, 0.64);
+  assert.equal((await sp.collected({ signature: C })).ok, true, 'the page reporting it too changes nothing');
+  assert.equal(sp.publicState().rewards.collected, 1);
+
+  // a coin launched here gets sniped before the listing has it: every one of those trades counts once it does
+  f.NEW = addr();
+  const { mint } = await sp.create({ creator: CREATOR, name: 'Sniped', symbol: 'SNIPE', image: 'worm' });
+  f.curves.set(mint, curve());
+  const T = [sig(), sig(), sig()];
+  for (const x of T) { note(x, tradeLogs({ mint })); await sleep(50); }
+  for (let k = 0; k < 100 && seen.length < 3; k++) await sleep(50);
+  assert.deepEqual(seen.map((t) => t.signature), T, 'all three, in order');
+  const chart = sp.chart(mint);
+  assert.equal(chart.points.filter((x) => x[2] !== 'start').length, 3);
+  // a listed coin reported again as launched makes no work
+  const reads = f.calls.filter((x) => x[0] === 'fetch' && /price\/v3/.test(x[1])).length;
+  for (let k = 0; k < 5; k++) sp.created({ mint, signature: sig() });
+  await sleep(50);
+  assert.equal(f.calls.filter((x) => x[0] === 'fetch' && /price\/v3/.test(x[1])).length, reads);
+
+  // look-alikes of the site's own coin
+  for (const [name, symbol] of [['Good', 'W0RM'], ['Good', 'WORMS'], ['Good', 'BRAINW0RM'], ['BRAINWORM', 'BWRM'], ['$WORM official', 'OFFIC'], ['Worm', 'WRM']]) {
+    await assert.rejects(sp.create({ creator: CREATOR, name, symbol, image: 'worm' }), /looks like the site's own coin/, `${name} ${symbol}`);
+  }
+  f.NEW = addr();
+  assert.ok((await sp.create({ creator: CREATOR, name: 'Wormhole Club', symbol: 'WORMHOLE', image: 'worm' })).mint, 'a coin that merely has "worm" in it is fine');
+
+  // an earlier rewards wallet can still collect what its coins pay it
+  const { sp: moved } = open(f, { owner: '' });
+  t.after(() => moved.stop());
+  await moved.setOwner({ wallet: OWNER });
+  await moved.setOwner({ wallet: addr() });
+  f.vaults = { curve: 5_000_000n, amm: 0n };
+  assert.equal((await moved.collect({ wallet: OWNER })).sol, 0.005, 'the first wallet still collects');
+  await assert.rejects(moved.collect({ wallet: addr() }), /rewards wallet/, 'a stranger doesn\'t');
+
+  // records that can't be read are left alone, and SPAWN stays shut until someone looks
+  const bad = fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-'));
+  fs.mkdirSync(path.join(bad, 'spawn'), { recursive: true });
+  fs.writeFileSync(path.join(bad, 'spawn', 'state.json'), '{"claims": [ half a file');
+  const { sp: shut } = open(f, { dir: bad });
+  assert.equal(shut.publicState().open, false);
+  assert.match(shut.publicState().reason, /records/);
+  await shut.fresh(true);
+  shut.stop();
+  assert.equal(fs.readFileSync(path.join(bad, 'spawn', 'state.json'), 'utf8'), '{"claims": [ half a file', 'never overwritten');
 });

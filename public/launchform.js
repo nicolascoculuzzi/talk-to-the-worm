@@ -138,9 +138,15 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
       say(j.firstBuy ? `Check your wallet. Your first buy gets about ${compact(j.firstBuy.coins)} $${sym}.` : 'Check your wallet.');
       const sig = await signAndSend(j.tx);
       await api('/spawn/created', { mint: j.mint, signature: sig }).catch(() => {});
+      // launched once the chain says so: until then it's only sent
+      say('Sent. Waiting for it to land…');
+      let st = {};
+      for (let k = 0; k < 45 && !st.confirmed && !st.failed; k++) { await new Promise((r) => setTimeout(r, 2000)); st = await api('/spawn/confirm', { signature: sig }).catch(() => ({})); }
+      if (st.failed) { bad('That launch failed on chain, so no coin was made. Only the network fee was spent: try again.'); return; }
       done = true;
       const page = `${location.origin}/c/${j.mint}`, post = `I just launched $${sym} on SPAWN. It hatched its own worm, a copy of a real larva's wiring that feels every trade of it.`;
-      say(`Launched $${sym}. `, link(`/c/${j.mint}`, 'See it'), ' · ', link(`https://x.com/intent/post?text=${encodeURIComponent(post)}&url=${encodeURIComponent(page)}`, 'Share on X', true), ' · ', link(`https://solscan.io/tx/${sig}`, 'Solscan', true));
+      if (st.confirmed) say(`Launched $${sym}. `, link(`/c/${j.mint}`, 'See it'), ' · ', link(`https://x.com/intent/post?text=${encodeURIComponent(post)}&url=${encodeURIComponent(page)}`, 'Share on X', true), ' · ', link(`https://solscan.io/tx/${sig}`, 'Solscan', true));
+      else say(`Sent $${sym}, not confirmed yet: `, link(`https://solscan.io/tx/${sig}`, 'check Solscan', true), '. If it lands, its page is ', link(`/c/${j.mint}`, 'here'), '.');
       name.value = ''; ticker.value = ''; ticker.dataset.touched = ''; buy.value = ''; custom = null; hatchLine = ''; showPic();
       onLaunched({ mint: j.mint, symbol: sym, signature: sig });
     } catch (err) {

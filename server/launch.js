@@ -135,28 +135,30 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
   }
 
   /** Has a prepared transaction landed without being confirmed here? Then that is the launch. True once launched. */
-  let watching = false;
-  async function watch({ fetchImpl, url = rpcUrl } = {}) {
-    if (s.launched) return true;
+  // one look at a time, and whoever asks while it runs gets its answer (prepare() must not miss a launch it is finding)
+  let watching = null;
+  function watch(o = {}) {
+    if (s.launched) return Promise.resolve(true);
+    if (!watching) watching = look(o).finally(() => { watching = null; });
+    return watching;
+  }
+  async function look({ fetchImpl, url = rpcUrl } = {}) {
     const recent = s.prepared.filter((x) => Date.now() - x.at < WATCH_MS);
-    if (watching || !recent.length || typeof solana.rpc !== 'function') return false;
-    watching = true;
-    try {
-      for (const { mint } of recent) {
-        const acct = await solana.rpc('getAccountInfo', [mint, { encoding: 'base64', commitment: 'confirmed' }], { url, fetchImpl });
-        if (!acct?.value) continue;
-        const sigs = await solana.rpc('getSignaturesForAddress', [mint, { limit: 1000, commitment: 'confirmed' }], { url, fetchImpl });
-        const first = (sigs || []).filter((x) => !x.err).at(-1);   // newest first: the last is the one that made it
-        if (!first) continue;
-        const r = await solana.confirmLaunch({ signature: first.signature, mint, fetchImpl, url });
-        if (r.confirmed && !r.err && r.mintExists && await madeBy(first.signature, mint, { fetchImpl, url })) {
-          logger.log(`launch found on the chain: ${mint}`);
-          launched(mint, first.signature, r);
-          return true;
-        }
+    if (!recent.length || typeof solana.rpc !== 'function') return false;
+    for (const { mint } of recent) {
+      const acct = await solana.rpc('getAccountInfo', [mint, { encoding: 'base64', commitment: 'confirmed' }], { url, fetchImpl });
+      if (!acct?.value) continue;
+      const sigs = await solana.rpc('getSignaturesForAddress', [mint, { limit: 1000, commitment: 'confirmed' }], { url, fetchImpl });
+      const first = (sigs || []).filter((x) => !x.err).at(-1);   // newest first: the last is the one that made it
+      if (!first) continue;
+      const r = await solana.confirmLaunch({ signature: first.signature, mint, fetchImpl, url });
+      if (r.confirmed && !r.err && r.mintExists && await madeBy(first.signature, mint, { fetchImpl, url })) {
+        logger.log(`launch found on the chain: ${mint}`);
+        launched(mint, first.signature, r);
+        return true;
       }
-      return false;
-    } finally { watching = false; }
+    }
+    return false;
   }
   const timer = setInterval(() => { watch().catch((e) => logger.warn(`[launch] watching the chain: ${e.message}`)); }, watchEveryMs);
   timer.unref?.();

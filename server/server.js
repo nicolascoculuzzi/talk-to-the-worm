@@ -243,6 +243,7 @@ export function createWormServer(overrides = {}) {
     opts: {
       rpc: config.token.solanaRpc, ws: config.spawnDeps ? config.spawnDeps.ws || null : config.token.solanaWs, WebSocketImpl: config.spawnDeps?.WebSocketImpl, publicUrl: config.publicUrl,
       pinataJwt: config.token.pinataJwt, uploadPinata: config.spawnDeps?.uploadPinata || solana.uploadPinataMetadata, jupiterKey: config.token.jupiterKey, owner: config.spawn.owner, localMeta: config.spawn.localMeta,
+      hatchPng: (ticker) => hatchPreview(ticker).png,   // a launched coin's worm picture is kept from the drawing its launcher saw
     },
   });
 
@@ -696,7 +697,7 @@ export function createWormServer(overrides = {}) {
           if (act === 'prepare') {
             const creator = String(q.get('creator') || '');
             if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(creator)) throw new Error('That is not a Solana address.');
-            if (spawn.owner && creator === spawn.owner) throw new Error('Launch $WORM from a different wallet than SPAWN\'s rewards wallet: their pump.fun creator rewards would mix in one vault.');
+            if (spawn.owners.includes(creator)) throw new Error('Launch $WORM from a different wallet than SPAWN\'s rewards wallet: their pump.fun creator rewards would mix in one vault.');
             return { ok: true, ...(await launch.prepare({ creator, amountSol: Math.max(0, Number(q.get('amountSol')) || 0) })) };
           }
           return await launch.confirm({ signature: String(q.get('signature') || ''), url: config.token.solanaRpc });
@@ -704,14 +705,15 @@ export function createWormServer(overrides = {}) {
         run().then((r) => json(res, 200, r)).catch((e) => json(res, 200, { ok: false, error: e.message }));
         return;
       }
-      case '/admin/spawn/owner': case '/admin/spawn/collect': case '/admin/spawn/collected': case '/admin/spawn/buyback': case '/admin/spawn/burn-bought': case '/admin/spawn/burned': {
+      case '/admin/spawn/owner': case '/admin/spawn/collect': case '/admin/spawn/collected': case '/admin/spawn/buyback': case '/admin/spawn/bought': case '/admin/spawn/burn-held': case '/admin/spawn/burned': {
         const act = p.slice('/admin/spawn/'.length), wallet = q.get('wallet') || '';
         const run = async () => {
           if (act === 'owner') return { ok: true, ...(await spawn.setOwner({ wallet, wormCreator: launch?.creator || '' })) };
           if (act === 'collect') return { ok: true, ...(await spawn.collect({ wallet })) };
           if (act === 'collected') return await spawn.collected({ signature: q.get('signature') || '' });
           if (act === 'buyback') return { ok: true, ...(await spawn.buyback({ wallet })) };
-          if (act === 'burn-bought') return { ok: true, ...(await spawn.burnBought({ signature: q.get('signature') || '' })) };
+          if (act === 'bought') return await spawn.bought({ signature: q.get('signature') || '' });
+          if (act === 'burn-held') return { ok: true, ...(await spawn.burnHeld({ wallet })) };
           return await spawn.burned({ signature: q.get('signature') || '' });
         };
         run().then((r) => json(res, 200, r)).catch((e) => json(res, 200, { ok: false, error: e.message }));
@@ -872,6 +874,8 @@ export function createWormServer(overrides = {}) {
     if (p.startsWith('/spawn/hatch/')) {   // what a fresh worm makes of a ticker: the spawn form's preview
       const m = /^\/spawn\/hatch\/([A-Z0-9]{1,10})\.(json|png)$/.exec(p);
       if (!m) return notFound(res);
+      const kept = m[2] === 'png' && spawn.hatchFile(m[1]);   // a launched coin's picture: kept for good, the same forever
+      if (kept) return sendFile(req, res, kept, 'image/png', 'public, max-age=31536000, immutable');
       if (!hatched.has(m[1]) && !hatchLimiter.take(clientIp(req))) { res.writeHead(429, { 'Retry-After': '2', 'Content-Type': MIME['.txt'] }); return res.end('Too many requests'); }
       const h = hatchPreview(m[1]);
       if (m[2] === 'json') return json(res, 200, { ticker: m[1], peak: h.peak });

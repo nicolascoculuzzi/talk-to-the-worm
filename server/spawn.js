@@ -2,7 +2,7 @@
 // curve, fees and graduation to PumpSwap, whose pump.fun creator is SPAWN's rewards wallet (the owner's, set on /launch
 // or by SPAWN_OWNER). So the creator rewards of every SPAWN coin collect in that wallet's pump.fun vaults. The owner
 // collects them (collect() then collected()); 64% of everything collected buys $WORM (buyback()), and every bit of that
-// $WORM is burned (burnBought() then burned()); the other 36% stays with the team. Each buy of a coin also pokes the
+// $WORM is burned (bought() settles it and builds the burn, burned() records it); the other 36% stays with the team. Each buy of a coin also pokes the
 // worm at the coin's own spot.
 //
 // Every coin also hatches its own worm (shared/coinworm.js, kept by server/coinworms.js): a fresh copy of the same
@@ -38,7 +38,9 @@ const MAGIC = {
 };
 export const IMAGE_HOSTS = ['https://ipfs.io/ipfs/', 'https://gateway.pinata.cloud/ipfs/'];   // the page's CSP allows these
 const B58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/, SIG = /^[1-9A-HJ-NP-Za-km-z]{64,90}$/;
-const RESERVED = new Set(['WORM', 'BRAINWORM']);   // the site's own coin
+// the site's own coin, BRAINWORM ($WORM): no coin here may pass for it, spelled with digits or a letter or two added
+const fold = (t) => String(t || '').toUpperCase().replace(/0/g, 'O').replace(/[1!|]/g, 'I').replace(/3/g, 'E').replace(/4/g, 'A').replace(/5/g, 'S').replace(/7/g, 'T').replace(/8/g, 'B').replace(/[^A-Z]/g, '');
+export const passesForWorm = (name, symbol) => /^(BRAIN)?WORM.{0,2}$/.test(fold(symbol)) || fold(name).includes('BRAINWORM') || /^(THE)?WORM(COIN|TOKEN|OFFICIAL)?$/.test(fold(name)) || /\$\s*W\W*[O0]\W*R\W*M/i.test(String(name || ''));
 const dayKey = (ts = Date.now()) => new Date(ts).toISOString().slice(0, 10);
 const round = (x, d = 6) => Math.round(x * 10 ** d) / 10 ** d;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -60,12 +62,20 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
   if (root) fs.mkdirSync(path.join(root, 'meta'), { recursive: true });
   const file = root && path.join(root, 'state.json');
   let s = { owners: [], owner: '', coins: {}, uploads: {}, claims: [], buybacks: [], burns: [], day: { key: dayKey(), worm: {} } };
-  try { if (file) s = { ...s, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { /* first run */ }
+  // its records (collections, buybacks, burns, coins): a file that can't be read is never overwritten; the last good
+  // copy is tried, and without one SPAWN stays shut and says so, keeping the file for someone to look at
+  let broken = false;
+  if (file && (fs.existsSync(file) || fs.existsSync(file + '.tmp'))) {
+    const read = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
+    const got = read(file) || read(file + '.tmp');
+    if (got) s = { ...s, ...got }; else { broken = true; logger.warn?.(`[spawn] ${file} could not be read: SPAWN stays shut and leaves it as it is`); }
+  }
   for (const k of ['owners', 'claims', 'buybacks', 'burns']) if (!Array.isArray(s[k])) s[k] = [];
   if (!s.uploads || typeof s.uploads !== 'object') s.uploads = {};
   let saveTimer = null;
   // written whole or not at all (a new file, then renamed over the old one): a restart mid-write can't leave half a file
-  const save = () => { if (!file || saveTimer) return; saveTimer = setTimeout(() => { saveTimer = null; fs.writeFile(file + '.tmp', JSON.stringify(s), (e) => { if (!e) fs.rename(file + '.tmp', file, () => {}); }); }, 500); };
+  const save = () => { if (!file || broken || saveTimer) return; saveTimer = setTimeout(() => { saveTimer = null; fs.writeFile(file + '.tmp', JSON.stringify(s), (e) => { if (!e) fs.rename(file + '.tmp', file, () => {}); }); }, 500); };
+  const saveNow = () => { if (!file || broken) return; clearTimeout(saveTimer); saveTimer = null; try { fs.writeFileSync(file + '.tmp', JSON.stringify(s)); fs.renameSync(file + '.tmp', file); } catch { /* disk gone */ } };
   const metaDir = root && path.join(root, 'meta');
   let metaBytes = 0;   // what the kept pictures and their metadata take on disk
   if (metaDir) for (const n of fs.readdirSync(metaDir)) { try { metaBytes += fs.statSync(path.join(metaDir, n)).size; } catch { /* gone */ } }
@@ -74,7 +84,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
   const jupBase = opts.jupiterKey ? 'https://api.jup.ag' : 'https://lite-api.jup.ag';
 
   const quotes = new Map();   // quoteId -> {leg, at, user}: the server keeps each quote, so nobody can swap in a doctored one
-  let cache = { at: 0, coins: [], curves: new Map(), byPool: new Map(), prices: {}, vaults: { curve: 0n, amm: 0n } };
+  let cache = { at: 0, coins: [], curves: new Map(), byPool: new Map(), prices: {}, vaults: { curve: 0n, amm: 0n }, held: 0n, resolvedAt: 0 };
   let collectLockUntil = 0, buybackLockUntil = 0;
   const worm = () => rootMint() || '';
   /** SPAWN's rewards wallet: every coin launched now names it as its pump.fun creator. */
@@ -86,7 +96,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
   const canHost = () => pinata() || !!(opts.localMeta && root && opts.publicUrl);
   const budget = () => opts.metaBudget ?? META_BUDGET;
   const canPick = () => pinata() || (canHost() && metaBytes < budget());   // room for one more picked picture
-  const canLaunch = () => !!owner() && canHost();
+  const canLaunch = () => !broken && !!owner() && canHost();
   const wormPicture = (symbol) => `${opts.publicUrl}/spawn/hatch/${symbol}.png`;
 
   // pump.fun's Global (fee recipients, a new curve's reserves) and its fee schedule, read every few minutes
@@ -143,15 +153,19 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
         (r?.value || []).forEach((v, k) => { if (v) livePools.add(done[i + k]); });
       }
     }
+    // prices: SOL's, $WORM's and every graduated coin's (their curves are empty now), fifty to a request
     let prices = {};
-    try { prices = await jupPrices([SOL_MINT, ...(worm() ? [worm()] : []), ...done.slice(0, 45)]); } catch (e) { logger.warn(`[spawn] prices: ${e.message}`); }
+    const ids = [SOL_MINT, ...(worm() ? [worm()] : []), ...done];
+    for (let i = 0; i < ids.length; i += 50) {
+      try { Object.assign(prices, await jupPrices(ids.slice(i, i + 50))); } catch (e) { logger.warn(`[spawn] prices: ${e.message}`); if (!i) break; }
+    }
     const solUsd = prices[SOL_MINT]?.usdPrice || cache.prices.solUsd || 0;
     const { rootSol, rootUsd } = await wormPrice(prices, solUsd);
     const coins = [], byPool = new Map();
     for (const mint of mints) {
       const c = curves.get(mint), own = s.coins[mint];
       if (!c || !mine.has(c.creator)) continue;   // not on chain (yet), or not SPAWN's
-      if (!own.seen) { own.seen = true; save(); }
+      if (!own.seen) { own.seen = true; save(); if (own.image === wormPicture(own.symbol)) freeze(own.symbol); }
       const stage = !c.complete ? 'curve' : livePools.has(mint) ? 'graduated' : 'graduating';
       if (stage !== 'curve') byPool.set(pools.get(mint), mint);
       const priceSol = stage === 'curve' ? pump.priceSol(c) : prices[mint]?.usdPrice && solUsd ? prices[mint].usdPrice / solUsd : pump.priceSol(c);
@@ -163,10 +177,18 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     // coins launched on the page that never made it on chain are forgotten after an hour, and their kept pictures later;
     // one that has ever been seen on chain never is (a node's missing answer is not a missing coin)
     for (const [mint, c] of Object.entries(s.coins)) if (!c.seen && !curves.get(mint) && Date.now() - c.createdAt > STALE_COIN_MS) delete s.coins[mint];
-    await sweepUploads(new Set(coins.map((c) => c.mint))).catch((e) => logger.warn(`[spawn] sweeping pictures: ${e.message}`));
-    let vaults = cache.vaults;
-    if (owner()) try { vaults = await pump.fetchCreatorFees({ creator: owner(), ...chain }); } catch (e) { logger.warn(`[spawn] vaults: ${e.message}`); }
-    cache = { at: Date.now(), coins, curves, byPool, prices: { solUsd, rootUsd, rootSol }, vaults };
+    if (!sweeping && metaDir && Date.now() - sweptAt >= SWEEP_MS) sweeping = sweepUploads(new Set(coins.map((c) => c.mint))).catch((e) => logger.warn(`[spawn] sweeping pictures: ${e.message}`)).finally(() => { sweeping = null; });
+    let vaults = cache.vaults, held = cache.held;
+    if (owners().length) {
+      try {
+        const all = await Promise.all(owners().map((w) => pump.fetchCreatorFees({ creator: w, ...chain })));
+        vaults = { curve: all.reduce((n, v) => n + v.curve, 0n), amm: all.reduce((n, v) => n + v.amm, 0n) };
+      } catch (e) { logger.warn(`[spawn] vaults: ${e.message}`); }
+      // $WORM a rewards wallet still holds: a buyback whose burn wasn't signed (the owner's page offers to burn it)
+      if (worm()) try { held = (await Promise.all(owners().map((w) => pump.fetchTokenBalance({ owner: w, mint: worm(), ...chain })))).reduce((n, b) => n + b.atoms, 0n); } catch { /* next time */ }
+    }
+    if (s.pendingBuyback && Date.now() - (cache.resolvedAt || 0) > 30_000) { cache.resolvedAt = Date.now(); await resolveBuyback().catch(() => {}); }
+    cache = { at: Date.now(), coins, curves, byPool, prices: { solUsd, rootUsd, rootSol }, vaults, held, resolvedAt: cache.resolvedAt };
     // every coin shown hatches its own worm (a few each refresh, so a first listing of many coins doesn't stall the server)
     if (coinWorms) { let n = 0; for (const c of coins) if (!coinWorms.has(c.mint) && n++ < 10) coinWorms.hatch(c.mint, c.symbol); }
     try { onCoins(coins); } catch (e) { logger.warn(`[spawn] ${e.message}`); }
@@ -201,7 +223,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     const r = rewards(), fees = program?.fees?.flat;
     return {
       open: canLaunch(),
-      reason: !owner() ? 'Opening soon.' : !canHost() ? 'Opening soon: coin pictures are being set up.' : null,
+      reason: broken ? 'Closed for a moment: the launchpad\'s records need a look.' : !owner() ? 'Opening soon.' : !canHost() ? 'Opening soon: coin pictures are being set up.' : null,
       quote: 'SOL',
       pictures: canPick(),                     // a picked picture can be kept for good (else every coin gets its worm's)
       root: {
@@ -327,30 +349,29 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
   /** Files kept for coins that never reached the chain (nobody signed, or it never landed) are deleted once the chain
    *  itself says that no coin named them: none of the listed coins uses the file, and none of the mints that named it
    *  exists. One a coin uses stays for good. */
-  let sweptAt = 0;
+  let sweptAt = 0, sweeping = null;
   async function sweepUploads(listed) {
-    if (!metaDir || Date.now() - sweptAt < SWEEP_MS) return;
     sweptAt = Date.now();
-    for (const [n, u] of Object.entries(s.uploads)) {
-      if (u.live) continue;
-      if (u.mints.some((m) => listed.has(m))) { u.live = true; continue; }
-      if (Date.now() - u.at < UPLOAD_GRACE_MS) continue;
-      let exists = false, known = true;
-      for (const m of u.mints) {
-        try {
-          const info = await rpc('getAccountInfo', [m, { encoding: 'base64', commitment: 'confirmed', dataSlice: { offset: 0, length: 0 } }], chain);
-          if (!info || !('value' in info)) { known = false; break; }
-          if (info.value) { exists = true; break; }
-        } catch { known = false; break; }
-      }
-      if (exists) { u.live = true; continue; }
-      if (!known) continue;   // ask again next time
+    const due = Object.entries(s.uploads).filter(([, u]) => {
+      if (u.live) return false;
+      if (u.mints.some((m) => listed.has(m))) { u.live = true; return false; }
+      return Date.now() - u.at >= UPLOAD_GRACE_MS;
+    });
+    const mints = [...new Set(due.flatMap(([, u]) => u.mints))], exists = new Map();
+    for (let i = 0; i < mints.length; i += 100) {
+      const r = await rpc('getMultipleAccounts', [mints.slice(i, i + 100), { encoding: 'base64', commitment: 'confirmed', dataSlice: { offset: 0, length: 0 } }], chain).catch(() => null);
+      if (!Array.isArray(r?.value)) return;   // ask again next time: a failed read is not "no coin"
+      r.value.forEach((v, k) => exists.set(mints[i + k], !!v));
+    }
+    for (const [n, u] of due) {
+      if (u.mints.some((m) => exists.get(m))) { u.live = true; continue; }
       delete s.uploads[n];
       dropMeta(n);
       if (u.image && !Object.values(s.uploads).some((o) => o.image === u.image)) dropMeta(u.image);
     }
     save();
   }
+
 
   /**
    * The create transaction for the launcher's wallet (the coin's fresh mint key already signed in it): a pump.fun coin
@@ -365,7 +386,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     if (!sy.ok) throw new Error(sy.message || 'That ticker is not allowed.');
     if (!nm.text || Buffer.byteLength(nm.text) > 32) throw new Error('Names are 1 to 32 characters.');
     if (!/^[A-Z0-9]{1,10}$/.test(sy.text)) throw new Error('Tickers are 1 to 10 letters or digits.');
-    if (RESERVED.has(sy.text)) throw new Error('That ticker is taken.');
+    if (passesForWorm(nm.text, sy.text)) throw new Error('That name or ticker looks like the site\'s own coin, $WORM. Pick another.');
     const buy = Number(firstBuy || 0);
     if (!(buy >= 0) || !Number.isFinite(buy) || buy > 100) throw new Error('The first buy is a number of SOL (100 at most).');
     let m = null, bytes = null;
@@ -384,11 +405,12 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     if (image !== 'worm' && !canUpload()) throw new Error('Many coins are being launched right now. Try again in a minute, or give it its worm\'s first sight.');
     let meta;
     if (image === 'worm') {
-      // its picture is its worm's first sight (a fresh worm shown the ticker, drawn from the real wiring), drawn once
-      // now and kept like a picked one: a coin's picture never changes. Where nothing can draw, it links to the drawing.
-      const png = render && D ? (await import('./coinworms.js')).previewHatch({ D, render, ticker: sy.text, width: 512 }).png : null;
-      if (!png && pinata()) throw new Error('Pictures from the worm are not available here.');
-      meta = await uploadMeta({ image: png, type: 'image/png', name: nm.text, symbol: sy.text, wormImage: png ? null : wormPicture(sy.text) });
+      // its picture is its worm's first sight (a fresh worm shown the ticker, drawn from the real wiring): it links to
+      // that drawing, which is kept on disk for good once the coin is on chain (freeze), so it never changes. With
+      // Pinata the picture goes to IPFS.
+      const png = pinata() && render && D ? (await import('./coinworms.js')).previewHatch({ D, render, ticker: sy.text, width: 512 }).png : null;
+      if (pinata() && !png) throw new Error('Pictures from the worm are not available here.');
+      meta = await uploadMeta({ image: png, type: 'image/png', name: nm.text, symbol: sy.text, wormImage: pinata() ? null : wormPicture(sy.text) });
     } else meta = await uploadMeta({ image: bytes, type: m[1], name: nm.text, symbol: sy.text });
     let built;
     try { built = await pump.buildCreate({ user: creator, creator: owner(), name: nm.text, symbol: sy.text, uri: meta.uri, firstBuySol: buy, state: await programState(), ...chain }); } catch (e) { throw human(e); }
@@ -402,9 +424,12 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
   function created({ mint, signature }) {
     const c = s.coins[mint];
     if (!c || !SIG.test(signature || '')) return false;
-    c.signature = signature; save();
-    fresh(true).catch(() => {});
-    for (const ms of opts.rescanMs || [4000, 12000]) setTimeout(() => { if (!cache.coins.some((x) => x.mint === mint)) fresh(true).catch(() => {}); }, ms).unref?.();
+    if (!c.signature) { c.signature = signature; save(); }
+    // a coin that isn't listed yet: look for it soon (a few times at most, however often this is called)
+    if (!cache.coins.some((x) => x.mint === mint) && (c.looks = (c.looks || 0) + 1) <= 3) {
+      lookSoon();
+      for (const ms of opts.rescanMs || [6000, 15000]) setTimeout(() => { if (!cache.coins.some((x) => x.mint === mint)) lookSoon(); }, ms).unref?.();
+    }
     return true;
   }
   /** A coin launched on this page in the last hour that isn't listed yet (its page can be served: it polls the listing). */
@@ -415,9 +440,10 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
 
   /* ---------- the owner: SPAWN's rewards wallet, collecting, the $WORM buyback and burn ---------- */
 
+  // any wallet coins were launched for: the rewards wallet now, or an earlier one whose coins still pay it
   const checkOwner = (wallet) => {
     if (!B58.test(wallet || '')) throw new Error('Connect SPAWN\'s rewards wallet first.');
-    if (wallet !== owner()) throw new Error(`Use SPAWN's rewards wallet (${owner()}).`);
+    if (!owners().includes(wallet)) throw new Error(`Use SPAWN's rewards wallet (${owner() || 'not set yet'}).`);
   };
   /** The wallet every new coin names as its pump.fun creator. Not the one that launches $WORM: its vault would mix the two. */
   async function setOwner({ wallet, wormCreator = '' }) {
@@ -434,7 +460,18 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     await fresh(true);
     return { owner: wallet };
   }
-  /** Every coin's creator rewards, from SPAWN's vaults (on the curve and on PumpSwap) to its wallet, as SOL. */
+
+  /** Record a collection, once per transaction: exactly what pump.fun's and PumpSwap's events say it paid SPAWN's
+   *  wallets. Anyone can make a collection (the programs let them), so every one the log stream sees is recorded too. */
+  function recordCollect(signature, events) {
+    if (s.claims.some((c) => c.signature === signature)) return 0n;
+    const lamports = events.filter((e) => e.kind === 'collect' && owners().includes(e.creator)).reduce((n, e) => n + e.lamports, 0n);
+    if (!(lamports > 0n)) return 0n;
+    s.claims.push({ signature, lamports: String(lamports), at: Date.now() });
+    save();
+    return lamports;
+  }
+  /** Every coin's creator rewards, from a rewards wallet's vaults (on the curve and on PumpSwap) to it, as SOL. */
   async function collect({ wallet }) {
     checkOwner(wallet);
     if (Date.now() < collectLockUntil) throw new Error('The last collection may still land. Try again in a minute.');
@@ -445,26 +482,68 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
       return { tx: await pump.buildCollect({ creator: wallet, curve: v.curve > 0n, amm: v.amm > 0n, ...chain }), sol: sol(v.curve + v.amm) };
     } catch (e) { collectLockUntil = 0; throw human(e); }
   }
-  /** Record a collection: exactly what pump.fun's and PumpSwap's events say it paid SPAWN's wallet. */
+  /** Record a collection by its signature (the stream records it too; either way, once). */
   async function collected({ signature }) {
     if (!SIG.test(signature || '')) throw new Error('Bad signature.');
-    if (s.claims.some((c) => c.signature === signature)) return { ok: true };
+    const had = s.claims.find((c) => c.signature === signature);
+    if (had) { collectLockUntil = 0; return { ok: true, sol: sol(BigInt(had.lamports)), owed: sol(rewards().owed) }; }
     const l = await pump.fetchLogs({ signature, ...chain });
     if (!l) return { ok: false, error: 'Not confirmed yet.' };
-    const lamports = pump.eventsFromLogs(l.logs).filter((e) => e.kind === 'collect' && owners().includes(e.creator)).reduce((n, e) => n + e.lamports, 0n);
     collectLockUntil = 0;
+    const lamports = recordCollect(signature, pump.eventsFromLogs(l.logs));
     if (!(lamports > 0n)) return { ok: false, error: 'That transaction collected nothing for SPAWN.' };
-    s.claims.push({ signature, lamports: String(lamports), at: Date.now() });
-    save();
     return { ok: true, sol: sol(lamports), owed: sol(rewards().owed) };
+  }
+
+  // A buyback in progress is kept on disk (what it was built to spend, when, from which wallet, and its transaction
+  // once the page reports it) until it is settled: recorded, because it bought $WORM, or dropped, because it failed or
+  // can no longer land. No other buyback is built until then, so the 64% is never spent twice.
+  const BUYBACK_WAIT_MS = 180_000;   // well past a transaction's blockhash lifetime
+  /** What a confirmed transaction did for `wallet`: the $WORM it received (atoms) and the SOL it spent; null if not visible. */
+  async function effectOn(signature, wallet) {
+    const tx = await rpc('getTransaction', [signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0, commitment: 'confirmed' }], chain);
+    if (!tx) return null;
+    if (tx.meta?.err) return { failed: true, atoms: 0n, lamports: 0n };
+    const pre = new Map((tx.meta.preTokenBalances || []).map((b) => [b.accountIndex, BigInt(b.uiTokenAmount.amount)]));
+    let atoms = 0n;
+    for (const b of tx.meta.postTokenBalances || []) if (b.mint === worm() && b.owner === wallet) atoms += BigInt(b.uiTokenAmount.amount) - (pre.get(b.accountIndex) || 0n);
+    const i = (tx.transaction?.message?.accountKeys || []).findIndex((k) => (typeof k === 'string' ? k : k.pubkey) === wallet);
+    const lamports = i >= 0 ? BigInt(Math.max(0, tx.meta.preBalances[i] - tx.meta.postBalances[i])) : 0n;
+    return { failed: false, atoms, lamports };
+  }
+  function settle(signature, effect, wallet) {
+    const p = s.pendingBuyback;
+    const rec = { signature, lamports: p ? p.lamports : String(effect.lamports), atoms: String(effect.atoms), worm: Number(effect.atoms) / 10 ** DECIMALS, wallet, at: Date.now() };
+    s.buybacks.push(rec);
+    s.pendingBuyback = null; buybackLockUntil = 0; save();
+    return rec;
+  }
+  /** Look for the buyback in progress on the chain: by its signature, or among its wallet's latest transactions. */
+  async function resolveBuyback() {
+    const p = s.pendingBuyback;
+    if (!p) return;
+    const found = p.signature ? [{ signature: p.signature }]
+      : ((await rpc('getSignaturesForAddress', [p.wallet, { limit: 25, commitment: 'confirmed' }], chain).catch(() => [])) || []).filter((x) => !x.err && (!x.blockTime || x.blockTime * 1000 >= p.at - 60_000));
+    for (const { signature } of found) {
+      if (s.buybacks.some((b) => b.signature === signature)) continue;
+      const e = await effectOn(signature, p.wallet).catch(() => null);
+      // the buyback: it brought the wallet $WORM and spent about what it was built to (a stray gift of $WORM is not it)
+      if (e && !e.failed && e.atoms > 0n && e.lamports * 100n >= BigInt(p.lamports) * 98n) { settle(signature, e, p.wallet); return; }
+      if (e?.failed && signature === p.signature) { s.pendingBuyback = null; buybackLockUntil = 0; save(); return; }   // it failed: nothing spent
+    }
+    if (Date.now() - p.at > BUYBACK_WAIT_MS) { s.pendingBuyback = null; save(); }   // it never landed, and now it can't
   }
   /**
    * The buyback: 64% of everything collected, less what earlier buybacks spent, into $WORM: on its pump.fun curve while
-   * it has one, through Jupiter after. For SPAWN's wallet to sign; burnBought() then burns exactly what it bought.
+   * it has one, through Jupiter after. For a rewards wallet to sign; bought() then settles it and builds the burn.
    */
   async function buyback({ wallet }) {
     checkOwner(wallet);
     if (!worm()) throw new Error('$WORM has not launched yet.');
+    if (s.pendingBuyback) {
+      await resolveBuyback();
+      if (s.pendingBuyback) throw new Error('The last buyback may still land. Try again in a minute or two.');
+    }
     const { owed } = rewards();
     if (owed < 1_000_000n) throw new Error('Less than 0.001 SOL owed to the buyback. Collect the creator rewards first.');
     if (Date.now() < buybackLockUntil) throw new Error('The last buyback may still land. Try again in a minute.');
@@ -481,30 +560,43 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
         if (!j.swapTransaction) throw new Error('Jupiter did not return a transaction.');
         tx = j.swapTransaction; out = BigInt(q.outAmount); min = BigInt(q.otherAmountThreshold);
       }
-      s.pendingBuyback = { lamports: String(owed), at: Date.now() };
+      s.pendingBuyback = { lamports: String(owed), at: Date.now(), wallet };
       save();
       return { tx, sol: sol(owed), worm: Number(out) / 10 ** DECIMALS, min: Number(min) / 10 ** DECIMALS };
     } catch (e) { buybackLockUntil = 0; throw human(e); }
   }
-  /** Once a buyback has landed: it is recorded, and the burn of exactly the $WORM it bought is built. */
-  async function burnBought({ signature }) {
-    if (!SIG.test(signature || '')) throw new Error('Bad signature.');
-    const b = await pump.buildBurnReceived({ signature, owner: owner(), mint: worm(), ...chain });
-    if (!b) throw new Error('That transaction brought no $WORM.');
-    if (!s.buybacks.some((x) => x.signature === signature)) {
-      // what it spent: the amount the buyback was built for (kept on disk until now), else what left the wallet in it
-      let lamports = s.pendingBuyback ? BigInt(s.pendingBuyback.lamports) : null;
-      if (lamports == null) {
-        const tx = await rpc('getTransaction', [signature, { encoding: 'json', maxSupportedTransactionVersion: 0, commitment: 'confirmed' }], chain).catch(() => null);
-        const i = tx?.transaction?.message?.accountKeys?.indexOf(owner()) ?? -1;
-        lamports = i >= 0 ? BigInt(Math.max(0, tx.meta.preBalances[i] - tx.meta.postBalances[i])) : 0n;
-      }
-      s.buybacks.push({ signature, lamports: String(lamports), worm: b.amount, at: Date.now() });
-      s.pendingBuyback = null; buybackLockUntil = 0; save();
-    }
-    return { tx: b.tx, amount: b.amount };
+  // the burn of `atoms` of $WORM from `wallet` (at most what it holds; all of it when atoms is null)
+  async function burnTx(wallet, atoms = null) {
+    const b = await pump.fetchTokenBalance({ owner: wallet, mint: worm(), ...chain });
+    const amount = atoms == null || atoms > b.atoms ? b.atoms : atoms;
+    if (!(amount > 0n)) return { tx: null, amount: 0 };
+    return { tx: await pump.buildBurn({ owner: wallet, mint: worm(), amount, tokenProgram: b.tokenProgram, account: b.account, ...chain }), amount: Number(amount) / 10 ** DECIMALS };
   }
-  // how much $WORM SPAWN's wallet burned in a transaction (0 if none), read from the chain
+  /** The buyback's transaction was sent: once it has landed it is settled, and the burn of exactly what it bought is
+   *  built. Ask again until it says so; nothing is recorded twice. */
+  async function bought({ signature }) {
+    if (!SIG.test(signature || '')) throw new Error('Bad signature.');
+    const p = s.pendingBuyback;
+    if (p && !p.signature) { p.signature = signature; save(); }
+    let rec = s.buybacks.find((b) => b.signature === signature);
+    if (!rec) {
+      const wallet = p?.wallet || owner(), e = await effectOn(signature, wallet);
+      if (!e) return { ok: false, error: 'Not confirmed yet.' };
+      if (e.failed) { if (p?.signature === signature) { s.pendingBuyback = null; save(); } buybackLockUntil = 0; return { ok: false, failed: true, error: 'That buy failed on chain: nothing was spent.' }; }
+      if (!(e.atoms > 0n)) return { ok: false, error: 'That transaction bought no $WORM.' };
+      rec = settle(signature, e, wallet);
+    }
+    return { ok: true, ...(await burnTx(rec.wallet || owner(), BigInt(rec.atoms ?? Math.round(rec.worm * 10 ** DECIMALS)))) };
+  }
+  /** The burn of every $WORM a rewards wallet still holds (a buyback whose burn wasn't signed). */
+  async function burnHeld({ wallet }) {
+    checkOwner(wallet);
+    if (!worm()) throw new Error('$WORM has not launched yet.');
+    const b = await burnTx(wallet);
+    if (!b.tx) throw new Error('No $WORM in that wallet to burn.');
+    return b;
+  }
+  // how much $WORM SPAWN's wallets burned in a transaction (0 if none), read from the chain
   async function burnedIn(signature) {
     const tx = await rpc('getTransaction', [signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0, commitment: 'confirmed' }], chain);
     if (!tx) return null;
@@ -517,7 +609,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     }
     return amount;
   }
-  /** Record a burn: read from the chain how much $WORM SPAWN's wallet burned in it. */
+  /** Record a burn: read from the chain how much $WORM SPAWN's wallets burned in it. */
   async function burned({ signature }) {
     if (!SIG.test(signature || '')) throw new Error('Bad signature.');
     if (s.burns.some((b) => b.signature === signature)) return { ok: true };
@@ -562,89 +654,134 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
 
   // the SPAWN coin a trade event is about: by its mint on the curve, by its pool on PumpSwap
   const coinOf = (e) => { const mint = e.pool === 'pump' ? e.mint : cache.byPool.get(e.address); return mint && cache.coins.find((c) => c.mint === mint); };
-  /** The trades of SPAWN's coins in one transaction's logs: [{ coin, event, n }], n counting each coin's trades in it. */
-  function tradesIn(logs) {
+  /** The trades of listed SPAWN coins among one transaction's events: [{ coin, e, n }], n counting each coin's trades in it. */
+  function tradesIn(events, only = null) {
     const n = new Map(), out = [];
-    for (const e of pump.eventsFromLogs(logs)) {
+    for (const e of events) {
       if (e.kind !== 'trade') continue;
       const coin = coinOf(e);
       if (!coin) continue;
       const k = n.get(coin.mint) || 0;
       n.set(coin.mint, k + 1);
-      out.push({ coin, e, n: k });
+      if (!only || only.has(coin.mint)) out.push({ coin, e, n: k });
     }
     return out;
   }
-  let stream = null, streamKey = '', lookedAt = 0;
-  const waitingCoin = () => Object.entries(s.coins).some(([m, c]) => !c.seen && Date.now() - c.createdAt < STALE_COIN_MS && !cache.coins.some((x) => x.mint === m));
+  /** A trade: its chart point, its worm's touch (a worm skips a trade it has felt) and, seen live, the site's poke. */
+  function take({ coin, e, n }, signature, live, at) {
+    chartTrade(coin.mint, e, at, signature, n);
+    if (coinWorms) {
+      if (!coinWorms.has(coin.mint)) coinWorms.hatch(coin.mint, coin.symbol);
+      coinWorms.feel(coin.mint, [{ signature, side: e.side, n }]);
+    }
+    if (live) onTrade({ mint: coin.mint, symbol: coin.symbol, side: e.side, signature, trader: e.trader, sol: sol(e.lamports) });
+  }
+  // every transaction read once, live or caught up
+  const read = new Set();
+  const firstRead = (signature) => {
+    if (read.has(signature)) return false;
+    read.add(signature);
+    if (read.size > 6000) { const it = read.values(); for (let k = 0; k < 1000; k++) read.delete(it.next().value); }
+    return true;
+  };
+  // Trades of coins launched here that the listing doesn't have yet (they get sniped within seconds of launching): kept,
+  // and taken in order once the listing has them. Anyone can make a coin naming SPAWN's wallet as its creator; only
+  // coins launched on this page count, so strangers' trades make no work here.
+  const early = [];
+  let earlyTimer = null, lookedAt = 0;
+  function lookSoon() {
+    if (earlyTimer) return;
+    earlyTimer = setTimeout(() => { earlyTimer = null; lookedAt = Date.now(); fresh(true).then(drainEarly, drainEarly); }, Math.max(0, 3000 - (Date.now() - lookedAt)));
+    earlyTimer.unref?.();
+  }
+  function drainEarly() {
+    const keep = [];
+    for (const x of early.splice(0)) {
+      const listed = new Set([...x.mints].filter((m) => cache.coins.some((c) => c.mint === m)));
+      for (const t of tradesIn(x.events, listed)) take(t, x.signature, x.live, x.at);
+      const still = [...x.mints].filter((m) => !listed.has(m));
+      if (still.length && Date.now() - x.at < 60_000) keep.push({ ...x, mints: new Set(still) });
+    }
+    early.push(...keep);
+    if (early.length) lookSoon();
+  }
+  /** One transaction's logs, from the stream (live) or read back from the chain: its collections and its trades. */
+  function onChain(signature, logs, live, at = Date.now()) {
+    const events = pump.eventsFromLogs(logs);
+    recordCollect(signature, events);
+    for (const t of tradesIn(events)) take(t, signature, live, at);
+    const waiting = new Set(events.filter((e) => e.kind === 'trade' && e.pool === 'pump' && s.coins[e.mint] && !cache.coins.some((c) => c.mint === e.mint)).map((e) => e.mint));
+    if (waiting.size && early.length < 500) { early.push({ signature, events, live, at, mints: waiting }); lookSoon(); }
+  }
+  let stream = null, streamKey = '';
   const vaultsOf = (w) => [pump.creatorVault(w), pump.ammCreatorVaultAuthority(w)];
   function startStream() {
     const mentions = owners().flatMap(vaultsOf), key = mentions.join(',');
     if (!key || !opts.ws || (stream && key === streamKey)) return;
     if (stream) stream.stop();   // a new rewards wallet: listen to it too
     streamKey = key;
-    stream = logsStream({ url: opts.ws, mentions, logger, WebSocketImpl: opts.WebSocketImpl, onLogs: (signature, logs) => {
-      let trades = tradesIn(logs);
-      if (!trades.length && waitingCoin() && Date.now() - lookedAt > 10_000 && pump.eventsFromLogs(logs).some((e) => e.kind === 'trade' && e.pool === 'pump' && s.coins[e.mint])) {
-        // a coin launched here that the listing doesn't have yet: look again, then read it. (Anyone can make a coin naming
-        // SPAWN's wallet as its creator; its trades are not SPAWN's and make no work here.)
-        lookedAt = Date.now();
-        fresh(true).then(() => { for (const t of tradesIn(logs)) take(t, signature); }).catch(() => {});
-        return;
-      }
-      for (const t of trades) take(t, signature);
-      trades = null;
-    } });
+    stream = logsStream({
+      url: opts.ws, mentions, logger, WebSocketImpl: opts.WebSocketImpl,
+      onLogs: (signature, logs) => { if (firstRead(signature)) onChain(signature, logs, true); },
+      // after a dropped link: read back what it missed (the latest of each vault not read yet)
+      onReopen: () => { if (caughtUpAt && !catching) catching = catchUp({ recent: true }).catch((e) => logger.warn(`[spawn] catch-up: ${e.message}`)).finally(() => { catching = null; }); },
+    });
     stream.start();
   }
-  /** A trade seen live: its chart point, its worm's touch (the worm skips one it has felt), and the site's poke. */
-  function take({ coin, e, n }, signature) {
-    chartTrade(coin.mint, e, Date.now(), signature, n);
-    if (coinWorms) {
-      if (!coinWorms.has(coin.mint)) coinWorms.hatch(coin.mint, coin.symbol);
-      coinWorms.feel(coin.mint, [{ signature, side: e.side, n }]);
-    }
-    onTrade({ mint: coin.mint, symbol: coin.symbol, side: e.side, signature, trader: e.trader, sol: sol(e.lamports) });
-  }
   /**
-   * After a restart (every deploy), the coins' worms feel the trades they missed while the site was down, from the
-   * chain, oldest first; they don't poke the site's worm: that moment has passed. Every coin listed gets its chart
-   * back the same way. SPAWN's vaults are named by every trade of every coin, so one list of signatures covers them all.
+   * Reading back from the chain, oldest first: SPAWN's vaults are named by every trade and every collection of every
+   * coin, so their signatures cover them all. When the site starts, each coin's worm feels the trades it missed while
+   * the site was down (after the last one it felt; those don't poke the site's worm: that moment has passed), and
+   * every coin gets its chart back. A coin listed later only needs its own trades (none older than it); a dropped link
+   * only what it missed.
    */
   let caughtUpAt = 0, catching = null;
   const charted = new Set();   // coins whose chart has been read back from the chain
-  async function catchUp() {
+  async function catchUp({ recent = false } = {}) {
     const worms = !caughtUpAt && !!coinWorms;   // the worms catch up once, when the site starts
+    const first = !caughtUpAt;
     caughtUpAt ||= Date.now();
-    const listed = cache.coins.map((c) => c.mint);
-    if (!listed.length) return;
+    const listed = cache.coins.map((c) => c.mint), newer = listed.filter((m) => !charted.has(m));
+    if (!first && !recent && !newer.length) return;
+    // how far back: everything recent when the site starts, back to the new coins' births for newly listed ones
+    const since = first || recent ? 0 : Math.min(...newer.map((m) => s.coins[m]?.createdAt || 0)) - 120_000;
     const sigs = [];
     for (const vault of owners().flatMap(vaultsOf)) {
       let before;
-      for (let got = 0; got < 600;) {
-        const page = await rpcRetry('getSignaturesForAddress', [vault, { limit: 200, ...(before ? { before } : {}), commitment: 'confirmed' }]);
+      for (let got = 0; got < (recent ? 100 : 600);) {
+        const page = await rpcRetry('getSignaturesForAddress', [vault, { limit: recent ? 100 : 200, ...(before ? { before } : {}), commitment: 'confirmed' }]);
         for (const x of page) if (!x.err) sigs.push(x);
         got += page.length;
-        if (page.length < 200) break;
+        if (page.length < (recent ? 100 : 200) || recent || (since && page.at(-1).blockTime && page.at(-1).blockTime * 1000 < since)) break;
         before = page.at(-1).signature;
       }
     }
-    const order = [...new Map(sigs.map((x) => [x.signature, x])).values()].sort((a, b) => (a.slot || 0) - (b.slot || 0));   // oldest first
-    // each worm feels the trades after the last one it felt; all of them when that one is older than these
+    const order = [...new Map(sigs.map((x) => [x.signature, x])).values()]
+      .filter((x) => !since || !x.blockTime || x.blockTime * 1000 >= since)
+      .sort((a, b) => (a.slot || 0) - (b.slot || 0));   // oldest first
+    // at the start, each worm feels the trades after the last one it felt; all of these when that one is older than them
     const inList = new Set(order.map((x) => x.signature));
     const last = new Map(listed.map((m) => [m, worms ? coinWorms.lastSignature(m) : null]));
-    const feeling = new Map(listed.map((m) => [m, worms && (!last.get(m) || !inList.has(last.get(m)))]));
+    const feeling = new Map(listed.map((m) => [m, !worms || !last.get(m) || !inList.has(last.get(m))]));
     for (const { signature, blockTime } of order) {
-      const l = await pump.fetchLogs({ signature, ...chain }).catch(() => null);
-      for (const t of l ? tradesIn(l.logs) : []) {
-        chartTrade(t.coin.mint, t.e, blockTime ? blockTime * 1000 : Date.now(), signature, t.n);
-        if (feeling.get(t.coin.mint)) {
+      if (recent && read.has(signature)) continue;   // a dropped link: only what it missed
+      let l = null;
+      for (let k = 0; k < 3 && !l; k++) { l = await pump.fetchLogs({ signature, ...chain }).catch(() => null); if (!l) await sleep(700 * (k + 1)); }
+      if (!l) continue;
+      read.add(signature);
+      const events = pump.eventsFromLogs(l.logs), at = blockTime ? blockTime * 1000 : Date.now();
+      recordCollect(signature, events);
+      for (const t of tradesIn(events)) {
+        if (!recent && !first && charted.has(t.coin.mint)) continue;   // a new coin's read-back: the others have theirs
+        chartTrade(t.coin.mint, t.e, at, signature, t.n);
+        // at the start, after the last trade each worm felt; otherwise all (a worm skips any it has felt)
+        if (coinWorms && (!first || feeling.get(t.coin.mint))) {
           if (!coinWorms.has(t.coin.mint)) coinWorms.hatch(t.coin.mint, t.coin.symbol);
           coinWorms.feel(t.coin.mint, [{ signature, side: t.e.side, n: t.n }]);
         }
       }
       if (worms) for (const [m, sig] of last) if (sig === signature) feeling.set(m, true);   // everything after it is new
-      await sleep(200);   // gentle on the RPC
+      await sleep(250);   // gentle on the RPC
     }
     for (const m of listed) charted.add(m);
   }
@@ -661,6 +798,23 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     w.pokes++; w.cells += cells || 0; save();
   }
 
+  /** A launched coin's worm picture, drawn once and kept: /spawn/hatch/<TICKER>.png serves this file from then on. */
+  const hatchDir = root && path.join(root, 'hatch');
+  function freeze(ticker) {
+    if (!hatchDir || !/^[A-Z0-9]{1,10}$/.test(ticker) || !render || !D) return;
+    const f = path.join(hatchDir, `${ticker}.png`);
+    if (fs.existsSync(f)) return;
+    try {
+      const png = opts.hatchPng ? opts.hatchPng(ticker) : null;
+      Promise.resolve(png || import('./coinworms.js').then((m) => m.previewHatch({ D, render, ticker }).png)).then((b) => { fs.mkdirSync(hatchDir, { recursive: true }); if (!fs.existsSync(f)) fs.writeFileSync(f, b); }).catch((e) => logger.warn(`[spawn] keeping $${ticker}'s picture: ${e.message}`));
+    } catch (e) { logger.warn(`[spawn] keeping $${ticker}'s picture: ${e.message}`); }
+  }
+  function hatchFile(ticker) {
+    if (!hatchDir || !/^[A-Z0-9]{1,10}$/.test(ticker || '')) return null;
+    const f = path.join(hatchDir, `${ticker}.png`);
+    return fs.existsSync(f) ? f : null;
+  }
+
   /** A kept file: a coin's metadata (<12 characters>.json, served at /m/<id>) or a picked picture (<24 hex>.<type>). */
   function metaFile(name) {
     if (!root || !/^([A-Za-z0-9_-]{12}\.json|[0-9a-f]{24}\.(png|jpg|webp|gif))$/.test(name)) return null;
@@ -672,14 +826,15 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     get open() { return canLaunch(); },
     get pricedIn() { return 'SOL'; },
     get owner() { return owner(); },
-    status: () => ({ open: canLaunch(), hosting: canHost(), owner: owner() || null, ownerFromEnv: !!opts.owner, owners: owners(), coins: cache.coins.length, vaults: { curve: sol(cache.vaults.curve), amm: sol(cache.vaults.amm) }, rewards: (({ collected, spent, owed }) => ({ collected: sol(collected), spent: sol(spent), owed: sol(owed) }))(rewards()), claims: s.claims.slice(-20), buybacks: s.buybacks.slice(-20), burns: s.burns.slice(-20), burned: s.burns.reduce((n, b) => n + b.amount, 0), stream: !!stream, prices: cache.prices, caughtUpAt }),
-    fresh, publicState, quote, swap, confirm, create, created, pending, setOwner, collect, collected, buyback, burnBought, burned, addReaction, metaFile, chart,
+    get owners() { return owners(); },
+    status: () => ({ open: canLaunch(), broken, hosting: canHost(), owner: owner() || null, ownerFromEnv: !!opts.owner, owners: owners(), coins: cache.coins.length, vaults: { curve: sol(cache.vaults.curve), amm: sol(cache.vaults.amm) }, heldWorm: Number(cache.held || 0n) / 10 ** DECIMALS, pendingBuyback: s.pendingBuyback ? { sol: sol(BigInt(s.pendingBuyback.lamports)), at: s.pendingBuyback.at, signature: s.pendingBuyback.signature || null } : null, rewards: (({ collected, spent, owed }) => ({ collected: sol(collected), spent: sol(spent), owed: sol(owed) }))(rewards()), claims: s.claims.slice(-20), buybacks: s.buybacks.slice(-20), burns: s.burns.slice(-20), burned: s.burns.reduce((n, b) => n + b.amount, 0), stream: !!stream, prices: cache.prices, caughtUpAt }),
+    fresh, publicState, quote, swap, confirm, create, created, pending, setOwner, collect, collected, buyback, bought, burnHeld, burned, addReaction, metaFile, hatchFile, chart,
     start() { if (owner() || Object.keys(s.coins).length) fresh().catch(() => {}); },
     stop() {
       if (stream) stream.stop();
       stream = null; streamKey = '';
-      clearTimeout(saveTimer); saveTimer = null;
-      if (file) try { fs.writeFileSync(file, JSON.stringify(s)); } catch { /* disk gone */ }
+      clearTimeout(earlyTimer); earlyTimer = null;
+      saveNow();
     },
   };
 }
@@ -688,8 +843,8 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
  * Confirmed transactions that mention any of `mentions`, with their logs, from Solana RPC logsSubscribe (one
  * subscription each), with pings and backoff. pump.fun and PumpSwap log their trade events, so the logs are enough.
  */
-export function logsStream({ url, mentions, onLogs, logger = console, WebSocketImpl = WebSocket, pongTimeoutMs = 60_000 }) {
-  let ws = null, stopped = false, backoff = 1000, timer = null, ping = null;
+export function logsStream({ url, mentions, onLogs, onReopen = () => {}, logger = console, WebSocketImpl = WebSocket, pongTimeoutMs = 60_000 }) {
+  let ws = null, stopped = false, backoff = 1000, timer = null, ping = null, opened = 0;
   const seen = new Set();
   function open() {
     if (stopped) return;
@@ -697,6 +852,7 @@ export function logsStream({ url, mentions, onLogs, logger = console, WebSocketI
     let heardAt = Date.now();   // a link can die without closing: one that answers nothing for a minute is dropped and opened again
     sock.on('open', () => {
       heardAt = Date.now();
+      if (opened++) { try { onReopen(); } catch (e) { logger.warn(`[spawn] ${e.message}`); } }   // it came back: what did it miss?
       mentions.forEach((m, i) => sock.send(JSON.stringify({ jsonrpc: '2.0', id: i + 1, method: 'logsSubscribe', params: [{ mentions: [m] }, { commitment: 'confirmed' }] })));
       ping = setInterval(() => {
         if (Date.now() - heardAt > pongTimeoutMs) { logger.warn('[spawn] stream: no answer for a minute, reconnecting'); sock.terminate(); return; }

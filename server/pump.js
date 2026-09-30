@@ -128,12 +128,21 @@ export async function fetchCurves({ mints, url, fetchImpl }) {
   const got = await accounts(mints.map(bondingCurve), { url, fetchImpl });
   return new Map(mints.map((m, i) => [m, got[i] && got[i].owner === PUMP_PROGRAM ? decodeCurve(got[i].data) : null]));
 }
-/** SOL waiting in a creator's vaults: on the curve (above its rent), and on PumpSwap (wrapped). In lamports. */
+let rentFree = null;   // the rent-exempt minimum of an account with no data, as the chain has it now
+/** SOL waiting in a creator's vaults: on the curve (above the rent it keeps), and on PumpSwap (wrapped). In lamports. */
 export async function fetchCreatorFees({ creator, url, fetchImpl }) {
-  const [v, a] = await accounts([creatorVault(creator), ammCreatorVault(creator)], { url, fetchImpl });
-  const rent = 890_880n;   // a vault keeps its rent-exempt minimum
+  const [[v, a], rent] = await Promise.all([accounts([creatorVault(creator), ammCreatorVault(creator)], { url, fetchImpl }),
+    rentFree ?? call('getMinimumBalanceForRentExemption', [0], { url, fetchImpl }).then((r) => (rentFree = BigInt(r)))]);
   const curve = v ? BigInt(v.lamports) - rent : 0n;
   return { curve: curve > 0n ? curve : 0n, amm: a && a.data.length >= 72 ? a.data.readBigUInt64LE(64) : 0n };
+}
+/** What `owner` holds of `mint` (atoms) in its associated account, with the mint's token program. */
+export async function fetchTokenBalance({ owner, mint, url, fetchImpl }) {
+  const [m] = await accounts([mint], { url, fetchImpl });
+  if (!m) fail(`no mint ${mint}`);
+  const tokenProgram = m.owner, account = ata(owner, mint, tokenProgram);
+  const [a] = await accounts([account], { url, fetchImpl });
+  return { atoms: a && a.data.length >= 72 ? a.data.readBigUInt64LE(64) : 0n, tokenProgram, account };
 }
 
 /* ---------- the curve: constant product on virtual reserves, integer maths like the program ---------- */
@@ -314,6 +323,14 @@ export async function buildCollect({ creator, payer = creator, curve = true, amm
   if (amm) instructions.push(createAtaIdempotent(creator, creator, SOL_MINT, TOKEN_PROGRAM), ixs.ammCollectCreatorFee({ creator }), closeAccount(ata(creator, SOL_MINT, TOKEN_PROGRAM), creator, TOKEN_PROGRAM));
   if (instructions.length === 2) fail('nothing to collect');
   return toB64(compileTransaction({ payer, instructions, blockhash: await blockhash({ url, fetchImpl }) }));
+}
+
+/** The burn of `amount` atoms of `mint` (6 decimals) from `owner`'s account, for its wallet to sign. */
+export async function buildBurn({ owner, mint, amount, tokenProgram = TOKEN_2022_PROGRAM, account = ata(owner, mint, tokenProgram), url, fetchImpl }) {
+  check(owner, 'owner'); check(mint, 'mint');
+  if (!(BigInt(amount) > 0n)) fail('nothing to burn');
+  const instructions = [...computeBudget({ units: 30_000 }), burnChecked(account, mint, owner, BigInt(amount), DECIMALS, tokenProgram)];
+  return toB64(compileTransaction({ payer: owner, instructions, blockhash: await blockhash({ url, fetchImpl }) }));
 }
 
 /**
