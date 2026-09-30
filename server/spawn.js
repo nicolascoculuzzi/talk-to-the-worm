@@ -66,8 +66,9 @@ const human = (e) => new Error(String(e?.message || e).replace(/^(dbc|solana): /
  * @param {(t: object) => void} o.onTrade  every confirmed trade of a SPAWN coin
  * @param {object} [o.coinWorms]   server/coinworms.js: each coin's own worm
  * @param {object} [o.render]      server/render.js and the wiring D, for pictures drawn by a coin's worm
+ * @param {(coins: object[]) => void} [o.onCoins]  the coins listed, after each refresh (the server draws their worm pictures ahead)
  */
-export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true, text: t }), opts = {}, onTrade = () => {}, coinWorms = null, render = null, D = null, fetchImpl = fetch, logger = console }) {
+export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true, text: t }), opts = {}, onTrade = () => {}, onCoins = () => {}, coinWorms = null, render = null, D = null, fetchImpl = fetch, logger = console }) {
   const root = dir ? path.join(dir, 'spawn') : null;
   if (root) fs.mkdirSync(path.join(root, 'meta'), { recursive: true });
   const file = root && path.join(root, 'state.json');
@@ -239,6 +240,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     cache = { at: Date.now(), coins, pools, byPool, prices: { solUsd, rootUsd, rootSol }, waiting: Number(waiting) / 10 ** ROOT_DECIMALS, waitingSol: Number(waitingSol) / 1e9, stuck };
     // every coin shown hatches its own worm (a few each refresh, so a first listing of many coins doesn't stall the server)
     if (coinWorms) { let n = 0; for (const c of coins) if (!coinWorms.has(c.mint) && n++ < 10) coinWorms.hatch(c.mint, c.symbol); }
+    try { onCoins(coins); } catch (e) { logger.warn(`[spawn] ${e.message}`); }
     save();
     startStream();
     if (!catching && (!caughtUpAt || coins.some((c) => !charted.has(c.mint)))) catching = catchUp().catch((e) => logger.warn(`[spawn] catch-up: ${e.message}`)).finally(() => { catching = null; });
@@ -309,7 +311,8 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     const j = await r.json().catch(() => null);
     if (!r.ok || !j || j.error) {
       const e = new Error(`Jupiter: ${(j && (j.error || j.message)) || r.status}`);
-      e.noRoute = /route/i.test(`${j?.error || ''} ${j?.errorCode || ''} ${j?.message || ''}`);
+      // no route, or a token it hasn't indexed yet (TOKEN_NOT_TRADABLE: "The token … is not tradable")
+      e.noRoute = /route|not[_ ]tradable/i.test(`${j?.error || ''} ${j?.errorCode || ''} ${j?.message || ''}`);
       throw e;
     }
     return j;
@@ -324,12 +327,18 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     body: JSON.stringify({ quoteResponse, userPublicKey: user, wrapAndUnwrapSol, dynamicComputeUnitLimit: true, prioritizationFeeLamports: { priorityLevelWithMaxLamports: { maxLamports: 1_000_000, priorityLevel: 'high' } } }),
   });
 
-  // the coin's quote token ↔ coin: on the coin's own curve while it has one (no aggregator needed), through Jupiter once it graduated
+  // coins out of a buy, or quote tokens out of a sell, of `amountIn` on a coin's curve at `sqrtPrice`, like the program
+  const curveOut = (cfg, sqrtPrice, buy, amountIn) => {
+    const state = { sqrtPrice, curve: cfg.curve, sqrtStartPrice: cfg.sqrtStartPrice, migrationSqrtPrice: cfg.migrationSqrtPrice, feeNumerator: cfg.feeNumerator };
+    return (buy ? dbc.quoteBuy(state, amountIn) : dbc.quoteSell(state, amountIn)).out;
+  };
+  // the coin's quote token ↔ coin: on the coin's own curve while it has one (no aggregator needed), through Jupiter once
+  // it graduated. A curve is priced as it is now, not as the listing last read it (up to 20 s ago: busy coins move).
   async function coinLeg(p, buy, amountIn) {
     if (p.stage === 'curve') {
-      const state = { sqrtPrice: p.sqrtPrice, curve: p.cfg.curve, sqrtStartPrice: p.cfg.sqrtStartPrice, migrationSqrtPrice: p.cfg.migrationSqrtPrice, feeNumerator: p.cfg.feeNumerator };
-      const { out } = buy ? dbc.quoteBuy(state, amountIn) : dbc.quoteSell(state, amountIn);
-      return { kind: 'curve', pool: p.address, side: buy ? 'buy' : 'sell', amountIn, out, min: (out * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n };
+      const [live] = await dbc.fetchPools({ addresses: [p.address], ...chain });
+      const out = curveOut(p.cfg, (live || p).sqrtPrice, buy, amountIn);
+      return { kind: 'curve', pool: p.address, cfg: p.cfg, side: buy ? 'buy' : 'sell', amountIn, out, min: (out * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n };
     }
     return jupLeg(await jupQuote(buy ? p.cfg.quoteMint : p.baseMint, buy ? p.baseMint : p.cfg.quoteMint, amountIn));
   }
@@ -396,6 +405,10 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     } else {
       const [p] = await dbc.fetchPools({ addresses: [leg.pool], ...chain });
       if (!p) throw new Error('That coin\'s pool is not there.');
+      // priced again now: a swap that would come in under the quote's floor could only fail on chain
+      let now = -1n;
+      try { now = curveOut(leg.cfg, p.sqrtPrice, leg.side === 'buy', leg.amountIn); } catch { /* the curve can't take it any more */ }
+      if (now < leg.min) throw new Error('The price moved. Get a new quote.');
       tx = (await dbc.buildSwap({ pool: p, side: leg.side, trader: user, amountIn: leg.amountIn, minOut: leg.min, ...chain })).tx;
     }
     q.user = user; q.next = k + 1;
@@ -429,7 +442,8 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
   }
 
   /** The create transaction for the creator's wallet (the coin's fresh mint key already signed in it). */
-  async function create({ creator, name, symbol, image, firstBuy }) {
+  /** canUpload: asked just before a picked picture is uploaded, once everything else checks out (the site's budget for them). */
+  async function create({ creator, name, symbol, image, firstBuy }, { canUpload = () => true } = {}) {
     if (!canLaunch()) throw new Error('The launchpad is not open yet.');
     if (!B58.test(creator || '')) throw new Error('Connect a wallet first.');
     const cfg = current();
@@ -461,6 +475,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     const need = LAUNCH_RENT_SOL + (inSol(cfg) ? buy : 0);
     if (lamports != null && lamports / 1e9 < need) throw new Error(`Launching needs about ${round(need, 4)} SOL in that wallet (${inSol(cfg) && buy ? `${buy} for the first buy, and about ${LAUNCH_RENT_SOL} for the coin's accounts` : `about ${LAUNCH_RENT_SOL} for the coin's accounts`}). It has ${round(lamports / 1e9, 4)}.`);
     // its worm's first sight needs no upload where nothing lasts: its metadata is served from here, from the chain
+    if (image !== 'worm' && !canUpload()) throw new Error('Many coins are being launched right now. Try again in a minute, or give it its worm\'s first sight.');
     const meta = fromChain ? { uri: ownMeta, image: wormPicture(sy.text) } : await uploadMeta({ image: bytes, type: m[1], name: nm.text, symbol: sy.text, cfg });
     let built;
     try { built = await dbc.buildCreatePool({ config: cfg.address, creator, name: nm.text, symbol: sy.text, uri: meta.uri, firstBuyQuote: buy, ...chain }); } catch (e) { throw human(e); }
@@ -473,7 +488,14 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     if (!c || !SIG.test(signature || '')) return false;
     c.signature = signature; save();
     fresh(true, true).catch(() => {});
+    // a coin launched without a first buy makes no swap for the stream to see: look for it again shortly
+    for (const ms of opts.rescanMs || [5000, 15000]) setTimeout(() => { if (!cache.pools.has(mint)) fresh(true, true).catch(() => {}); }, ms).unref?.();
     return true;
+  }
+  /** A coin spawned on this page in the last hour that isn't listed yet (its page can be served: it polls the listing). */
+  function pending(mint) {
+    const c = s.coins[mint];
+    return c && !cache.pools.has(mint) && Date.now() - c.createdAt < STALE_COIN_MS ? { mint, name: c.name, symbol: c.symbol, image: allowedImage(c.image) ? c.image : '', createdAt: c.createdAt } : null;
   }
 
   /**
@@ -786,10 +808,12 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
    * page's own record right after it was spawned). Only for coins on SPAWN's configs that pass the chat filter, so no
    * other token can borrow this address for its metadata.
    */
+  let unknownScanAt = 0;
   async function coinMetadata(mint) {
     if (!B58.test(mint || '') || !opts.publicUrl) return null;
     let own = s.coins[mint], coin = cache.coins.find((c) => c.mint === mint);
-    if (!own && !coin) { await fresh(true, true).catch(() => {}); coin = cache.coins.find((c) => c.mint === mint); }
+    // an unknown mint looks for new coins at most once a minute: anyone can ask for any address
+    if (!own && !coin && Date.now() - unknownScanAt > 60_000) { unknownScanAt = Date.now(); await fresh(true, true).catch(() => {}); coin = cache.coins.find((c) => c.mint === mint); }
     const name = own?.name || coin?.name, symbol = own?.symbol || coin?.symbol, pool = cache.pools.get(mint);
     if (!name || !symbol || (own && own.uri !== ownMeta(mint)) || (!own && pool?.uri !== ownMeta(mint))) return null;
     const site = `${opts.publicUrl}/spawn`;
@@ -807,7 +831,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     get pricedIn() { return current() ? quoteName(current()) : null; },   // what new coins are priced in
     get foundRoot() { return foundRoot; },   // $BRAINWORM's mint as the owner's configs on chain have it, when the site has none (SPAWN's own use only)
     status: () => ({ open: canLaunch(), trading: canTrade(), hosting: canHost(), owner: opts.owner || null, configs: s.configs, current: current()?.address || null, foundRoot: foundRoot || null, pending: pendingConfig, burns: s.burns.slice(-20), burned: s.burns.reduce((n, b) => n + b.amount, 0), waiting: cache.waiting, waitingSol: cache.waitingSol, stuck: cache.stuck, coins: cache.coins.length, stream: !!stream, prices: cache.prices, caughtUpAt }),
-    fresh, publicState, quote, swap, confirm, create, created, claimCreator, rootPrice, buildConfig, confirmConfig, buildClaimAndBurn, buildClaimGraduated, buildClaimSol, buyback, burnClaimed, burned, addReaction, metaFile, coinMetadata, chart,
+    fresh, publicState, quote, swap, confirm, create, created, claimCreator, rootPrice, buildConfig, confirmConfig, buildClaimAndBurn, buildClaimGraduated, buildClaimSol, buyback, burnClaimed, burned, addReaction, metaFile, coinMetadata, chart, pending,
     start() { if (s.configs.length || opts.owner) fresh().catch(() => {}); },
     stop() {
       if (stream) stream.stop();

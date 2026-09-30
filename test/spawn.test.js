@@ -19,7 +19,7 @@ const PNG = 'data:image/png;base64,' + Buffer.concat([Buffer.from([137, 80, 78, 
 const moderate = (t) => checkMessage(t, []);
 
 // the chain (server/dbc.js), Jupiter and a Solana RPC, faked
-function fakes({ noDirect = false, rootUsd = 0.02 } = {}) {
+function fakes({ noDirect = false, notTradable = false, rootUsd = 0.02 } = {}) {
   const pools = [], calls = [], configs = new Map(), tradesFor = new Map(), txs = new Map(), pictures = new Map(), NEW = addr();
   const sigsFor = new Map(), accounts = new Map();   // getSignaturesForAddress and getAccountInfo, by address
   const dbc = {
@@ -49,6 +49,7 @@ function fakes({ noDirect = false, rootUsd = 0.02 } = {}) {
       const q = new URL(u).searchParams, i = q.get('inputMint'), o = q.get('outputMint');
       calls.push(['quote', Object.fromEntries(q)]);
       if (noDirect && i !== ROOT && o !== ROOT) return reply({ error: 'Could not find any route', errorCode: 'COULD_NOT_FIND_ANY_ROUTE' }, 400);
+      if (notTradable && i !== ROOT && o !== ROOT) return reply({ error: `The token ${i === SOL_MINT ? o : i} is not tradable`, errorCode: 'TOKEN_NOT_TRADABLE' }, 400);
       const via = i === SOL_MINT && o !== ROOT ? [{ swapInfo: { outputMint: ROOT } }] : [];
       return reply({ inputMint: i, outputMint: o, outAmount: '5000000', otherAmountThreshold: '4850000', priceImpactPct: '0.002', routePlan: [...via, { swapInfo: { outputMint: o } }] });
     }
@@ -352,6 +353,13 @@ test('the server: SPAWN buys poke the worm at the coin\'s own spot, logged with 
     assert.match(html, /What the worm has to do with it/);
     const og = await fetch(`${base}/spawn/worm/${MINT}-og.png`);
     assert.equal(og.status, 200); assert.equal(og.headers.get('content-type'), 'image/png');
+    // a coin just spawned here and not listed yet: its page is served (it polls the listing), with SPAWN's own picture for now
+    const made = await (await post('/spawn/create', { creator: CREATOR, name: 'New Coin', symbol: 'NEWC', image: 'worm' })).json();
+    assert.equal(made.mint, f.NEW);
+    const early = await fetch(`${base}/c/${f.NEW}`, { redirect: 'manual' }), earlyHtml = await early.text();
+    assert.equal(early.status, 200);
+    assert.match(earlyHtml, /<title>\$NEWC · its own worm, on SPAWN<\/title>/);
+    assert.doesNotMatch(earlyHtml, new RegExp(`/spawn/worm/${f.NEW}-og\\.png`));
     const nope = await fetch(`${base}/c/${addr()}`, { redirect: 'manual' });
     assert.equal(nope.status, 302); assert.equal(nope.headers.get('location'), '/spawn');
     assert.equal((await fetch(base + '/spawn/hatch/nope!.json')).status, 404);
@@ -378,6 +386,10 @@ test('the server before its first config: /spawn says it opens soon, and builds 
     assert.equal(pub.open, false); assert.match(pub.reason, /soon/); assert.equal(pub.quote, null);
     const r = await fetch(`http://127.0.0.1:${port}/spawn/create`, { method: 'POST', body: JSON.stringify({ creator: addr() }) });
     assert.equal(r.status, 400); assert.match((await r.json()).error, /not open/);
+    // launches from one address: a burst of 6, then one every 2 minutes
+    const codes = [];
+    for (let k = 0; k < 6; k++) codes.push((await fetch(`http://127.0.0.1:${port}/spawn/create`, { method: 'POST', body: JSON.stringify({ creator: addr() }) })).status);
+    assert.deepEqual(codes, [400, 400, 400, 400, 400, 429]);
     assert.equal((await (await fetch(`http://127.0.0.1:${port}/config.json`)).json()).features.spawn, false);
   } finally { await app.close(); }
 });
@@ -670,4 +682,76 @@ test('each coin\'s chart: every trade with its price after it, from the live str
   await sleep(700);
   assert.equal(again.chart(MINT).points.length, 5);
   again.stop();
+});
+
+test('Jupiter answers a coin it hasn\'t indexed yet with TOKEN_NOT_TRADABLE: bought in two steps, like one it has no route for', async () => {
+  const { sp, MINT } = await openSpawn({ notTradable: true });
+  const q = await sp.quote({ mint: MINT, side: 'buy', amount: '0.5' });
+  assert.deepEqual([q.steps, q.route], [2, ['SOL', '$BRAINWORM', '$GOOD']]);
+  const s2 = await sp.quote({ mint: MINT, side: 'sell', amount: '10' });
+  assert.deepEqual([s2.steps, s2.route], [2, ['$GOOD', '$BRAINWORM', 'SOL']]);
+  sp.stop();
+});
+
+test('a curve step is priced as the pool is now, and refused before signing once the price has moved past its floor', async () => {
+  const { sp, f, MINT } = await openSpawn();
+  f.dbc.quoteBuy = (state, amt) => ({ out: BigInt(amt) * 2000n / BigInt(state.sqrtPrice ?? 1000n), fee: 0n });   // fewer coins as the price rises
+  f.pools[0].sqrtPrice = 1100n;   // bought up since the listing was read
+  const q = await sp.quote({ mint: MINT, side: 'buy', amount: '3', pay: 'root' });
+  assert.deepEqual(q.out, { symbol: '$GOOD', amount: 5.454545, min: 5.290908 });
+  f.pools[0].sqrtPrice = 1110n;   // still above the floor: its transaction, with the quote's floor
+  assert.equal((await sp.swap({ quoteId: q.quoteId, user: CREATOR })).tx, 'Q1VSVkU=');
+  assert.equal(f.calls.filter((c) => c[0] === 'curve').at(-1)[1].minOut, 5_290_908n);
+  const q2 = await sp.quote({ mint: MINT, side: 'buy', amount: '3', pay: 'root' });
+  f.pools[0].sqrtPrice = 1200n;
+  await assert.rejects(sp.swap({ quoteId: q2.quoteId, user: CREATOR }), /The price moved. Get a new quote./);
+  sp.stop();
+});
+
+test('the site\'s budget for uploads is spent only on a picked picture, once the rest of the launch checks out', async () => {
+  const { sp, f } = await openSpawn();
+  let asked = 0;
+  const canUpload = () => ++asked < 2;
+  await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: 'no way!', image: PNG }, { canUpload }), /Tickers/);
+  f.balance = 0;
+  await assert.rejects(sp.create({ creator: CREATOR, name: 'Pic Coin', symbol: 'PIC', image: PNG }, { canUpload }), /needs about/);
+  assert.equal(asked, 0, 'nothing spent on launches that fail their checks');
+  f.balance = 5e9;
+  assert.ok((await sp.create({ creator: CREATOR, name: 'Pic Coin', symbol: 'PIC', image: PNG }, { canUpload })).mint);
+  await assert.rejects(sp.create({ creator: CREATOR, name: 'Pic Coin', symbol: 'PIC2', image: PNG }, { canUpload }), /Many coins/);
+  assert.equal(asked, 2);
+  sp.stop();
+  // its worm's first sight uploads nothing
+  const bare = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts: { rpc: 'http://rpc.test', publicUrl: 'https://worm.example' }, logger: quiet });
+  await bare.buildConfig({ partner: OWNER, startMcap: 1e6, graduationMcap: 1.3e7 });
+  await bare.confirmConfig({ signature: sig() });
+  assert.ok((await bare.create({ creator: CREATOR, name: 'Worm Coin', symbol: 'WORMC', image: 'worm' }, { canUpload })).mint);
+  assert.equal(asked, 2);
+  bare.stop();
+});
+
+test('a coin launched without a first buy is listed within seconds (no swap announces it); unknown mints look for new coins once a minute at most', async () => {
+  const f = fakes();
+  openConfig(f);
+  let scans = 0;
+  const listPools = f.dbc.listPools;
+  f.dbc.listPools = async (o) => { scans++; return listPools(o); };
+  const sp = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts: { rpc: 'http://rpc.test', publicUrl: 'https://worm.example', rescanMs: [40, 120] }, logger: quiet });
+  await sp.buildConfig({ partner: OWNER, startMcap: 1e6, graduationMcap: 1.3e7 });
+  await sp.confirmConfig({ signature: sig() });
+  const made = await sp.create({ creator: CREATOR, name: 'Quiet Coin', symbol: 'QUIET', image: 'worm' });
+  assert.deepEqual(Object.entries(sp.pending(made.mint)).filter(([k]) => k !== 'createdAt'), [['mint', made.mint], ['name', 'Quiet Coin'], ['symbol', 'QUIET'], ['image', 'https://worm.example/spawn/hatch/QUIET.png']]);
+  assert.equal(sp.pending(addr()), null);
+  assert.equal(sp.created({ mint: made.mint, signature: sig() }), true);
+  await sp.fresh(true);   // the look right away: not on chain yet
+  f.pools.push(f.pool(made.mint, { name: 'Quiet Coin', symbol: 'QUIET', uri: `https://worm.example/spawn/m/${made.mint}.json` }));   // now it is
+  for (let k = 0; k < 100 && !sp.publicState().coins.some((c) => c.mint === made.mint); k++) await sleep(10);
+  assert.ok(sp.publicState().coins.some((c) => c.mint === made.mint), 'found by a second look');
+  assert.equal(sp.pending(made.mint), null, 'listed now');
+  await sleep(150);
+  const before = scans;
+  assert.equal(await sp.coinMetadata(addr()), null);
+  assert.equal(await sp.coinMetadata(addr()), null);
+  assert.equal(scans - before, 1, 'one scan for two unknown mints');
+  sp.stop();
 });
