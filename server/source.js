@@ -8,11 +8,11 @@ import crypto from 'node:crypto';
 import { isUtf8 } from 'node:buffer';
 
 export const SOURCE_FOLDERS = ['server', 'shared', 'public', 'scripts', 'test', 'data/registrations'];
-export const SOURCE_ROOT_FILES = ['package.json', 'package-lock.json', 'README.md', 'CLAUDE.md', 'Dockerfile', 'render.yaml', '.env.example'];
+export const SOURCE_ROOT_FILES = ['package.json', 'package-lock.json', 'README.md', 'Dockerfile', 'render.yaml', '.env.example'];
 export const MAX_SOURCE_BYTES = 1.5 * 1024 * 1024;
 const TEXT_EXT = new Set(['.js', '.mjs', '.html', '.css', '.json', '.md', '.py', '.txt', '.svg', '.yaml', '.yml', '.jsonl']);
 const TEXT_NAMES = new Set(['Dockerfile', '.env.example']);
-const SKIP_DIRS = new Set(['node_modules', '.git', '.claude', 'var', 'config']);
+const SKIP_DIRS = new Set(['node_modules', 'var', 'config']);   // and every hidden folder
 const SKIP_FILES = new Set(['data/wiring.json', 'data/transmitters.json', 'data/morph.bin']);   // served at /data/ as they are
 const NAME = /^[\w.@+-]+$/;   // names that need no escaping in a URL; anything else is left out
 const TYPE = 'text/plain; charset=utf-8';   // every file as plain text, so no page, script or picture here ever renders

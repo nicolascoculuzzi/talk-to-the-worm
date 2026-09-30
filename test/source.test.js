@@ -9,7 +9,7 @@ import { createSource, MAX_SOURCE_BYTES } from '../server/source.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
-const PRIVATE = /(^|\/)(node_modules|\.git|\.claude|var|config)\//;
+const PRIVATE = /(^|\/)(node_modules|\.[^/]+|var|config)\//;
 
 // a small repository with everything the allowlist must leave out
 function fixture() {
@@ -44,7 +44,7 @@ function fixture() {
   put('node_modules/ws/index.js', 'x');
   put('var/log.jsonl', '{}\n');
   put('.git/config', 'x');
-  put('.claude/settings.json', '{}');
+  put('.private/settings.json', '{}');
   put('.env', 'ADMIN_TOKEN=secret\n');
   put('.env.local', 'x');
   put('.env.example', 'PORT=3000\n');
