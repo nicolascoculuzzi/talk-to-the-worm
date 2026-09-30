@@ -57,13 +57,13 @@ function fixture() {
   return dir;
 }
 
-test('the allowlist is the text files of the listed folders and root files, and nothing private', () => {
+test('the allowlist is the code files of the listed folders and package.json, and nothing private or not code', () => {
   const dir = fixture();
   try {
     const src = createSource({ root: dir });
     assert.deepEqual(src.index().files.map((f) => f.path), [
       'server/app.js', 'server/config.js', 'shared/sim.js', 'public/docs.html', 'public/logo.svg', 'scripts/build.py',
-      'test/fixtures/data.json', 'data/registrations/model.json', 'package.json', 'README.md', 'Dockerfile', '.env.example',
+      'test/fixtures/data.json', 'data/registrations/model.json', 'package.json',
     ]);
     assert.equal(src.file('shared/sim.js').body.toString(), 'a\nb');
     assert.equal(src.index().files.find((f) => f.path === 'shared/sim.js').lines, 2);
@@ -84,7 +84,7 @@ test('file() serves only exact allowlisted paths, never anything derived from th
     for (const p of [
       '../package.json', '/etc/passwd', 'server/../package.json', '.env', '.env.local', 'public/.env', 'config/blocklist.txt',
       'server/config/blocklist.txt', 'node_modules/ws/index.js', 'var/log.jsonl', '.git/config', 'public/env.js', 'public/cfg/blocklist.txt',
-      'public/big.json', 'public/nul.txt', 'public/latin1.txt', 'public/pic.png', 'data/wiring.json', 'notes.md', 'server\\app.js', './server/app.js',
+      'public/big.json', 'public/nul.txt', 'public/latin1.txt', 'public/pic.png', 'data/wiring.json', 'notes.md', 'README.md', 'Dockerfile', '.env.example', 'server\\app.js', './server/app.js',
       'server//app.js', 'server/app.js/', 'SERVER/app.js', path.join(dir, 'server', 'app.js'), '', '__proto__', 'constructor', 'toString',
       null, undefined, 42, ['server/app.js'],
     ]) assert.equal(src.file(p), null, String(p));
@@ -133,7 +133,8 @@ test('this repository: the docs page and this module are listed, nothing private
   }
   for (const p of paths) {
     assert.ok(!PRIVATE.test(p), `${p} is not private`);
-    assert.ok(!p.split('/').pop().startsWith('.env') || p === '.env.example', `${p} is not an .env file`);
+    assert.ok(!p.split('/').pop().startsWith('.'), `${p} is not a hidden file`);
+    assert.ok(!p.endsWith('.md'), `${p} is not notes`);
     assert.ok(!['data/wiring.json', 'data/transmitters.json', 'data/morph.bin'].includes(p), `${p} is served at /data/`);
   }
   assert.equal(new Set(paths).size, paths.length);

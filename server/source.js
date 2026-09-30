@@ -8,10 +8,9 @@ import crypto from 'node:crypto';
 import { isUtf8 } from 'node:buffer';
 
 export const SOURCE_FOLDERS = ['server', 'shared', 'public', 'scripts', 'test', 'data/registrations'];
-export const SOURCE_ROOT_FILES = ['package.json', 'package-lock.json', 'README.md', 'Dockerfile', 'render.yaml', '.env.example'];
+export const SOURCE_ROOT_FILES = ['package.json'];
 export const MAX_SOURCE_BYTES = 1.5 * 1024 * 1024;
-const TEXT_EXT = new Set(['.js', '.mjs', '.html', '.css', '.json', '.md', '.py', '.txt', '.svg', '.yaml', '.yml', '.jsonl']);
-const TEXT_NAMES = new Set(['Dockerfile', '.env.example']);
+const TEXT_EXT = new Set(['.js', '.mjs', '.html', '.css', '.json', '.py', '.svg', '.jsonl']);   // the code, and nothing else
 const SKIP_DIRS = new Set(['node_modules', 'var', 'config']);   // and every hidden folder
 const SKIP_FILES = new Set(['data/wiring.json', 'data/transmitters.json', 'data/morph.bin']);   // served at /data/ as they are
 const NAME = /^[\w.@+-]+$/;   // names that need no escaping in a URL; anything else is left out
@@ -24,8 +23,8 @@ export function sourceAllowed(rel) {
   const parts = rel.split('/'), base = parts[parts.length - 1];
   if (!parts.every((p) => NAME.test(p) && !p.includes('..'))) return false;
   if (parts.slice(0, -1).some((p) => SKIP_DIRS.has(p) || p.startsWith('.'))) return false;
-  if (base.startsWith('.') && rel !== '.env.example') return false;   // hidden files (.env and the like) never
-  return TEXT_NAMES.has(base) || TEXT_EXT.has(path.extname(base).toLowerCase());
+  if (base.startsWith('.')) return false;   // hidden files (.env and the like) never
+  return TEXT_EXT.has(path.extname(base).toLowerCase());
 }
 
 // what a request may even ask for: no climbing out, no absolute paths, no backslashes

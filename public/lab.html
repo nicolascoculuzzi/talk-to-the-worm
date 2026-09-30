@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tests written down before they ran · BRAINWORM</title>
+<meta name="description" content="Every registered test of BRAINWORM's live larva: the rule written down before it ran, its verdict, and its numbers against 50 randomly rewired copies of the wiring. Failed tests stay published.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BRAINWORM">
+<meta property="og:title" content="BRAINWORM · tests written down before they ran">
+<meta property="og:description" content="Each test's rule was written down before it ran. Each runs on a real larva's wiring and on 50 rewired copies. Passes, fails and measurements, all published.">
+<meta property="og:url" content="%ORIGIN%/lab">
+<meta property="og:image" content="%ORIGIN%/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#04070B">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200..800&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/lab.css">
+<link rel="modulepreload" href="/lab.js">
+</head>
+<body class="labpage">
+<a class="skip" href="#board">Skip to the results</a>
+
+<nav class="nav" aria-label="Site">
+  <a class="wordmark" href="/">BRAINWORM</a>
+  <div class="navlinks"><a href="/#coins">Coins</a><a href="/#spawnhow">How it works</a><a href="/about">About</a><a href="/lab" aria-current="page">Tests</a><a href="/docs">Docs</a><a class="navcta" href="/#top">Launch<span class="opt"> a coin</span></a></div>
+</nav>
+
+<main class="lbwrap" id="top">
+  <header class="lbhero">
+    <p class="eyebrow">The whole larva</p>
+    <h1>Tests written down <span>before they ran</span></h1>
+    <p class="lede">One live simulation of a real <i>Platynereis</i> larva's published wiring: <span data-f="cells">2,675</span> cells, <span data-f="synapses">26,881</span> synapses. Each test's rule was written down before its first run. It is never edited: a change is a new version. Each test runs on the real wiring and on <span data-f="scrambles">50</span> randomly rewired copies, where every cell keeps its number of connections but who connects to whom is scrambled. A test passes only if the real wiring beats 95% of them. A failed test stays here, marked failed.</p>
+    <p class="lbstamp" id="stamp" hidden></p>
+    <p class="lbmeta"><span><b data-f="model">—</b></span><span><b data-f="tests">—</b> tests</span><span><b data-f="scrambles">—</b> rewired copies each</span><span>Computed <b data-f="computed">—</b></span></p>
+    <nav class="lbtoc" aria-label="On this page">
+      <a href="#board">The board</a>
+      <a href="#tests">Every test</a>
+      <a href="#measured">Measured and chosen</a>
+      <a href="#limits">What it is not</a>
+      <a href="#proof">Proof</a>
+    </nav>
+  </header>
+
+  <section class="lbsec" id="board" aria-labelledby="boardh">
+    <p class="eyebrow">The board</p>
+    <h2 class="lbh2" id="boardh">Every test, as it came out</h2>
+    <div class="lbboard">
+      <dl class="lbtally" id="tally">
+        <div class="pass"><dt><i></i>Pass</dt><dd>—</dd></div>
+        <div class="fail"><dt><i></i>Fail</dt><dd>—</dd></div>
+        <div class="other"><dt><i></i>Measured</dt><dd>—</dd></div>
+      </dl>
+      <p class="lbtallyline" id="tallyline">Loading the results…</p>
+      <ol class="lbrows" id="rows" aria-label="Every test and its verdict">
+        <li class="lbwait"><p>Loading the results…</p></li>
+      </ol>
+      <noscript><p class="lbtallyline">This page reads its numbers with JavaScript. The raw results are at <a href="/lab.json">/lab.json</a>.</p></noscript>
+    </div>
+  </section>
+
+  <section class="lbsec" id="tests" aria-labelledby="testsh">
+    <div class="lbsechead">
+      <div>
+        <p class="eyebrow">Every test</p>
+        <h2 class="lbh2" id="testsh">The rule, then the numbers</h2>
+      </div>
+      <button type="button" class="btn-ghost" id="openall" hidden>Open all</button>
+    </div>
+    <p class="lbintro">Each test as registered: its question, its rule, then its result against the rewired copies, and its caveats.</p>
+    <p class="lbkey">
+      <span><svg viewBox="0 0 14 14" aria-hidden="true" focusable="false"><circle class="kdot" cx="7" cy="7" r="4"/></svg>One rewired copy</span>
+      <span><svg viewBox="0 0 14 14" aria-hidden="true" focusable="false"><path class="kreal" d="M7 1.5v11"/></svg>The real wiring, in its verdict's colour</span>
+      <span><svg viewBox="0 0 14 14" aria-hidden="true" focusable="false"><path class="kp95" d="M7 1.5v11"/></svg>p95: the value a test must beat</span>
+    </p>
+    <div class="lbcards" id="cards"><p class="lbwait" id="cardnote">Loading the results…</p></div>
+    <details class="lbretired" id="v1" hidden>
+      <summary id="v1sum">Model v1 (retired)</summary>
+      <div class="lbretbody" id="v1body"></div>
+    </details>
+  </section>
+
+  <section class="lbsec" id="measured" aria-labelledby="mch">
+    <p class="eyebrow">Measured and chosen</p>
+    <h2 class="lbh2" id="mch">What is measured and what is chosen</h2>
+    <p class="lbintro">Every number the model and its stimuli use, from <a href="/manifest.json">the manifest</a>. Measured numbers come from the published data. Chosen numbers are ours. The two lists are kept apart.</p>
+    <div class="lbmc">
+      <article class="lbpanel" aria-labelledby="mh">
+        <header class="lbpanelhead"><h3 id="mh">Measured</h3><span class="tag real">From the data</span></header>
+        <div class="lbgroups" id="measuredlist"><p class="small">Loading…</p></div>
+      </article>
+      <article class="lbpanel" aria-labelledby="ch">
+        <header class="lbpanelhead"><h3 id="ch">Chosen</h3><span class="tag chosen">By us</span></header>
+        <div class="lbgroups" id="chosenlist"><p class="small">Loading…</p></div>
+      </article>
+    </div>
+    <article class="lbpanel lbmodel" id="registered" aria-labelledby="rh">
+      <header class="lbpanelhead"><h3 id="rh">The model</h3><span class="tag verify">Registered</span></header>
+      <p class="small">Loading…</p>
+    </article>
+  </section>
+
+  <section class="lbsec lbtwo" id="limits" aria-label="What the model is not, stated plainly">
+    <div>
+      <p class="eyebrow">Limits</p>
+      <h2 class="lbh2">What the model is not</h2>
+      <ul class="plain">
+        <li><b>A simple model runs it.</b> Firing-rate cells. Each connection's strength is its synapse count, scaled so the wiring can't amplify itself. Known transmitters decide when the cilia stop. Nothing trained. <span class="tag simp">Simplified</span></li>
+        <li><b>The model is simpler than the animal.</b> The transmitter is known for 79 of 2,675 cells, so almost every synapse is excitatory. Real neurons spike, inhibit and modulate.</li>
+        <li><b>It can't read.</b> Your message reaches it only as light. It understands nothing.</li>
+        <li><b>It doesn't choose.</b> A tug shows which way its body turned, not a preference. Nothing here predicts prices.</li>
+      </ul>
+      <div class="lbnotdone" id="notdone" hidden></div>
+    </div>
+    <div>
+      <p class="eyebrow">Stated plainly</p>
+      <h2 class="lbh2">The parts that aren't the worm</h2>
+      <ul class="plain">
+        <li><b>Your message becomes light.</b> Drawn in a pixel font, one column per step. Each eye cell gets its strip's brightness; which strip is our choice. <span class="tag chosen">Chosen</span></li>
+        <li><b>Some choices are ours.</b> The eye mapping, the light sensors' threshold, the poke cells, the swimming physics and the drawing.</li>
+        <li><b>Positions are partly placed.</b> 1,199 cells at traced positions, 1,009 placed by segment and side, 467 fragments not drawn.</li>
+        <li><b>The body is ours.</b> The glass outline, the swimming physics and the lamp are ours. Only the lamp feeds the body back into the brain.</li>
+        <li><b>Coins aren't the worm's.</b> A SPAWN coin's buys poke it at a spot we pick from the coin's address, and each coin's own worm is a copy fed only that coin's trades. The worm knows nothing about coins or prices, and it doesn't pick winners.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="lbsec" id="proof" aria-labelledby="proofh">
+    <p class="eyebrow">Proof</p>
+    <h2 class="lbh2" id="proofh">Don't trust it. Check it.</h2>
+    <p class="lbintro">Every number above comes from <a href="/lab.json">/lab.json</a>. These fingerprints tie it to the registration, to the wiring and to the code.</p>
+    <dl class="lbhashes" id="hashes"><div class="lbhash"><dt>Fingerprints</dt><dd><small>Loading…</small></dd></div></dl>
+    <p class="lbcomputed" id="computed"></p>
+    <div class="lbproofgrid">
+      <article class="lbpanel" id="regbox" aria-labelledby="regh">
+        <h3 id="regh">The registration</h3>
+        <p class="small">Loading…</p>
+      </article>
+      <article class="lbpanel" id="runbox" aria-labelledby="runh">
+        <h3 id="runh">Run it yourself</h3>
+        <pre><code>npm run lab</code></pre>
+        <p class="lbfine">Runs every registered test with the same code (<a href="/shared/lab.js">shared/lab.js</a>) on the same wiring, and prints each question, rule, result and verdict. Every machine gets the same numbers. The last lines give the results SHA-256. It should be:</p>
+        <p class="lbrunhash"><code id="runhash">…</code></p>
+        <p class="lbfine"><code>node scripts/lab.js --json lab.json</code> also writes every number to a file. The code is on the <a href="/docs">Docs</a> page.</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Data: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> <a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">eLife (2025)</a> · <a href="https://github.com/JekelyLab/Platynereis_3D_connectome_2024" target="_blank" rel="noopener">data</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Changed: positions derived, data re-encoded, simulation and body added. Not affiliated with the authors.</p>
+  <p class="footlinks"><a href="/">The live worm</a><a href="/#coins">Coins</a><a href="/docs">Docs</a><a href="/lab.json">lab.json</a><a href="/manifest.json">manifest.json</a></p>
+</footer>
+
+<script type="module" src="/lab.js"></script>
+</body>
+</html>

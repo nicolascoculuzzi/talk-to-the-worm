@@ -4,7 +4,7 @@
 const $ = (id) => document.getElementById(id);
 const GROUPS = ['server', 'shared', 'public', 'scripts', 'test', 'data/registrations', 'root'];
 const SECTIONS = new Set(['overview', 'what', 'spawn', 'check', 'programs', 'endpoints', 'files']);
-const LANGS = { js: 'JavaScript', mjs: 'JavaScript', json: 'JSON', jsonl: 'JSON Lines', html: 'HTML', svg: 'SVG', css: 'CSS', py: 'Python', yaml: 'YAML', yml: 'YAML', md: 'Markdown', txt: 'Text', docker: 'Dockerfile', env: 'Settings' };
+const LANGS = { js: 'JavaScript', mjs: 'JavaScript', json: 'JSON', jsonl: 'JSON Lines', html: 'HTML', svg: 'SVG', css: 'CSS', py: 'Python' };
 const BASE_TITLE = document.title;
 
 const body = document.body, main = $('main'), side = $('dside'), tree = $('dtree'), filter = $('dfilter'), toggle = $('dtoggle');
@@ -28,7 +28,7 @@ const countLines = (t) => (t.match(/\n/g) || []).length + (t && !t.endsWith('\n'
 const jump = (y) => { try { scrollTo({ top: y, behavior: 'instant' }); } catch { scrollTo(0, y); } };
 function extOf(p) {
   const b = p.slice(p.lastIndexOf('/') + 1), i = b.lastIndexOf('.');
-  return b === 'Dockerfile' ? 'docker' : b === '.env.example' ? 'env' : i > 0 ? b.slice(i + 1).toLowerCase() : '';
+  return i > 0 ? b.slice(i + 1).toLowerCase() : '';
 }
 
 /* ---------- the list of files ---------- */
