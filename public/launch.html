@@ -31,7 +31,6 @@
     <li data-k="metadata"><span class="n">03</span><div><h3>Image and metadata</h3><p id="st-metadata">Uploaded to IPFS after the moment.</p></div></li>
     <li data-k="launched"><span class="n">04</span><div><h3>Launched</h3><p id="st-launched">Created on pump.fun from the moment.</p></div></li>
   </ol>
-  <p class="modstate" id="lpmint" role="status" hidden></p>
 
   <section class="lpmoment" id="lpmoment" hidden>
     <img id="lpimg" alt="The worm's activity at the launch moment" width="1000" height="1000">
@@ -44,48 +43,92 @@
   </section>
 
   <section class="lpadmin" id="lpadmin">
-    <p class="eyebrow">For the owner</p>
-    <form id="lplock" autocomplete="off"><input type="password" id="lptoken" placeholder="Admin token" aria-label="Admin token"><button class="btn-amber" type="submit">Unlock</button></form>
+    <p class="eyebrow" id="lpadminh">For the owner</p>
+    <form id="lplock" autocomplete="off">
+      <p class="small">Unlock with the admin token: the <code>ADMIN_TOKEN</code> value in Railway's variables. It is the site's password, not a wallet key.</p>
+      <div class="lprow"><input type="password" id="lptoken" placeholder="Admin token" aria-label="Admin token"><button class="btn-amber" type="submit">Unlock</button></div>
+      <p class="wmsg bad" id="lplockmsg" hidden></p>
+    </form>
     <div id="lpcontrols" hidden>
-      <ol class="lpguide">
-        <li><b>Open SPAWN.</b> Connect the wallet that will be SPAWN's rewards wallet and press <i>Use this wallet for SPAWN</i> below (or set SPAWN_OWNER on the server). Every new coin names it as its pump.fun creator, so every coin's creator rewards collect there. Use a different wallet from the one that launches $WORM, so $WORM's own creator rewards stay apart. Coins can be launched as soon as it is set.</li>
-        <li><b>Get $WORM ready.</b> Press <i>Make the contract address</i>: this browser makes the coin's key and keeps it, so you know its address (CA) before the launch. Save the backup and keep it private. Connect the dev wallet (not SPAWN's rewards wallet), set the dev buy and press <i>Check it works</i>: it runs the whole launch on Solana without sending anything, and says what it would cost.</li>
-        <li><b>Launch $WORM.</b> Arm the launch, then tap the worm's head on the main page (the top of its body) until its cilia stop: the first touch that does is the moment. Upload the image and metadata, prepare the transaction, then sign it within a minute.</li>
+      <ol class="wiz" id="wiz">
+        <li class="wstep" id="ws-ca">
+          <button type="button" class="whead"><span class="wn">1</span><span class="wt"><b>Make $WORM's address</b><span class="wsum" id="ws-ca-sum"></span></span></button>
+          <div class="wbody">
+            <div class="wacts" id="ws-ca-new">
+              <button type="button" class="btn-amber" id="lpres">Make the address</button>
+              <label class="wlink" for="lpload">I have a key file</label><input type="file" id="lpload" accept=".json,application/json" hidden>
+            </div>
+            <div class="wbox" id="ws-ca-got" hidden>
+              <p class="wca" id="ws-ca-addr"></p>
+              <div class="wacts"><button type="button" class="btn-amber" id="lpbak">Save the key file</button><button type="button" class="wlink" id="lpnew">Make a different one</button></div>
+              <p class="wnote">Keep the file private: whoever has it could create a coin at this address before you. Don't clear this browser's data until $WORM is live.</p>
+            </div>
+            <p class="wmsg" id="ws-ca-msg" hidden></p>
+          </div>
+        </li>
+        <li class="wstep" id="ws-wallet">
+          <button type="button" class="whead"><span class="wn">2</span><span class="wt"><b>Connect your dev wallet and check</b><span class="wsum" id="ws-wallet-sum"></span></span></button>
+          <div class="wbody">
+            <div class="wacts">
+              <label class="wfield">Dev buy <input type="text" id="lpbuy" value="0" inputmode="decimal" aria-label="Dev buy in SOL"> SOL</label>
+              <button type="button" class="btn-amber" id="lpcheck">Connect wallet and check</button>
+              <button type="button" class="wlink" id="lpswitch" hidden>Use another wallet</button>
+            </div>
+            <div class="wbox" id="ws-check" hidden></div>
+            <p class="wmsg" id="ws-wallet-msg" hidden></p>
+          </div>
+        </li>
+        <li class="wstep" id="ws-moment">
+          <button type="button" class="whead"><span class="wn">3</span><span class="wt"><b>The worm's moment</b><span class="wsum" id="ws-moment-sum"></span></span><img class="wthumb" id="ws-moment-img" alt="" hidden></button>
+          <div class="wbody">
+            <div class="wacts" id="ws-arm"><button type="button" class="btn-amber" id="lparm">Arm</button></div>
+            <div id="ws-armed" hidden>
+              <p class="wwait">Armed. Open the worm and tap its head (the top of its body) until its cilia stop. This step finishes by itself when that happens.</p>
+              <div class="wacts"><a class="btn-amber" href="/" target="_blank" rel="noopener">Open the worm ↗</a><button type="button" class="wlink" id="lpdisarm">Disarm</button></div>
+            </div>
+            <p class="wmsg" id="ws-moment-msg" hidden></p>
+          </div>
+        </li>
+        <li class="wstep" id="ws-meta">
+          <button type="button" class="whead"><span class="wn">4</span><span class="wt"><b>Publish the picture</b><span class="wsum" id="ws-meta-sum"></span></span></button>
+          <div class="wbody">
+            <div class="wfields"><input type="text" id="lptw" placeholder="X link (optional)" aria-label="X link"><input type="text" id="lptg" placeholder="Telegram link (optional)" aria-label="Telegram link"></div>
+            <div class="wacts"><button type="button" class="btn-amber" id="lpmeta">Publish</button></div>
+            <p class="wmsg" id="ws-meta-msg" hidden></p>
+          </div>
+        </li>
+        <li class="wstep" id="ws-launch">
+          <button type="button" class="whead"><span class="wn">5</span><span class="wt"><b>Launch</b><span class="wsum" id="ws-launch-sum"></span></span></button>
+          <div class="wbody">
+            <div class="wacts"><button type="button" class="btn-amber wgo" id="lpgo">Launch $WORM</button></div>
+            <p class="wmsg" id="ws-launch-msg" hidden></p>
+          </div>
+        </li>
       </ol>
-      <div class="lprow">
-        <button type="button" class="btn-ghost" id="lpres">Make the contract address</button>
-        <button type="button" class="btn-ghost" id="lpbak" hidden>Save its key (backup)</button>
-        <label class="btn-ghost" id="lploadl" for="lpload">Load a saved key</label><input type="file" id="lpload" accept=".json,application/json" hidden>
+      <div class="wdone" id="ws-done" hidden>
+        <p class="eyebrow">$WORM is live</p>
+        <p class="wca" id="ws-done-ca"></p>
+        <div class="wacts"><button type="button" class="btn-amber" id="lpcopy">Copy the address</button><a class="btn-ghost" id="ws-pump" target="_blank" rel="noopener">pump.fun ↗</a><a class="btn-ghost" id="ws-solscan" target="_blank" rel="noopener">Solscan ↗</a></div>
+        <p class="wmsg" id="ws-done-msg" hidden></p>
+        <p class="modstate" id="lpmint" role="status" hidden></p>
+        <p class="wnote" id="ws-next"></p>
       </div>
-      <p class="modstate" id="lpresst" role="status" hidden></p>
-      <div class="lprow">
-        <button type="button" class="btn-ghost" id="lpwallet">Connect wallet</button>
-        <label class="small">Dev buy (SOL) <input type="text" id="lpbuy" value="0" inputmode="decimal" aria-label="Initial buy in SOL"></label>
-        <button type="button" class="btn-ghost" id="lpcheck">Check it works</button>
-      </div>
-      <div class="lprow"><button type="button" class="btn-ghost" id="lparm">Arm the launch</button><button type="button" class="btn-ghost" id="lpdisarm">Disarm</button></div>
-      <div class="lprow">
-        <input type="text" id="lptw" placeholder="X link (optional)" aria-label="X link">
-        <input type="text" id="lptg" placeholder="Telegram link (optional)" aria-label="Telegram link">
-        <button type="button" class="btn-ghost" id="lpmeta">Upload image + metadata</button>
-      </div>
-      <div class="lprow">
-        <button type="button" class="btn-ghost" id="lpprep">Prepare transaction</button>
-        <button type="button" class="btn-amber" id="lpsign" disabled>Sign and launch</button>
-      </div>
-      <p class="modstate" id="lpca" role="status" hidden></p>
-      <div class="lpspawn">
-        <p class="eyebrow">SPAWN, the launchpad</p>
-        <p class="modstate" id="sptodo" role="status" hidden></p>
-        <p class="small" id="spstatus">Loading…</p>
-        <div class="lprow">
-          <button type="button" class="btn-ghost" id="spowner">Use this wallet for SPAWN</button>
-          <button type="button" class="btn-ghost" id="spcollect">Collect the creator rewards</button>
-          <button type="button" class="btn-amber" id="spbuyback">Buy $WORM with 64% of them and burn it</button>
-          <button type="button" class="btn-ghost" id="spburn" hidden>Burn the $WORM still in SPAWN's wallet</button>
+      <details class="lpmore" id="lpspawnbox">
+        <summary>SPAWN tools<span>rewards wallet, collecting, the $WORM buyback</span></summary>
+        <div class="lpspawn">
+          <p class="modstate" id="sptodo" role="status" hidden></p>
+          <p class="small" id="spstatus">Loading…</p>
+          <div class="lprow">
+            <button type="button" class="btn-ghost" id="spconnect">Connect wallet</button>
+            <button type="button" class="btn-ghost" id="spowner">Use this wallet for SPAWN</button>
+            <button type="button" class="btn-ghost" id="spcollect">Collect the creator rewards</button>
+            <button type="button" class="btn-amber" id="spbuyback">Buy $WORM with 64% of them and burn it</button>
+            <button type="button" class="btn-ghost" id="spburn" hidden>Burn the $WORM still in SPAWN's wallet</button>
+          </div>
+          <p class="wmsg" id="spmsg" hidden></p>
         </div>
-      </div>
-      <pre class="lplog" id="lplog" aria-live="polite"></pre>
+      </details>
+      <details class="lpmore"><summary>Activity log<span>everything done on this page</span></summary><pre class="lplog" id="lplog" aria-live="polite"></pre></details>
     </div>
   </section>
 </main>

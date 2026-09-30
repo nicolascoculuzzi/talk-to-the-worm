@@ -630,6 +630,7 @@ export function createWormServer(overrides = {}) {
       trades: trades ? { ...trades.status(), ...tradeStats, mint: tokenMint() } : { enabled: false, mint: tokenMint() },
       launch: launch ? launch.status() : null,
       launchReserved: launch ? launch.reserved : '',   // the contract address made ahead of time: the owner's eyes only until the launch
+      tokenMintSet: !!config.token.mint,   // TOKEN_MINT, the launch's second record, is in the server's settings
       spawn: { ...spawn.status(), trades: spawnStats },
       stats: { messagesLastMin: stats.say.lastMinute(), pokesLastMin: stats.poke.lastMinute(), rejectedLastMin: stats.rejected.lastMinute() },
       feed,
