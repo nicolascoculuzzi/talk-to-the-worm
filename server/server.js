@@ -810,6 +810,8 @@ export function createWormServer(overrides = {}) {
     if (p === '/launch/moment.png') return launch ? sendFile(req, res, launch.imagePath, 'image/png', 'no-cache') : notFound(res);
     if (p === '/launch' || p === '/launch/') { res.setHeader('X-Robots-Tag', 'noindex'); return statics.serve(req, res, '/launch.html') || notFound(res); }
     if (p === '/spawn' || p === '/spawn/') return statics.serve(req, res, '/spawn.html') || notFound(res);
+    if (p === '/lab' || p === '/lab/') return statics.serve(req, res, '/lab.html') || notFound(res);     // every registered test and its result
+    if (p === '/docs' || p === '/docs/') return statics.serve(req, res, '/docs.html') || notFound(res);  // the overview and all the code
     if (p === '/spawn.json') { const send = () => json(res, 200, spawn.publicState()); spawn.fresh().then(send, send); return; }
     if (p.startsWith('/c/')) {   // a coin's own page to share: /spawn with its trade window open, its worm in the link preview
       const m = /^\/c\/([1-9A-HJ-NP-Za-km-z]{32,44})$/.exec(p);
