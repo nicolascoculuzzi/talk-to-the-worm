@@ -7,7 +7,8 @@
 // pokes the worm at the coin's own spot.
 //
 // Every coin also hatches its own worm (shared/coinworm.js, kept by server/coinworms.js): a fresh copy of the same
-// larva whose first sight is the coin's ticker and which feels every trade of the coin after that.
+// larva whose first sight is the coin's ticker and which feels every trade of the coin after that. Its trades also
+// make its price chart (chart()).
 //
 // A coin priced in SOL trades on its own curve directly, in SOL (server/dbc.js wraps and unwraps it). A coin priced in
 // $BRAINWORM: buying with SOL is one Jupiter transaction (SOL → $BRAINWORM → coin) when Jupiter finds a route;
@@ -19,19 +20,20 @@
 // addresses of a new coin or config (server/dbc.js), which sign their own slot and are dropped.
 //
 // It keeps its state in LOG_DIR, and needs none of it to work: with the owner's address (SPAWN_OWNER) it finds its
-// configs on the chain, its coins' pictures in their metadata, and its burns in the owner's transactions.
+// configs on the chain (and $BRAINWORM's mint in them, if the site has forgotten it), its coins' pictures in their
+// metadata, and its burns in the owner's transactions.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import WebSocket from 'ws';
-import { rpc } from './solana.js';
+import { rpc, findProgramAddress, PUMP_PROGRAM } from './solana.js';
 import { previewHatch } from './coinworms.js';
 
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const FEE = Object.freeze({ bps: 100, protocolShare: 0.2, creatorShare: 0.2 });
 export const SLIPPAGE_BPS = 300;
 const QUOTE_TTL_MS = 120_000, REFRESH_MS = 20_000, SCAN_MS = 180_000, STALE_COIN_MS = 3600_000, CLAIM_LOCK_MS = 90_000, STUCK_MS = 600_000;
-const MAX_IMAGE = 1_500_000;
+const MAX_IMAGE = 1_500_000, CHART_POINTS = 2000, SUPPLY = 1_000_000_000;
 const ROOT_DECIMALS = 6;                 // $BRAINWORM, like every pump.fun coin
 const LAUNCH_RENT_SOL = 0.02;            // what a new coin's own accounts cost its creator, about
 const IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
@@ -81,12 +83,16 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
   let pendingConfig = null;   // the config transaction last built for the owner, until it confirms
   let claimLockUntil = 0, solLockUntil = 0, scannedAt = 0, foundAt = 0;
   let cache = { at: 0, coins: [], pools: new Map(), byPool: new Map(), prices: {}, waiting: 0, waitingSol: 0, stuck: [] };
+  // $BRAINWORM's mint: the site's (TOKEN_MINT or the launch record), else the one the owner's own configs on chain are
+  // priced in (findConfigs), which only SPAWN uses: a deploy without a disk forgets the launch record
+  let foundRoot = '';
+  const brainworm = () => rootMint() || foundRoot || '';
 
   // configs are kept oldest first; old records name no quote mint and were all priced in $BRAINWORM
-  const quoteMintOf = (c) => c.quoteMint || rootMint();
+  const quoteMintOf = (c) => c.quoteMint || brainworm();
   /** The config new coins go on: the newest priced in $BRAINWORM once there is one, else the newest priced in SOL. */
   function current() {
-    const r = rootMint(), mine = s.configs.filter((c) => quoteMintOf(c) === SOL_MINT || (r && quoteMintOf(c) === r));
+    const r = brainworm(), mine = s.configs.filter((c) => quoteMintOf(c) === SOL_MINT || (r && quoteMintOf(c) === r));
     return mine.filter((c) => quoteMintOf(c) === r).at(-1) || mine.filter((c) => quoteMintOf(c) === SOL_MINT).at(-1) || null;
   }
   const partner = () => opts.owner || s.configs.at(-1)?.partner || null;
@@ -115,20 +121,71 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
   /**
    * SPAWN's own configs from the chain: DBC configs whose fees go to the owner, made with SPAWN's parameters and priced
    * in SOL or $BRAINWORM. Needed when LOG_DIR did not survive a restart. Never trusted over what the state records.
+   * When the site doesn't know $BRAINWORM's mint (no TOKEN_MINT, and the launch record went with the disk), it is the
+   * one mint besides SOL they are priced in (SPAWN makes configs in nothing else), counting only configs the owner's
+   * wallet paid for: a config names its fee claimer without their signature, so anyone can make one naming the owner.
    */
   async function findConfigs() {
     if (!opts.owner || !dbc.findConfigs || (foundAt && Date.now() - foundAt < SCAN_MS)) return false;
     foundAt = Date.now();   // a failed search waits its turn too: it is the call RPC nodes ration
-    const found = await dbc.findConfigs({ feeClaimer: opts.owner, ...chain });
+    const found = (await dbc.findConfigs({ feeClaimer: opts.owner, ...chain })).filter((c) => dbc.isSpawnConfig(c, { creatorShare: FEE.creatorShare * 100, feeBps: FEE.bps }));
+    if (!rootMint()) {
+      const mints = new Set();
+      for (const c of found) if (c.quoteMint !== SOL_MINT && await paidByOwner(c.address).catch((e) => logger.warn(`[spawn] who made ${c.address}: ${e.message}`))) mints.add(c.quoteMint);
+      foundRoot = mints.size === 1 ? [...mints][0] : '';
+    }
     let added = false;
     for (const c of found) {
-      if (s.configs.some((x) => x.address === c.address) || !dbc.isSpawnConfig(c, { creatorShare: FEE.creatorShare * 100, feeBps: FEE.bps })) continue;
-      if (c.quoteMint !== SOL_MINT && c.quoteMint !== rootMint()) continue;
+      if (s.configs.some((x) => x.address === c.address)) continue;
+      if (c.quoteMint !== SOL_MINT && c.quoteMint !== brainworm()) continue;
       s.configs.push({ address: c.address, partner: c.feeClaimer, quoteMint: c.quoteMint, graduationQuote: Number(c.migrationQuoteThreshold) / 10 ** decimalsOf(c), creatorShare: c.creatorShare, found: true });
       added = true;
     }
     if (added) logger.log?.(`[spawn] found ${s.configs.filter((c) => c.found).length} config(s) on chain for ${opts.owner}`);
     return added;
+  }
+  // Did the owner's wallet pay for this config? The transaction that made it is the oldest to mention it (its address
+  // was a fresh key). The answer is kept; a config too busy to reach its first transaction (20,000 on) counts as not.
+  const payers = new Map();   // config -> who paid for the transaction that made it
+  async function paidByOwner(address) {
+    if (!payers.has(address)) {
+      let before, oldest = null;
+      for (let k = 0; ; k++) {
+        const page = await rpcRetry('getSignaturesForAddress', [address, { limit: 1000, ...(before ? { before } : {}), commitment: 'confirmed' }]);
+        if (page.length) oldest = page.at(-1).signature;
+        if (page.length < 1000) break;
+        if (k === 19) { payers.set(address, ''); return false; }
+        before = oldest;
+      }
+      const tx = oldest && await rpcRetry('getTransaction', [oldest, { encoding: 'json', maxSupportedTransactionVersion: 1, commitment: 'confirmed' }]);
+      if (!tx) return false;   // not visible yet: asked again next time
+      payers.set(address, tx.transaction.message.accountKeys[0]);
+    }
+    return payers.get(address) === opts.owner;
+  }
+
+  // $BRAINWORM's price from its pump.fun bonding curve, for the minutes after its launch when Jupiter has none yet: SOL
+  // per whole token, from the curve's virtual reserves (tokens at byte 8, lamports at 16). 0 once it has graduated to
+  // PumpSwap (byte 48; Jupiter prices it by then), for a curve priced in another token (newer ones name it at byte 83,
+  // all zeros for SOL), or when the curve can't be read. Read at most every 20 s.
+  let pumpCurve = { mint: '', at: 0, sol: 0 };
+  async function curvePrice(mint) {
+    if (pumpCurve.mint === mint && Date.now() - pumpCurve.at < REFRESH_MS) return pumpCurve.sol;
+    let sol = 0;
+    try {
+      const a = (await rpc('getAccountInfo', [findProgramAddress(['bonding-curve', mint], PUMP_PROGRAM)[0], { encoding: 'base64', commitment: 'confirmed' }], chain))?.value;
+      const d = a?.owner === PUMP_PROGRAM ? Buffer.from(a.data[0], 'base64') : null, tokens = d?.length > 48 ? d.readBigUInt64LE(8) : 0n;
+      if (tokens && !d[48] && !d.subarray(83, 115).some((b) => b)) sol = Number(d.readBigUInt64LE(16)) / 1e9 / (Number(tokens) / 10 ** ROOT_DECIMALS);
+    } catch (e) { logger.warn(`[spawn] $BRAINWORM's curve: ${e.message}`); }
+    pumpCurve = { mint, at: Date.now(), sol };
+    return sol;
+  }
+  /** SOL's and $BRAINWORM's prices from Jupiter's, with $BRAINWORM's from its curve while Jupiter has none. */
+  async function withRoot(prices) {
+    const r = brainworm(), solUsd = prices[SOL_MINT]?.usdPrice || 0;
+    let rootUsd = (r && prices[r]?.usdPrice) || 0, rootSol = solUsd ? rootUsd / solUsd : 0;
+    if (r && !rootSol) { rootSol = await curvePrice(r); rootUsd ||= rootSol * solUsd; }
+    return { solUsd, rootUsd, rootSol };
   }
 
   async function refresh() {
@@ -160,9 +217,8 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     }
     let prices = {};
     const graduated = [...pools.values()].filter((p) => p.stage === 'graduated').map((p) => p.baseMint);
-    try { prices = await jupPrices([SOL_MINT, ...(rootMint() ? [rootMint()] : []), ...graduated.slice(0, 45)]); } catch (e) { logger.warn(`[spawn] prices: ${e.message}`); }
-    const solUsd = prices[SOL_MINT]?.usdPrice || 0, rootUsd = (rootMint() && prices[rootMint()]?.usdPrice) || 0;
-    const rootSol = solUsd ? rootUsd / solUsd : 0;
+    try { prices = await jupPrices([SOL_MINT, ...(brainworm() ? [brainworm()] : []), ...graduated.slice(0, 45)]); } catch (e) { logger.warn(`[spawn] prices: ${e.message}`); }
+    const { solUsd, rootUsd, rootSol } = await withRoot(prices);
     const coins = [], byPool = new Map(), stuck = [];
     let waiting = 0n, waitingSol = 0n;
     for (const [mint, p] of pools) {
@@ -185,9 +241,9 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     if (coinWorms) { let n = 0; for (const c of coins) if (!coinWorms.has(c.mint) && n++ < 10) coinWorms.hatch(c.mint, c.symbol); }
     save();
     startStream();
-    if (coinWorms && !caughtUpAt) catchUp().catch((e) => logger.warn(`[spawn] catch-up: ${e.message}`));
+    if (!catching && (!caughtUpAt || coins.some((c) => !charted.has(c.mint)))) catching = catchUp().catch((e) => logger.warn(`[spawn] catch-up: ${e.message}`)).finally(() => { catching = null; });
     findPictures([...pools.values()]).catch(() => {});
-    if (!burnsScanned && opts.owner && rootMint() && !s.burns.length) findBurns().catch((e) => logger.warn(`[spawn] burns: ${e.message}`));
+    if (!burnsScanned && opts.owner && brainworm() && !s.burns.length) findBurns().catch((e) => logger.warn(`[spawn] burns: ${e.message}`));
   }
   let refreshing = null;
   function kick() {
@@ -232,7 +288,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
       quote: cur ? quoteName(cur) : null,      // what new coins are priced in
       pictures: canHost(),                     // a picked picture can be kept for good (else every coin gets its worm's)
       root: {
-        mint: rootMint() || null, priceSol: cache.prices.rootSol || 0, priceUsd: cache.prices.rootUsd || 0, solUsd: cache.prices.solUsd || 0,
+        mint: brainworm() || null, priceSol: cache.prices.rootSol || 0, priceUsd: cache.prices.rootUsd || 0, solUsd: cache.prices.solUsd || 0,
         burned: round(s.burns.reduce((n, b) => n + b.amount, 0), 2), waiting: round(cache.waiting, 2), waitingSol: round(cache.waitingSol, 4),
         burns: s.burns.slice(-5).reverse().map((b) => ({ signature: b.signature, amount: round(b.amount, 2), at: b.at })),
       },
@@ -300,14 +356,14 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
         let direct = null;
         try { direct = await jupQuote(buy ? SOL_MINT : mint, buy ? mint : SOL_MINT, input); } catch (e) { if (!e.noRoute) throw e; }
         if (direct) legs = [jupLeg(direct)];
-        else if (buy) { const a = jupLeg(await jupQuote(SOL_MINT, rootMint(), input)); legs = [a, await coinLeg(p, true, a.min)]; }
-        else { const b = await coinLeg(p, false, input); legs = [b, jupLeg(await jupQuote(rootMint(), SOL_MINT, b.min))]; }
+        else if (buy) { const a = jupLeg(await jupQuote(SOL_MINT, brainworm(), input)); legs = [a, await coinLeg(p, true, a.min)]; }
+        else { const b = await coinLeg(p, false, input); legs = [b, jupLeg(await jupQuote(brainworm(), SOL_MINT, b.min))]; }
       }
     } catch (e) {
       if (/bigger than/.test(e.message)) throw new Error(`That is more than $${coin.symbol}'s curve has left.`);
       throw e.noRoute ? new Error(sol ? 'No route for that yet. Try again in a minute.' : 'No route for that yet. Try paying with $BRAINWORM, or again in a minute.') : e;
     }
-    const name = (m) => (m === SOL_MINT ? 'SOL' : m === rootMint() ? '$BRAINWORM' : m === mint ? '$' + coin.symbol : m.slice(0, 4) + '…');
+    const name = (m) => (m === SOL_MINT ? 'SOL' : m === brainworm() ? '$BRAINWORM' : m === mint ? '$' + coin.symbol : m.slice(0, 4) + '…');
     const route = [buy ? (viaRoot ? '$BRAINWORM' : 'SOL') : '$' + coin.symbol];
     for (const l of legs) {
       if (l.kind === 'curve') route.push(l.side === 'buy' ? '$' + coin.symbol : quoteName(p.cfg));
@@ -439,11 +495,10 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
 
   /* ---------- the owner: configs, claim and burn, and buying back with fees in SOL ---------- */
 
-  /** SOL's and $BRAINWORM's prices now, for choosing a config's market caps. */
+  /** SOL's and $BRAINWORM's prices now, for choosing a config's market caps (a new $BRAINWORM's from its curve). */
   async function rootPrice() {
-    const p = await jupPrices([SOL_MINT, ...(rootMint() ? [rootMint()] : [])]);
-    const solUsd = p[SOL_MINT]?.usdPrice || 0, rootUsd = (rootMint() && p[rootMint()]?.usdPrice) || 0;
-    return { solUsd, rootUsd, rootSol: solUsd ? rootUsd / solUsd : 0, root: rootMint() || null };
+    const r = brainworm(), p = await jupPrices([SOL_MINT, ...(r ? [r] : [])]).catch(() => ({}));
+    return { ...await withRoot(p), root: r || null };
   }
   function checkPartner(wallet, what = 'owner') {
     if (!B58.test(wallet || '')) throw new Error(`Connect the ${what} wallet first.`);
@@ -455,11 +510,11 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
    * market caps then in $BRAINWORM at today's price). New coins use the newest config, $BRAINWORM's first; coins
    * already made keep theirs.
    */
-  async function buildConfig({ partner: wallet, startMcap, graduationMcap, quote: q = rootMint() ? 'root' : 'sol' }) {
+  async function buildConfig({ partner: wallet, startMcap, graduationMcap, quote: q = brainworm() ? 'root' : 'sol' }) {
     const inRoot = q === 'root';
-    if (inRoot && !rootMint()) throw new Error('$BRAINWORM has to exist first: a config priced in it needs its mint.');
+    if (inRoot && !brainworm()) throw new Error('$BRAINWORM has to exist first: a config priced in it needs its mint.');
     checkPartner(wallet);
-    const quoteMint = inRoot ? rootMint() : SOL_MINT;
+    const quoteMint = inRoot ? brainworm() : SOL_MINT;
     const built = await dbc.buildCreateConfig({ partner: wallet, quoteMint, startMcap: Number(startMcap), graduationMcap: Number(graduationMcap), creatorShare: FEE.creatorShare * 100, ...chain });
     pendingConfig = { address: built.address, partner: wallet, quoteMint, curve: built.curve, at: Date.now() };
     return { ...built, quote: inRoot ? '$BRAINWORM' : 'SOL' };
@@ -514,7 +569,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
    * into their wrapped-SOL account, where buyback() finds it. Only once $BRAINWORM exists: until then it waits in the pools.
    */
   async function buildClaimSol({ feeClaimer, min = 0.001 }) {
-    if (!rootMint()) throw new Error('Fees in SOL wait in their pools until $BRAINWORM launches: then they buy it and it is burned.');
+    if (!brainworm()) throw new Error('Fees in SOL wait in their pools until $BRAINWORM launches: then they buy it and it is burned.');
     checkPartner(feeClaimer, 'fee claimer');
     if (Date.now() < solLockUntil) throw new Error('The last claim may still land. Try again in a minute.');
     await fresh(true, true);
@@ -535,13 +590,13 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
    * builds the burn of exactly the $BRAINWORM it bought.
    */
   async function buyback({ feeClaimer }) {
-    if (!rootMint()) throw new Error('$BRAINWORM has not launched yet.');
+    if (!brainworm()) throw new Error('$BRAINWORM has not launched yet.');
     checkPartner(feeClaimer, 'fee claimer');
     // the account itself (its amount is at byte 64): every RPC serves this, unlike getTokenAccountBalance
     const info = await rpc('getAccountInfo', [dbc.ata(feeClaimer, SOL_MINT), { encoding: 'base64', commitment: 'confirmed' }], chain);
     const lamports = info?.value ? Buffer.from(info.value.data[0], 'base64').readBigUInt64LE(64) : 0n;
     if (lamports < 1_000_000n) throw new Error('No claimed fees in SOL to buy with yet (0.001 SOL at least).');
-    const q = await jupQuote(SOL_MINT, rootMint(), lamports);
+    const q = await jupQuote(SOL_MINT, brainworm(), lamports);
     const j = await jupSwap(q, feeClaimer, false);   // spends the wrapped SOL itself, not the wallet's own
     if (!j.swapTransaction) throw new Error('Jupiter did not return a transaction.');
     return { tx: j.swapTransaction, sol: Number(lamports) / 1e9, root: Number(q.outAmount) / 10 ** ROOT_DECIMALS, min: Number(q.otherAmountThreshold) / 10 ** ROOT_DECIMALS };
@@ -551,7 +606,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     if (!current()) throw new Error('The launchpad is not set up.');
     if (!SIG.test(signature || '')) throw new Error('Bad signature.');
     const owner = partner();
-    return (await dbc.buildBurnReceived({ signature, owner, keep: [rootMint(), SOL_MINT], ...(bought ? { only: [rootMint()] } : {}), ...chain })) || { tx: null, burns: [] };
+    return (await dbc.buildBurnReceived({ signature, owner, keep: [brainworm(), SOL_MINT], ...(bought ? { only: [brainworm()] } : {}), ...chain })) || { tx: null, burns: [] };
   }
   // how much $BRAINWORM SPAWN's fee claimer burned in a transaction (0 if none), read from the chain
   async function burnedIn(signature) {
@@ -562,7 +617,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     let amount = 0;
     for (const ix of tx.transaction?.message?.instructions || []) {
       const x = ix.parsed;
-      if (!x || !/^spl-token(-2022)?$/.test(ix.program) || !['burn', 'burnChecked'].includes(x.type) || x.info?.mint !== rootMint() || !claimers.has(x.info?.authority)) continue;
+      if (!x || !/^spl-token(-2022)?$/.test(ix.program) || !['burn', 'burnChecked'].includes(x.type) || x.info?.mint !== brainworm() || !claimers.has(x.info?.authority)) continue;
       amount += x.type === 'burnChecked' ? Number(x.info.tokenAmount.amount) / 10 ** x.info.tokenAmount.decimals : Number(x.info.amount) / 10 ** ROOT_DECIMALS;
     }
     return amount;
@@ -599,7 +654,37 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     if (got.length && !s.burns.length) { s.burns = got.reverse(); save(); }
   }
 
-  /* ---------- trades → the worm ---------- */
+  /* ---------- each coin's price chart ---------- */
+
+  // Every trade of a coin: [time (ms), its price right after it in its quote token per whole coin, side, quote tokens,
+  // signature], oldest first, CHART_POINTS at most, from its curve's first price when it was made. Kept in memory:
+  // after a restart, catchUp() reads each coin's latest trades back from the chain.
+  const charts = new Map();   // mint -> { points (each with its `${signature}:${n}` key after the signature), keys }
+  const priceAt = (sqrtPrice, cfg) => (Number(sqrtPrice) / 2 ** 64) ** 2 * 10 ** ((cfg.tokenDecimal ?? 6) - decimalsOf(cfg));   // like dbc.poolPrice
+  function chartOf(mint) {
+    if (!charts.has(mint)) {
+      const c = cache.coins.find((x) => x.mint === mint), cfg = cache.pools.get(mint)?.cfg;
+      charts.set(mint, { points: c && cfg?.sqrtStartPrice ? [[c.createdAt, priceAt(cfg.sqrtStartPrice, cfg), 'start', 0, '']] : [], keys: new Set() });
+    }
+    return charts.get(mint);
+  }
+  /** A swap of a coin (from dbc.fetchTrades) at `at` ms; n counts the coin's swaps before it in the same transaction. */
+  function chartTrade(mint, cfg, t, at, signature, n) {
+    const h = chartOf(mint), key = `${signature}:${n}`;
+    if (t.sqrtPrice == null || h.keys.has(key)) return;
+    h.keys.add(key);
+    let i = h.points.length;
+    while (i && h.points[i - 1][0] > at) i--;
+    h.points.splice(i, 0, [at, priceAt(t.sqrtPrice, cfg), t.side, Number(t.quote) / 10 ** decimalsOf(cfg), signature, key]);
+    if (h.points.length > CHART_POINTS) for (const x of h.points.splice(0, h.points.length - CHART_POINTS)) h.keys.delete(x[5]);
+  }
+  /** A listed coin's chart, for /spawn/chart/<mint>.json (the page prices it in SOL or dollars with /spawn.json's root prices). */
+  function chart(mint) {
+    const c = cache.coins.find((x) => x.mint === mint), p = cache.pools.get(mint);
+    return c && p ? { mint, symbol: c.symbol, quote: quoteName(p.cfg), supply: SUPPLY, points: chartOf(mint).points.map((x) => x.slice(0, 5)) } : null;
+  }
+
+  /* ---------- trades → the worm and the charts ---------- */
 
   let stream = null, streamKey = '', queue = [], working = false;
   function startStream() {
@@ -608,7 +693,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     if (stream) stream.stop();   // a new config: listen to it too
     streamKey = key;
     stream = logsStream({ url: opts.ws, mentions: s.configs.map((c) => c.address), logger, WebSocketImpl: opts.WebSocketImpl, onSignature: (sig) => {
-      queue.push({ sig, tries: 0 });
+      queue.push({ sig, tries: 0, at: Date.now() });
       if (queue.length > 30) queue.splice(0, queue.length - 30);   // a burst: the worm can't take them all anyway
       work();
     } });
@@ -629,11 +714,12 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
           if (!mint) { await fresh(true, true); mint = cache.byPool.get(t.pool); }
           const coin = cache.coins.find((c) => c.mint === mint), p = cache.pools.get(mint);
           if (!coin || !p) continue;
-          const quote = Number(t.quote) / 10 ** decimalsOf(p.cfg);
+          const quote = Number(t.quote) / 10 ** decimalsOf(p.cfg), k = n.get(mint) || 0;
+          n.set(mint, k + 1);
+          chartTrade(mint, p.cfg, t, job.at, job.sig, k);
           if (coinWorms) {
             if (!coinWorms.has(mint)) coinWorms.hatch(mint, coin.symbol);
-            coinWorms.feel(mint, [{ signature: job.sig, side: t.side, n: n.get(mint) || 0 }]);
-            n.set(mint, (n.get(mint) || 0) + 1);
+            coinWorms.feel(mint, [{ signature: job.sig, side: t.side, n: k }]);
           }
           onTrade({ mint, symbol: coin.symbol, side: t.side, signature: job.sig, trader: t.trader, quote, sol: inSol(p.cfg) ? quote : quote * (cache.prices.rootSol || 0) });
         }
@@ -643,28 +729,43 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
   }
   /**
    * After a restart (every deploy), each coin's worm feels the trades it missed while the site was down, from the
-   * chain, oldest first. They don't poke the site's worm: that moment has passed.
+   * chain, oldest first. They don't poke the site's worm: that moment has passed. Every coin listed gets its chart
+   * back the same way, its latest 1000 trades (at the start, and a coin listed later when it is).
    */
-  let caughtUpAt = 0;
+  let caughtUpAt = 0, catching = null;
+  const charted = new Set();   // coins whose chart has been read back from the chain
   async function catchUp() {
-    caughtUpAt = Date.now();
+    const worms = !caughtUpAt;   // the worms catch up once, when the site starts
+    caughtUpAt ||= Date.now();
     const configs = s.configs.map((c) => c.address);
     for (const c of cache.coins) {
-      if (!coinWorms.has(c.mint)) continue;
-      const last = coinWorms.lastSignature(c.mint), sigs = [];
+      const worm = worms && !!coinWorms?.has(c.mint), charting = !charted.has(c.mint), cfg = cache.pools.get(c.mint)?.cfg;
+      if (!worm && !charting) continue;
+      const last = worm ? coinWorms.lastSignature(c.mint) : null, sigs = [];
       let before;
       while (sigs.length < 1000) {
-        const page = await rpcRetry('getSignaturesForAddress', [c.pool, { limit: 100, ...(before ? { before } : {}), ...(last ? { until: last } : {}), commitment: 'confirmed' }]);
-        for (const x of page) if (!x.err) sigs.push(x.signature);
+        const page = await rpcRetry('getSignaturesForAddress', [c.pool, { limit: 100, ...(before ? { before } : {}), ...(last && !charting ? { until: last } : {}), commitment: 'confirmed' }]);
+        for (const x of page) if (!x.err) sigs.push(x);
         if (page.length < 100) break;
         before = page.at(-1).signature;
       }
-      for (const sig of sigs.reverse()) {
-        const trades = await dbc.fetchTrades({ signature: sig, configs, ...chain }).catch(() => null);
+      // the worm feels the ones after the last trade it felt (all of them if that isn't among these)
+      const felt = sigs.findIndex((x) => x.signature === last), newer = !worm ? 0 : felt < 0 ? sigs.length : felt;
+      for (let i = sigs.length - 1; i >= 0; i--) {   // oldest first
+        const { signature: sig, blockTime } = sigs[i], trades = await dbc.fetchTrades({ signature: sig, configs, ...chain }).catch(() => null);
         let k = 0;
-        for (const t of trades || []) if (t.pool === c.pool) coinWorms.feel(c.mint, [{ signature: sig, side: t.side, n: k++ }]);
+        for (const t of trades || []) {
+          if (t.pool !== c.pool) continue;
+          if (i < newer) coinWorms.feel(c.mint, [{ signature: sig, side: t.side, n: k }]);
+          if (charting && cfg) chartTrade(c.mint, cfg, t, blockTime ? blockTime * 1000 : Date.now(), sig, k);
+          k++;
+        }
         await sleep(250);   // gentle on the RPC
       }
+      if (!charting) continue;
+      charted.add(c.mint);
+      // more trades than were read back: its chart no longer reaches its first price
+      if (sigs.length >= 1000) { const h = chartOf(c.mint); h.points = h.points.filter((x) => x[2] !== 'start'); }
     }
   }
   async function rpcRetry(method, params) {
@@ -704,8 +805,9 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
   return {
     get open() { return canLaunch(); },
     get pricedIn() { return current() ? quoteName(current()) : null; },   // what new coins are priced in
-    status: () => ({ open: canLaunch(), trading: canTrade(), hosting: canHost(), owner: opts.owner || null, configs: s.configs, current: current()?.address || null, pending: pendingConfig, burns: s.burns.slice(-20), burned: s.burns.reduce((n, b) => n + b.amount, 0), waiting: cache.waiting, waitingSol: cache.waitingSol, stuck: cache.stuck, coins: cache.coins.length, stream: !!stream, prices: cache.prices, caughtUpAt }),
-    fresh, publicState, quote, swap, confirm, create, created, claimCreator, rootPrice, buildConfig, confirmConfig, buildClaimAndBurn, buildClaimGraduated, buildClaimSol, buyback, burnClaimed, burned, addReaction, metaFile, coinMetadata,
+    get foundRoot() { return foundRoot; },   // $BRAINWORM's mint as the owner's configs on chain have it, when the site has none (SPAWN's own use only)
+    status: () => ({ open: canLaunch(), trading: canTrade(), hosting: canHost(), owner: opts.owner || null, configs: s.configs, current: current()?.address || null, foundRoot: foundRoot || null, pending: pendingConfig, burns: s.burns.slice(-20), burned: s.burns.reduce((n, b) => n + b.amount, 0), waiting: cache.waiting, waitingSol: cache.waitingSol, stuck: cache.stuck, coins: cache.coins.length, stream: !!stream, prices: cache.prices, caughtUpAt }),
+    fresh, publicState, quote, swap, confirm, create, created, claimCreator, rootPrice, buildConfig, confirmConfig, buildClaimAndBurn, buildClaimGraduated, buildClaimSol, buyback, burnClaimed, burned, addReaction, metaFile, coinMetadata, chart,
     start() { if (s.configs.length || opts.owner) fresh().catch(() => {}); },
     stop() {
       if (stream) stream.stop();

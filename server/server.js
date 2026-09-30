@@ -840,6 +840,19 @@ export function createWormServer(overrides = {}) {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': m[2] === '-birth' ? 'public, max-age=31536000, immutable' : m[2] ? 'public, max-age=300' : 'public, max-age=20', 'Content-Length': png.length });
       return res.end(req.method === 'HEAD' ? undefined : png);
     }
+    if (p.startsWith('/spawn/chart/')) {   // a coin's price chart: each trade with its price after it, in the coin's quote token
+      const m = /^\/spawn\/chart\/([1-9A-HJ-NP-Za-km-z]{32,44})\.json$/.exec(p);
+      if (!m) return notFound(res);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      const send = () => {
+        const c = spawn.chart(m[1]);
+        if (!c) return json(res, 404, { error: 'not a SPAWN coin' });
+        res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'public, max-age=5' });
+        res.end(req.method === 'HEAD' ? undefined : JSON.stringify(c));
+      };
+      spawn.fresh().then(send, send);
+      return;
+    }
     if (p.startsWith('/spawn/hatch/')) {   // what a fresh worm makes of a ticker: the spawn form's preview
       const m = /^\/spawn\/hatch\/([A-Z0-9]{1,10})\.(json|png)$/.exec(p);
       if (!m) return notFound(res);
