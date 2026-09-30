@@ -367,6 +367,15 @@ test('the server: a buy of a SPAWN coin pokes the worm at the coin\'s own spot, 
     assert.deepEqual([m.headers.get('content-type'), m.headers.get('access-control-allow-origin')], ['application/json; charset=utf-8', '*']);
     assert.equal((await m.json()).symbol, 'NEWC');
     assert.equal((await fetch(base + '/m/nope')).status, 404);
+    // an unknown coin's link: its page, saying it isn't on SPAWN (yet)
+    const unknown = await fetch(`${base}/c/${addr()}`, { redirect: 'manual' });
+    assert.equal(unknown.status, 404); assert.match(await unknown.text(), /src="\/coin\.js"/);
+    // launches refused after a look at the chain (a wallet short of SOL) count: a burst, then one every 2 minutes
+    f.balance = 1000;
+    const codes = [];
+    for (let k = 0; k < 6; k++) codes.push((await post('/spawn/create', { creator: CREATOR, name: 'Poor Coin', symbol: 'POOR', image: 'worm' })).status);
+    assert.deepEqual(codes, [400, 400, 400, 400, 400, 429]);
+    assert.match((await (await post('/spawn/create', { creator: CREATOR, name: 'Poor Coin', symbol: 'POOR', image: 'worm' })).json()).error, /[Tt]ry again in (about )?\d+ (seconds|minutes)/, 'it says how long');
   } finally { await app.close(); }
 });
 
@@ -381,7 +390,7 @@ test('the server before SPAWN has a rewards wallet: /spawn says it opens soon, a
     assert.equal(r.status, 400); assert.match((await r.json()).error, /not open/);
     const codes = [];
     for (let k = 0; k < 6; k++) codes.push((await fetch(`http://127.0.0.1:${port}/spawn/create`, { method: 'POST', body: JSON.stringify({ creator: addr() }) })).status);
-    assert.deepEqual(codes, [400, 400, 400, 400, 400, 429], 'launches from one address: a burst, then one every 2 minutes');
+    assert.deepEqual(codes, [400, 400, 400, 400, 400, 400], 'a launch refused on what was asked alone doesn\'t count against the launcher');
     assert.equal((await (await fetch(`http://127.0.0.1:${port}/config.json`)).json()).features.spawn, false);
   } finally { await app.close(); }
 });

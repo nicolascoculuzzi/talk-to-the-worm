@@ -171,7 +171,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
       const priceSol = stage === 'curve' ? pump.priceSol(c) : prices[mint]?.usdPrice && solUsd ? prices[mint].usdPrice / solUsd : pump.priceSol(c);
       coins.push({
         mint, name: own.name, symbol: own.symbol, image: allowedImage(own.image) ? own.image : '', creator: own.creator, createdAt: own.createdAt,
-        quote: 'SOL', priceQuote: priceSol, priceSol, priceUsd: priceSol * solUsd, mcapSol: priceSol * SUPPLY, progress: pump.progress(c, state?.global), graduated: stage !== 'curve', stage,
+        quote: 'SOL', priceQuote: priceSol, priceSol, priceUsd: priceSol * solUsd, mcapSol: priceSol * SUPPLY, progress: pump.progress(c, state?.global), graduated: stage === 'graduated', stage,
       });
     }
     // coins launched on the page that never made it on chain are forgotten after an hour, and their kept pictures later;
@@ -379,24 +379,26 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
    * canUpload: asked just before a picked picture is kept, once everything else checks out (the site's budget for them).
    */
   async function create({ creator, name, symbol, image, firstBuy }, { canUpload = () => true } = {}) {
-    if (!canLaunch()) throw new Error('The launchpad is not open yet.');
-    if (!B58.test(creator || '')) throw new Error('Connect a wallet first.');
+    // refused on what was asked alone, before any work: the server doesn't count these against the launcher's budget
+    const refused = (message) => Object.assign(new Error(message), { input: true });
+    if (!canLaunch()) throw refused('The launchpad is not open yet.');
+    if (!B58.test(creator || '')) throw refused('Connect a wallet first.');
     const nm = moderate(String(name || '').trim()), sy = moderate(String(symbol || '').trim().toUpperCase());
-    if (!nm.ok) throw new Error(nm.message || 'That name is not allowed.');
-    if (!sy.ok) throw new Error(sy.message || 'That ticker is not allowed.');
-    if (!nm.text || Buffer.byteLength(nm.text) > 32) throw new Error('Names are 1 to 32 characters.');
-    if (!/^[A-Z0-9]{1,10}$/.test(sy.text)) throw new Error('Tickers are 1 to 10 letters or digits.');
-    if (passesForWorm(nm.text, sy.text)) throw new Error('That name or ticker looks like the site\'s own coin, $WORM. Pick another.');
+    if (!nm.ok) throw refused(nm.message || 'That name is not allowed.');
+    if (!sy.ok) throw refused(sy.message || 'That ticker is not allowed.');
+    if (!nm.text || Buffer.byteLength(nm.text) > 32) throw refused('Names are 1 to 32 characters.');
+    if (!/^[A-Z0-9]{1,10}$/.test(sy.text)) throw refused('Tickers are 1 to 10 letters or digits.');
+    if (passesForWorm(nm.text, sy.text)) throw refused('That name or ticker looks like the site\'s own coin, $WORM. Pick another.');
     const buy = Number(firstBuy || 0);
-    if (!(buy >= 0) || !Number.isFinite(buy) || buy > 100) throw new Error('The first buy is a number of SOL (100 at most).');
+    if (!(buy >= 0) || !Number.isFinite(buy) || buy > 100) throw refused('The first buy is a number of SOL (100 at most).');
     let m = null, bytes = null;
     if (image !== 'worm') {
-      if (!canPick()) throw new Error('Picture uploads are full for now. Launch it with its worm\'s first sight.');
+      if (!canPick()) throw refused('Picture uploads are full for now. Launch it with its worm\'s first sight.');
       m = /^data:(image\/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$/.exec(String(image || ''));
-      if (!m) throw new Error('Add a PNG, JPG, WEBP or GIF picture, or use its worm\'s first sight.');
+      if (!m) throw refused('Add a PNG, JPG, WEBP or GIF picture, or use its worm\'s first sight.');
       bytes = Buffer.from(m[2], 'base64');
-      if (bytes.length > MAX_IMAGE) throw new Error('That picture is too big (1.5 MB at most).');
-      if (!MAGIC[m[1]](bytes)) throw new Error('That file is not the picture it says it is.');
+      if (bytes.length > MAX_IMAGE) throw refused('That picture is too big (1.5 MB at most).');
+      if (!MAGIC[m[1]](bytes)) throw refused('That file is not the picture it says it is.');
     }
     // before anything is kept: can this wallet pay for its coin? (its accounts' rent, and a first buy)
     const lamports = await rpc('getBalance', [creator, { commitment: 'confirmed' }], chain).then((r) => r.value, () => null);
@@ -469,6 +471,10 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     if (!(lamports > 0n)) return 0n;
     s.claims.push({ signature, lamports: String(lamports), at: Date.now() });
     save();
+    // it left the vaults: shown as collected now, not as waiting too until the next read of them
+    let left = lamports;
+    const take = (v) => { const t = v < left ? v : left; left -= t; return v - t; };
+    cache.vaults = { curve: take(cache.vaults.curve), amm: take(cache.vaults.amm) };
     return lamports;
   }
   /** Every coin's creator rewards, from a rewards wallet's vaults (on the curve and on PumpSwap) to it, as SOL. */

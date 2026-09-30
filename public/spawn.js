@@ -43,7 +43,7 @@ function render() {
   const lb = data.root?.burns?.[0], lbp = $('lastburn');
   lbp.hidden = !lb;
   if (lb) lbp.replaceChildren(`Last burn: ${compact(lb.amount)} $WORM · `, link(lb.signature));
-  const f = data.fee || {}, pct = (bps) => `${(bps / 100).toFixed(2).replace(/0$/, '')}%`;
+  const f = data.fee || {}, pct = (bps) => `${(bps / 100).toFixed(2)}%`;
   if (f.protocolBps != null && $('spawnnote')) $('spawnnote').textContent = `Free to launch, apart from about 0.02 SOL of rent for its accounts and an optional first buy, made in the same transaction. It's a pump.fun coin: its bonding curve, pump.fun's fee (currently ${pct(f.protocolBps + f.creatorBps)} of each trade, ${pct(f.creatorBps)} of it the creator's), and its graduation to PumpSwap when the curve sells out. Its creator is SPAWN, so its creator rewards come here, not to whoever launched it: 64% of them buy $WORM, all of it burned, and the other 36% stays with the team. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.`;
   $('stpokes').textContent = fmt(data.pokesToday || 0);
   renderFee(data.fee);
@@ -55,7 +55,7 @@ function render() {
 function renderFee(f) {
   if (!f) return;
   const burn = Math.round((f.buyback ?? 0.64) * 100), team = 100 - burn;
-  if ($('feepct') && f.creatorBps != null) $('feepct').textContent = `${(f.creatorBps / 100).toFixed(2).replace(/0$/, '')}%`;
+  if ($('feepct') && f.creatorBps != null) $('feepct').textContent = `${(f.creatorBps / 100).toFixed(2)}%`;
   const sq = $('squares');
   if (sq && (sq.childElementCount !== 100 || sq.dataset.k !== `${burn}`)) {
     sq.replaceChildren(); sq.dataset.k = `${burn}`;
@@ -87,7 +87,7 @@ for (const b of document.querySelectorAll('.sorts button')) b.addEventListener('
   for (const x of document.querySelectorAll('.sorts button')) x.setAttribute('aria-selected', String(x === b));
   renderCoins();
 });
-const SORTS = { new: (a, b) => b.createdAt - a.createdAt, mcap: (a, b) => b.mcapSol - a.mcapSol, grad: (a, b) => b.progress - a.progress, worm: (a, b) => (b.worm?.cells || 0) - (a.worm?.cells || 0), own: (a, b) => (b.own?.cells || 0) - (a.own?.cells || 0) };
+const SORTS = { new: (a, b) => b.createdAt - a.createdAt, mcap: (a, b) => b.mcapSol - a.mcapSol, grad: (a, b) => (a.stage === 'curve' ? 0 : 1) - (b.stage === 'curve' ? 0 : 1) || b.progress - a.progress, worm: (a, b) => (b.worm?.cells || 0) - (a.worm?.cells || 0), own: (a, b) => (b.own?.cells || 0) - (a.own?.cells || 0) };
 
 $('coinsearch').addEventListener('input', () => renderCoins());
 function renderCoins() {
@@ -111,7 +111,7 @@ function openTrade(c) {
   $('paywith').hidden = true;   // every SPAWN coin trades in SOL
   pay = 'sol';
   setSide('buy'); $('tamount').value = ''; $('tquote').replaceChildren(); $('tlog').textContent = '';
-  showClaim(); showOwn(c);
+  showOwn(c);
   $('trade').hidden = false; $('tamount').focus();
 }
 
@@ -218,8 +218,6 @@ function setPay(p) {
 }
 $('psol').addEventListener('click', () => setPay('sol'));
 $('proot').addEventListener('click', () => setPay('root'));
-// a coin's creator rewards go to SPAWN (64% of them to burning $WORM): nothing here for its launcher to claim
-function showClaim() { $('tclaim').hidden = true; }
 $('tbuy').addEventListener('click', () => setSide('buy'));
 $('tsell').addEventListener('click', () => setSide('sell'));
 $('tclose').addEventListener('click', () => { $('trade').hidden = true; stopWatching(); });
@@ -260,7 +258,7 @@ $('twallet').addEventListener('click', async () => {
   }
 });
 // whichever form connected it, the trade window shows it
-addEventListener('wallet-connected', (e) => { $('twallet').textContent = short(e.detail.address); $('tgo').disabled = !quote; showClaim(); });
+addEventListener('wallet-connected', (e) => { $('twallet').textContent = short(e.detail.address); $('tgo').disabled = !quote; });
 $('tgo').addEventListener('click', async () => {
   if (!quote || !connected()) return;
   const log = $('tlog'), q = quote, many = q.steps > 1;

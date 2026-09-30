@@ -63,6 +63,15 @@ export class RateLimiter {
     b.tokens -= 1;
     return true;
   }
+  /** Give back a token taken for something that turned out not to count (a request refused before any work). */
+  refund(key) { const b = this.buckets.get(key); if (b) b.tokens = Math.min(this.burst, b.tokens + 1); }
+  /** Seconds until `key` has a token again. */
+  wait(key, now = Date.now()) {
+    const b = this.buckets.get(key);
+    if (!b) return 0;
+    const tokens = Math.min(this.burst, b.tokens + ((now - b.t) / 1000) * this.rate);
+    return tokens >= 1 ? 0 : Math.ceil((1 - tokens) / this.rate);
+  }
   sweep(now = Date.now()) {
     for (const [k, b] of this.buckets) if (now - b.t > 10 * 60 * 1000) this.buckets.delete(k);
   }

@@ -87,5 +87,5 @@ console.log(`peak: ${peak.n} cells firing at step ${peak.step}`);
 save('spawn-og.png', renderActivityPNG({
   D, act: peak.act, layout: 'og', badge: 'LAUNCHPAD', title: ['SPAWN'], titleColors: ['amber'],
   lines: ['EVERY COIN HATCHES ITS OWN WORM.', 'EVERY BUY POKES THE WORM.'],
-  footnote: 'CREATOR REWARDS BUY AND BURN $WORM',
+  footnote: '64% OF CREATOR REWARDS BURN $WORM',
 }));

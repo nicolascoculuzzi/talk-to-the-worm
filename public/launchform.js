@@ -74,15 +74,30 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
     if (busy || done) return;
     const w = connected(), who = w ? ` · ${short(w.address)}` : '';
     if (!state.open) say(`${state.reason || 'Opening soon.'} You can already see what its worm will see first.`);
-    else if (hatchLine) say(hatchLine + (state.pictures && !custom ? ' Upload your own picture, or keep this one.' : '') + who);
+    else if (hatchLine) say((custom ? 'Your picture. ' : '') + hatchLine + (state.pictures && !custom ? ' Upload your own picture, or keep this one.' : '') + who);
     else say(`Free to launch. ${custom ? 'Your picture.' : state.pictures ? 'Upload your own picture, or it gets its worm\'s first sight.' : 'Its picture: its worm\'s first sight.'}${who}`);
   }
+  // its worm's first sight is drawn once typing pauses (a drawing per ticker, not per keystroke); a picked picture at once
+  let picTimer = 0;
   function showPic() {
     const src = custom || (TICKER.test(ticker.value) ? `/spawn/hatch/${ticker.value}.png` : '');
-    img.hidden = !src; ph.hidden = !!src; unpick.hidden = !custom;
-    if (up) up.hidden = !src || !!custom || !state.pictures;   // over its worm's first sight: this can be your own
-    if (src && img.getAttribute('src') !== src) img.src = src;
+    unpick.hidden = !custom;
+    clearTimeout(picTimer);
+    const apply = () => {
+      img.hidden = !src; ph.hidden = !!src;
+      if (up) up.hidden = !src || !!custom || !state.pictures;   // over its worm's first sight: this can be your own
+      if (src && img.getAttribute('src') !== src) img.src = src;
+    };
+    if (!src || custom) apply(); else picTimer = setTimeout(apply, 400);
   }
+  // a drawing that didn't come (the server was busy): once more a moment later, else the placeholder
+  img.addEventListener('error', () => {
+    const src = img.getAttribute('src');
+    if (!src || src.startsWith('data:')) return;
+    if (img.dataset.retried === src) { img.hidden = true; ph.hidden = false; if (up) up.hidden = true; return; }
+    img.dataset.retried = src;
+    setTimeout(() => { if (img.getAttribute('src') === src) { img.removeAttribute('src'); img.src = src; } }, 1500);
+  });
   function hatch() {
     clearTimeout(hatchTimer);
     hatchLine = '';

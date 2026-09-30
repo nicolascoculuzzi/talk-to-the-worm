@@ -28,7 +28,7 @@ const commas = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');   // same
 
 const WATCH_MS = 3600_000;   // how long a prepared transaction is looked for on the chain (it can land for about a minute)
 
-export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}, publicUrl = '', pinataJwt = '', rpcUrl, watchEveryMs = 15_000, onChange = () => {}, onLaunched = () => {}, logger = console }) {
+export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}, publicUrl = '', pinataJwt = '', rpcUrl, configuredMint = '', watchEveryMs = 15_000, onChange = () => {}, onLaunched = () => {}, logger = console }) {
   const root = path.join(dir, 'launch');
   fs.mkdirSync(root, { recursive: true });
   const file = path.join(root, 'state.json');
@@ -44,11 +44,14 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
       moment: s.moment && { ...s.moment, image: '/launch/moment.png' },
       metadata: s.metadata && { uri: s.metadata.uri },
       uploader: pinataJwt ? 'Pinata' : 'pump.fun',
-      launched: s.launched,
+      // launched: by this page, or already (TOKEN_MINT is set) though this server doesn't have the record
+      launched: s.launched || (configuredMint ? { mint: configuredMint, signature: null, fromSettings: true } : null),
     };
   }
 
+  const done = () => s.launched || configuredMint;
   function arm(rule = 'first time a touch stops its cilia') {
+    if (done()) throw new Error('$WORM has already launched.');
     if (s.moment) throw new Error('The moment has already been captured.');
     s.armed = { at: Date.now(), step: worm.step, rule };
     writeLog({ k: 'launch-armed', step: worm.step, rule, stop: STOP });
@@ -96,7 +99,7 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
   }
 
   async function prepare({ creator, amountSol = 0, slippage = 10, priorityFee = 0.0005, fetchImpl } = {}) {
-    if (s.launched) throw new Error('Already launched.');
+    if (done()) throw new Error('Already launched.');
     if (!s.metadata) throw new Error('Upload the metadata first.');
     // one prepared earlier may have landed after all (a slow wallet, a closed page): never make a second coin
     if (await watch({ fetchImpl })) throw new Error(`Already launched: ${s.launched.mint}.`);

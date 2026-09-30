@@ -84,13 +84,6 @@
           <button type="button" role="tab" id="tbuy" aria-selected="true">Buy</button>
           <button type="button" role="tab" id="tsell" aria-selected="false">Sell</button>
         </div>
-        <div class="cppay" id="paywith" hidden>
-          <span id="paylabel">Pay with</span>
-          <div class="cpseg" role="tablist" aria-label="Currency">
-            <button type="button" role="tab" id="psol" aria-selected="true">SOL</button>
-            <button type="button" role="tab" id="proot" aria-selected="false">$WORM</button>
-          </div>
-        </div>
         <label class="cpamt"><span class="sr">Amount</span><input type="text" id="amount" inputmode="decimal" placeholder="0.0" autocomplete="off" spellcheck="false" enterkeyhint="done"><span id="unit">SOL</span></label>
         <div class="cpchips" id="chips">
           <button type="button" data-v="0.1">0.1 SOL</button>
@@ -101,7 +94,6 @@
         <button type="button" class="cpgo connect" id="go">Connect wallet</button>
         <p class="cpwallet" id="wallet" hidden></p>
         <p class="cplog" id="log" role="status" aria-live="polite"></p>
-        <button type="button" class="btn-ghost cpclaim" id="claim" hidden>Collect creator rewards</button>
       </section>
 
       <section class="cpcard cpworm" aria-labelledby="wormh">

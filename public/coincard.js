@@ -25,7 +25,8 @@ export function coinCard(c, { onBuy = null, buyHref = null } = {}) {
   t.append(el('b', null, '$' + c.symbol), el('span', null, c.name));
   head.append(img, t);
   const stats = el('dl', 'cs');
-  for (const [k, v] of [['Price', c.priceUsd ? usd(c.priceUsd) : sol(c.priceSol)], ['Mcap', c.mcapSol ? sol(c.mcapSol) : '—'], ['Its worm', c.own ? `${fmt(c.own.trades)} trades` : 'hatching']]) {
+  const mcap = c.priceUsd ? '$' + compact(c.priceUsd * 1e9) : c.mcapSol ? `${compact(c.mcapSol)} SOL` : '—';
+  for (const [k, v] of [['Price', c.priceUsd ? usd(c.priceUsd) : sol(c.priceSol)], ['Mcap', mcap], ['Its worm', c.own ? `${fmt(c.own.trades)} trade${c.own.trades === 1 ? '' : 's'}` : 'hatching']]) {
     const d = el('div'); d.append(el('dt', null, k), el('dd', null, v)); stats.append(d);
   }
   const prog = el('div', 'prog'), fill = el('i');
@@ -35,7 +36,7 @@ export function coinCard(c, { onBuy = null, buyHref = null } = {}) {
   foot.append(el('span', null, stageText(c)));
   let buy;
   if (onBuy) { buy = el('button', 'btn-amber', 'Buy'); buy.type = 'button'; buy.disabled = c.stage === 'graduating'; buy.addEventListener('click', () => onBuy(c)); }
-  else buy = el('span', 'btn-amber', c.stage === 'graduating' ? 'Graduating' : 'Trade');
+  else buy = c.stage === 'graduating' ? el('span', 'btn-ghost', 'Graduating') : el('span', 'btn-amber', 'Trade');
   foot.append(buy);
   // a coin minutes old says so
   if (Date.now() - (c.createdAt || 0) < 3600e3) t.firstChild.append(el('i', 'newtag', 'new'));

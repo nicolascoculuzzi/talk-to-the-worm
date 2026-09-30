@@ -20,6 +20,7 @@ body.cpage{min-height:100vh;display:flex;flex-direction:column;
 .cpwho{flex:1;min-width:0}
 .cpsym{margin:0;display:flex;align-items:center;gap:10px;min-width:0;font:650 26px/1.1 var(--display);letter-spacing:-.035em;color:var(--bright)}
 .cpsym #sym{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:560px){.cpsub #name{white-space:normal;overflow-wrap:anywhere}}
 .cpstage-pill{flex:none;font:500 9.5px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--green);border:1px solid rgba(110,231,160,.45);border-radius:999px;padding:2px 8px}
 .cpstage-pill.amber{color:var(--amber);border-color:rgba(255,184,77,.5)}
 .cpsub{margin:3px 0 0;display:flex;gap:8px;min-width:0;font:400 14px/1.35 var(--sans);color:var(--mute);white-space:nowrap}

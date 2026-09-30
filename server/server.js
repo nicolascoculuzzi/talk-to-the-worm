@@ -199,7 +199,7 @@ export function createWormServer(overrides = {}) {
   const headTouch = worm.roles.touch.filter((i) => ['episphere', 'segment_0', 'segment_1'].includes(segOf(i)));
   const tailTouch = worm.roles.touch.filter((i) => ['segment_2', 'segment_3', 'pygidium'].includes(segOf(i)));
   const launch = dataDir ? createLaunch({
-    dir: dataDir, worm, D, writeLog, render, solana, publicUrl: config.publicUrl, pinataJwt: config.token.pinataJwt, rpcUrl: config.token.solanaRpc,
+    dir: dataDir, worm, D, writeLog, render, solana, publicUrl: config.publicUrl, pinataJwt: config.token.pinataJwt, rpcUrl: config.token.solanaRpc, configuredMint: config.token.mint,
     onChange: (st) => broadcast({ t: 'launch', launch: st }),
     onLaunched: (l) => startTrades(l.mint),
   }) : null;
@@ -229,7 +229,7 @@ export function createWormServer(overrides = {}) {
     if (spawnPokes.size > 2000) for (const k of spawnPokes.keys()) { spawnPokes.delete(k); if (spawnPokes.size < 1000) break; }
   }
   const coinWorms = createCoinWorms({ dir: dataDir, D, render });
-  const hatchLimiter = new RateLimiter({ ratePerSec: 2, burst: 12 }), hatched = new Map();   // the spawn form's previews, kept
+  const hatchLimiter = new RateLimiter({ ratePerSec: 3, burst: 20 }), hatched = new Map();   // the spawn form's previews, kept
   const hatchPreview = (ticker) => {
     let h = hatched.get(ticker);
     if (!h) { h = previewHatch({ D, render, ticker }); hatched.set(ticker, h); if (hatched.size > 300) hatched.delete(hatched.keys().next().value); }
@@ -602,6 +602,7 @@ export function createWormServer(overrides = {}) {
       const own = path.join(ROOT, 'public', 'coin.html'), f = fs.existsSync(own) ? own : path.join(ROOT, 'public', 'spawn.html'), st = fs.statSync(f);
       if (!spawnHtml || spawnHtml.file !== f || spawnHtml.mtimeMs !== st.mtimeMs) spawnHtml = { file: f, mtimeMs: st.mtimeMs, html: fs.readFileSync(f, 'utf8').replaceAll('%ORIGIN%', config.publicUrl) };
     } catch { return null; }
+    if (!c) return spawnHtml.html;   // not a SPAWN coin (yet): the page says so, and looks again in a minute
     const sym = escapeHtml('$' + c.symbol), name = escapeHtml(c.name), trades = c.own?.trades || 0;
     const desc = `${name} (${sym}) on SPAWN, the BRAINWORM launchpad. It hatched its own worm, a copy of a real larva's wiring, which has felt ${trades} trade${trades === 1 ? '' : 's'} of it. Every buy pokes the live worm too.`;
     return spawnHtml.html
@@ -757,7 +758,8 @@ export function createWormServer(overrides = {}) {
     const act = p.slice('/spawn/'.length), lim = spawnLimits[act];
     if (!lim) return json(res, 404, { error: 'not found' });
     if (config.allowedOrigins.length && req.headers.origin && !config.allowedOrigins.includes(req.headers.origin)) return json(res, 403, { error: 'Wrong origin.' });
-    if (!lim.take(clientIp(req))) return json(res, 429, { error: 'Slow down a little and try again.' });
+    const ip = clientIp(req);
+    if (!lim.take(ip)) { const w = lim.wait(ip); return json(res, 429, { error: w > 90 ? `That's a lot of launches from here. Try again in about ${Math.ceil(w / 60)} minutes.` : w > 1 ? `Slow down a little: try again in ${w} seconds.` : 'Slow down a little and try again.' }); }
     readJson(req, act === 'create' ? 2_600_000 : 4096).then((b) => {
       if (!b || typeof b !== 'object') throw new Error('Bad request.');
       if (act === 'quote') return spawn.quote(b);
@@ -765,7 +767,10 @@ export function createWormServer(overrides = {}) {
       if (act === 'create') return spawn.create(b, { canUpload: () => spawnCreateAll.take('all') });
       if (act === 'confirm') return spawn.confirm(b);
       return { ok: spawn.created(b) };
-    }).then((r) => json(res, 200, r)).catch((e) => json(res, 400, { error: e.message }));
+    }).then((r) => json(res, 200, r)).catch((e) => {
+      if (act === 'create' && e.input) lim.refund(ip);   // refused on what was asked alone (a taken ticker, a name the filter stops): it doesn't count
+      json(res, 400, { error: e.message });
+    });
   }
 
   // plain HTTP gets a generous per-address budget too (a page load is ~25 requests)
@@ -837,10 +842,9 @@ export function createWormServer(overrides = {}) {
       if (!m) return notFound(res);
       const send = () => {
         const c = spawn.publicState().coins.find((x) => x.mint === m[1]) || spawn.pending(m[1]);
-        if (!c) { res.writeHead(302, { Location: '/spawn' }); return res.end(); }
-        const html = coinPage(c);
+        const html = coinPage(c || null);
         if (!html) return notFound(res);
-        res.writeHead(200, { 'Content-Type': MIME['.html'], 'Cache-Control': 'public, max-age=60' });
+        res.writeHead(c ? 200 : 404, { 'Content-Type': MIME['.html'], 'Cache-Control': c ? 'public, max-age=60' : 'no-store' });
         res.end(req.method === 'HEAD' ? undefined : html);
       };
       spawn.fresh().then(send, send);
@@ -858,7 +862,7 @@ export function createWormServer(overrides = {}) {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': m[2] === '-birth' ? 'public, max-age=31536000, immutable' : m[2] ? 'public, max-age=300' : 'public, max-age=20', 'Content-Length': png.length });
       return res.end(req.method === 'HEAD' ? undefined : png);
     }
-    if (p.startsWith('/spawn/chart/')) {   // a coin's price chart: each trade with its price after it, in the coin's quote token
+    if (p.startsWith('/spawn/chart/')) {   // a coin's price chart: each trade with its price after it, in SOL
       const m = /^\/spawn\/chart\/([1-9A-HJ-NP-Za-km-z]{32,44})\.json$/.exec(p);
       if (!m) return notFound(res);
       res.setHeader('Access-Control-Allow-Origin', '*');

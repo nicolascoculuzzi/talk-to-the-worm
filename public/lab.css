@@ -10,7 +10,6 @@ body.labpage{min-height:100vh;background:
 
 /* the nav: on phones style.css keeps only its own #coins link; here Coins, Tests, Docs and the button stay */
 .labpage .navlinks a[aria-current="page"]{color:var(--bright);box-shadow:inset 0 -1px 0 var(--amber)}
-@media (max-width:760px){.labpage .navlinks{gap:14px}.labpage .navlinks a{display:block!important}}
 @media (max-width:370px){.labpage .navlinks{gap:10px}}
 @media (max-width:339px){.labpage .navlinks a[href="/docs"]{display:none!important}}
 

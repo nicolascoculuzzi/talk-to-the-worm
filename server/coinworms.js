@@ -123,7 +123,7 @@ export function createCoinWorms({ dir, D, render, logger = console, live = 24 })
     const cells = unq8(act);
     const png = render.renderActivityPNG({
       D, act: cells, layout: 'square', width: 384, title: ['$' + r.ticker], titleColors: ['amber'],
-      lines: [which === 'birth' ? `ITS FIRST SIGHT: ${commas(r.stats.birth)} CELLS FIRING` : r.trades.length ? `AFTER ${commas(r.trades.length)} TRADES` : 'NO TRADES YET'],
+      lines: [which === 'birth' ? `ITS FIRST SIGHT: ${commas(r.stats.birth)} CELLS FIRING` : r.trades.length ? `AFTER ${commas(r.trades.length)} TRADE${r.trades.length === 1 ? '' : 'S'}` : 'NO TRADES YET'],
       footnote: 'A COIN\'S OWN WORM ON SPAWN',
     });
     for (const k of pics.keys()) if (k.startsWith(`${mint}:${which}:`)) pics.delete(k);
@@ -140,7 +140,7 @@ export function createCoinWorms({ dir, D, render, logger = console, live = 24 })
     if (pics.has(key)) return pics.get(key);
     const png = render.renderActivityPNG({
       D, act: unq8(r.lastAct || r.birthAct), layout: 'og', badge: 'SPAWN', title: ['$' + r.ticker], titleColors: ['amber'],
-      lines: ['IT HATCHED ITS OWN WORM.', r.trades.length ? `IT HAS FELT ${commas(r.trades.length)} TRADES.` : `ITS FIRST SIGHT: ${commas(r.stats.birth)} CELLS FIRING.`],
+      lines: ['IT HATCHED ITS OWN WORM.', r.trades.length ? `IT HAS FELT ${commas(r.trades.length)} TRADE${r.trades.length === 1 ? '' : 'S'}.` : `ITS FIRST SIGHT: ${commas(r.stats.birth)} CELLS FIRING.`],
       footnote: 'A COIN ON SPAWN, THE BRAINWORM LAUNCHPAD',
     });
     for (const k of pics.keys()) if (k.startsWith(`${mint}:og:`)) pics.delete(k);

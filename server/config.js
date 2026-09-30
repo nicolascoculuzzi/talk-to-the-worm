@@ -43,8 +43,8 @@ export const config = {
 
   // SPAWN, the launchpad
   spawn: {
-    // the owner's wallet (a public address): it makes SPAWN's configs and claims their fees, and SPAWN finds its configs
-    // on the chain from it, so nothing is lost when LOG_DIR doesn't survive a restart
+    // SPAWN's rewards wallet (a public address): every coin launched on SPAWN names it as its pump.fun creator, so every
+    // coin's creator rewards collect there. Not the wallet that launches $WORM. It can also be set once on /launch.
     owner: (env.SPAWN_OWNER || '').trim(),
     // coin pictures and metadata go to IPFS through PINATA_JWT; they are served from LOG_DIR only when it is set on
     // purpose (a persistent disk) or SPAWN_LOCAL_META=1 says so: a coin's metadata address can never change

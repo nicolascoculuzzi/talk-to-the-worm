@@ -83,7 +83,6 @@ async function load() {
   }
   renderHead();
   syncPanel();
-  showClaim();
   renderOwn();
   renderChart();
   renderTrades();
@@ -92,7 +91,7 @@ async function load() {
 }
 
 function renderHead() {
-  const c = coin, sym = '$' + c.symbol, done = c.graduated || c.stage === 'graduated';
+  const c = coin, sym = '$' + c.symbol, done = c.stage === 'graduated';
   document.title = `${sym} · its own worm, on SPAWN`;
   $('sym').textContent = sym;
   $('name').textContent = c.name || '';
@@ -143,7 +142,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && co
 /* ---------- the chart and the trades, from its public trade record ---------- */
 const RANGE_WORDS = { '1h': 'past hour', '6h': 'past 6 hours', '1d': 'past day', all: 'all time' };
 const qsym = () => raw?.quote || coin?.quote || 'SOL';
-// a market cap from a price in the coin's quote token: in dollars, else SOL, else the quote token itself
+// a market cap from a price in SOL: in dollars when SOL's price is known, else in SOL
 function money() {
   const solUsd = data?.root?.solUsd || 0, toSol = qsym() === 'SOL' ? 1 : data?.root?.priceSol || 0;
   if (toSol && solUsd) return { k: toSol * solUsd, fmt: (v) => '$' + big(v) };
@@ -258,12 +257,8 @@ function syncPanel() {
   if (inSol) pay = 'sol';   // every SPAWN coin trades in SOL
   $('tbuy').setAttribute('aria-selected', String(side === 'buy'));
   $('tsell').setAttribute('aria-selected', String(side === 'sell'));
-  $('paywith').hidden = inSol;
-  $('paylabel').textContent = side === 'buy' ? 'Pay with' : 'Get';
-  $('psol').setAttribute('aria-selected', String(pay === 'sol'));
-  $('proot').setAttribute('aria-selected', String(pay === 'root'));
   $('unit').textContent = unitText();
-  $('chips').hidden = !(side === 'buy' && pay === 'sol');
+  $('chips').hidden = !(side === 'buy' && pay === 'sol') || coin?.stage === 'graduating';
   amountEl.placeholder = side === 'sell' ? '0' : '0.0';
   amountEl.disabled = coin?.stage === 'graduating';
   updateGo();
@@ -284,14 +279,13 @@ function updateGo() {
 function choose(fn) {
   const before = unitText();
   fn();
+  say([]);   // what happened on the other side (a cancelled sale, say) isn't about this one
   if (unitText() !== before) amountEl.value = '';
   syncPanel();
   requote();
 }
 $('tbuy').addEventListener('click', () => choose(() => { side = 'buy'; }));
 $('tsell').addEventListener('click', () => choose(() => { side = 'sell'; }));
-$('psol').addEventListener('click', () => choose(() => { pay = 'sol'; }));
-$('proot').addEventListener('click', () => choose(() => { pay = 'root'; }));
 for (const b of $('chips').querySelectorAll('button')) b.addEventListener('click', () => { amountEl.value = b.dataset.v; requote(); });
 amountEl.addEventListener('input', () => {
   const v = amountEl.value.replace(/,/g, '.').replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
@@ -348,7 +342,7 @@ addEventListener('wallet-connected', (e) => {
   w.hidden = !a;
   if (a) w.replaceChildren(el('i'), 'Wallet ', el('b', null, short(a)));
   if (/No wallet in this browser/.test($('log').textContent)) say([]);
-  updateGo(); showClaim();
+  updateGo();
 });
 
 $('go').addEventListener('click', async () => {
@@ -389,8 +383,6 @@ async function landed(sig) {
   throw new Error('The first step has not landed yet. Check your wallet before trying again.');
 }
 
-// a coin's creator rewards go to SPAWN (and 64% of them to burning $WORM), so there is nothing here for its launcher to claim
-function showClaim() { $('claim').hidden = true; }
 
 /* ---------- sharing ---------- */
 $('share').addEventListener('click', async () => {
@@ -480,9 +472,9 @@ function paint(now) {
 function wait(text) { const w = $('wwait'); w.hidden = !text; w.textContent = text || ''; }
 
 function renderOwn() {
-  const c = coin, o = c.own, sym = '$' + c.symbol, done = c.graduated || c.stage !== 'curve';
+  const c = coin, o = c.own, sym = '$' + c.symbol, done = c.stage === 'graduated';
   $('wormlede').textContent = `${sym} hatched its own copy of a real larva's wiring. The first thing it saw was "${sym}". Since then it feels every trade of it: a buy touches its head, a sell its tail.`;
-  $('grow').textContent = done ? `Drawn at full size: ${sym} has graduated. Same wiring, same model.` : `Drawn bigger as ${sym} nears graduation. Same wiring, same model.`;
+  $('grow').textContent = done || c.stage === 'graduating' ? `Drawn at full size: ${sym} ${done ? 'has graduated' : 'is graduating'}. Same wiring, same model.` : `Drawn bigger as ${sym} nears graduation. Same wiring, same model.`;
   const set = (id, v, u) => { const d = $(id); d.replaceChildren(v); if (u) d.append(el('small', null, u)); };
   if (!o) {
     for (const id of ['s-trades', 's-cells', 's-best', 's-swim', 's-birth', 's-sides']) set(id, '—');

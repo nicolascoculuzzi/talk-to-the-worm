@@ -223,7 +223,7 @@ function onServer(m) {
       onStimulusStart(nowMsg);
       renderFeed(); break;
     case 'poke':
-      feed.set(m.id, { id: m.id, kind: 'poke', by: m.by, cells: m.cells, step: m.step, ts: m.ts });
+      feed.set(m.id, { id: m.id, kind: 'poke', by: m.by, cells: m.cells, step: m.step, ts: m.ts, ...(m.chain ? { chain: m.chain } : {}) });
       if (m.by !== you) ripples.push({ cells: m.cells, t: performance.now(), hit: true, by: m.by });
       renderFeed(); break;
     case 'tugresult': {
@@ -740,7 +740,7 @@ function drawOverlay(now, dt, bend, st) {
   }
   og.globalAlpha = 1;
   for (let q = ripples.length - 1; q >= 0; q--) {
-    const rp = ripples[q], t = (now - rp.t) / 900;
+    const rp = ripples[q], t = Math.max(0, (now - rp.t) / 900);
     if (t > 1) { ripples.splice(q, 1); continue; }
     let x = rp.x, y = rp.y;
     if (rp.cells) { x = 0; y = 0; for (const i of rp.cells) { x += proj[i * 3]; y += proj[i * 3 + 1]; } x /= rp.cells.length; y /= rp.cells.length; }
@@ -872,7 +872,7 @@ function checkStartle(ro, now, stepNow) {
   const on = stop > 0.05;
   if (on && !wasStartled && now - lastStartle > 5000) {
     lastStartle = now; flash(); shake = reduceMotion ? 0 : 0.6;
-    if (!(nowMsg && nowMsg.kind === 'tug')) banner('coral', 'Startle reflex', 'It stopped swimming', `${Math.round(stop * 100)}% of its cilia stopped`, 3200);
+    if (!(nowMsg && nowMsg.kind === 'tug')) banner('coral', 'Startle reflex', 'Its cilia stopped', `${Math.round(stop * 100)}% of them at once`, 3200);
   }
   wasStartled = on;
 }
@@ -983,7 +983,7 @@ async function loadSpawn() {
   renderHomeCoins(j);
   showSpawnCoins(j);
 }
-const HOME_SORTS = { new: (a, b) => b.createdAt - a.createdAt, hot: (a, b) => (b.worm?.cells || 0) - (a.worm?.cells || 0) || b.createdAt - a.createdAt, grad: (a, b) => (b.progress || 0) - (a.progress || 0), mcap: (a, b) => (b.mcapSol || 0) - (a.mcapSol || 0) };
+const HOME_SORTS = { new: (a, b) => b.createdAt - a.createdAt, hot: (a, b) => (b.worm?.cells || 0) - (a.worm?.cells || 0) || b.createdAt - a.createdAt, grad: (a, b) => (a.stage === 'curve' ? 0 : 1) - (b.stage === 'curve' ? 0 : 1) || (b.progress || 0) - (a.progress || 0), mcap: (a, b) => (b.mcapSol || 0) - (a.mcapSol || 0) };
 for (const b of $('homesorts').querySelectorAll('button')) b.addEventListener('click', () => {
   homeSort = b.dataset.sort;
   for (const x of $('homesorts').querySelectorAll('button')) x.setAttribute('aria-selected', String(x === b));
@@ -1242,8 +1242,8 @@ function setLaunch(l) {
   const pill = $('launchpill');
   const st = l.launched ? ['Launched', 'live'] : l.metadata ? ['Ready to sign', 'pending'] : l.moment ? ['Moment captured', 'measured'] : l.armed ? ['Armed', 'pending'] : ['Not armed', ''];
   pill.textContent = st[0]; pill.className = 'pill ' + st[1];
-  if (l.moment && !l.launched) $('launchtext').textContent = `Launch moment: step ${fmt(l.moment.step)}, the first time a touch made it stop swimming after arming. Replay the log to check it.`;
-  if (l.launched) $('launchtext').textContent = `Launched. The token image is the worm at step ${fmt(l.moment ? l.moment.step : 0)}. Buys poke its head, sells its tail, each logged with its signature.`;
+  if (l.moment && !l.launched) $('launchtext').textContent = `Launch moment: step ${fmt(l.moment.step)}, the first time a touch stopped its cilia after arming. Replay the log to check it.`;
+  if (l.launched) $('launchtext').textContent = `Launched.${l.moment ? ` The token image is the worm at step ${fmt(l.moment.step)}.` : ''} Buys poke its head, sells its tail, each logged with its signature.`;
 }
 
 /* ---------- mods ---------- */
@@ -1324,7 +1324,7 @@ function renderStreamFeed(items) {
   const ol = $('streamfeed'); ol.hidden = false; ol.replaceChildren();
   for (const it of items) {
     const li = el('li', it.kind);
-    const who = it.by === you ? 'you' : String(it.by).replace(/^twitch:/, '');
+    const by = String(it.by), who = it.by === you ? 'you' : by.startsWith('spawn:') ? `a ${by.slice(6)} buy` : by.startsWith('chain:') ? `a $WORM ${by.slice(6)}` : by.replace(/^twitch:/, '');
     li.append(`${who} `, el('b', null, it.kind === 'say' ? `“${it.text}”` : it.kind === 'tug' ? `${it.a} vs ${it.b}` : it.kind === 'lamp' ? 'lit the lamp' : 'poked it'));
     ol.append(li);
   }
@@ -1365,14 +1365,14 @@ $('clipbtn').addEventListener('click', async () => {
     if (clipUrl) URL.revokeObjectURL(clipUrl);
     clipUrl = URL.createObjectURL(out.blob);
     clipName = `brainworm-${(withMsg && withMsg.msg.kind === 'say' ? withMsg.msg.text : withMsg && withMsg.msg.kind === 'lamp' ? 'lamp' : 'clip').replace(/[^a-z0-9]+/gi, '-').slice(0, 24) || 'clip'}.${out.ext}`;
-    openClip(headline, peak, withMsg ? withMsg.msg : null, out.ext);
+    openClip(headline, peak, withMsg ? withMsg.msg : null, out.ext, Math.max(1, Math.round((frames.at(-1).t - frames[0].t) / 1000)));
   } catch (e) { toast(e.message || 'Could not record a clip here.'); }
   finally { recording = false; btn.classList.remove('rec'); label.textContent = 'Clip'; }
 });
-function openClip(headline, peak, msg, ext) {
+function openClip(headline, peak, msg, ext, seconds = CLIP_SECONDS) {
   const m = $('clipmodal'), v = $('clipvideo');
   v.src = clipUrl; v.play().catch(() => {});
-  $('clipinfo').textContent = `${CLIP_SECONDS} seconds, ${ext.toUpperCase()}, rendered in your browser. ${ext === 'webm' ? 'X prefers MP4: Chrome or Safari save MP4.' : ''}`;
+  $('clipinfo').textContent = `${seconds} second${seconds === 1 ? '' : 's'}, ${ext.toUpperCase()}, rendered in your browser. ${ext === 'webm' ? 'X prefers MP4: Chrome or Safari save MP4.' : ''}`;
   const text = msg && msg.kind === 'say' ? `I said “${msg.text}” to a simulation of a real worm larva's nervous system and ${fmt(peak)} cells fired. Everyone watching sees the same worm.` : `${fmt(peak)} cells firing at once in a simulation of a real larva's nervous system. Everyone watching sees the same worm.`;
   $('clipx').href = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(location.origin)}`;
   m.hidden = false;
@@ -1493,6 +1493,7 @@ function updateActivity(now) {
 }
 let bendS = 0, stS = 0, lastKind = -1;
 function frame(now) {
+  requestAnimationFrame(frame);   // first: a problem drawing this frame can't freeze the ones after it
   const dtMs = Math.min(100, now - last); last = now;
   const dt = dtMs / 1000;
   if (mode === 'offline' && local) {
@@ -1525,7 +1526,6 @@ function frame(now) {
   // keep it smooth: if frames are slow for a while, render fewer pixels
   frameMs = frameMs * 0.95 + dtMs * 0.05;
   if (frameMs > 26 && dprScale > 0.6) { if (++slowFrames > 90) { dprScale = Math.max(0.6, dprScale * 0.85); slowFrames = 0; frameMs = 16; resize(); } } else slowFrames = 0;
-  requestAnimationFrame(frame);
 }
 
 /* ---------- start ---------- */

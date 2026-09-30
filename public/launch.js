@@ -14,18 +14,19 @@ const log = (line) => { const p = $('lplog'); p.textContent = (p.textContent + '
 const fmtTime = (ts) => new Date(ts).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
 
 /* ---------- public status ---------- */
-let launchedMint = '';   // $WORM's mint, once its launch has confirmed
+let launchedMint = '', launchStatus = null;   // $WORM's mint, once its launch has confirmed; the public status
 async function refresh() {
   const s = await fetch('/launch/status.json', { cache: 'no-store' }).then((r) => r.json()).catch(() => null);
   if (!s) return;
+  launchStatus = s;
   const set = (k, on, text) => { const li = document.querySelector(`[data-k="${k}"]`); li.classList.toggle('on', !!on); $('st-' + k).textContent = text; };
   set('armed', s.armed, s.armed ? `Armed at step ${s.armed.step.toLocaleString('en-US')} (${fmtTime(s.armed.at)}). Rule: the ${s.armed.rule}.` : 'Not armed yet.');
-  set('moment', s.moment, s.moment ? `Step ${s.moment.step.toLocaleString('en-US')}: ${s.moment.nAct.toLocaleString('en-US')} cells firing, cilia stopped ${Math.round((s.moment.stop ?? s.moment.startle ?? 0) * 100)}%.` : s.armed ? 'Armed. Waiting for the first time a touch makes it stop swimming.' : 'Waiting for the launch to be armed.');
+  set('moment', s.moment, s.moment ? `Step ${s.moment.step.toLocaleString('en-US')}: ${s.moment.nAct.toLocaleString('en-US')} cells firing, cilia stopped ${Math.round((s.moment.stop ?? s.moment.startle ?? 0) * 100)}%.` : s.armed ? 'Armed. Waiting for the first time a touch stops its cilia.' : 'Waiting for the launch to be armed.');
   set('metadata', s.metadata, s.metadata ? `Uploaded: ${s.metadata.uri}` : 'Uploaded to IPFS after the moment.');
   set('launched', s.launched, s.launched ? `Mint ${s.launched.mint}` : 'Created on pump.fun from the moment.');
   if (s.launched) {
-    const p = $('st-launched'); p.replaceChildren(`Mint ${s.launched.mint} · `);
-    const a = el('a', null, 'transaction'); a.href = 'https://solscan.io/tx/' + s.launched.signature; a.target = '_blank'; a.rel = 'noopener'; p.append(a);
+    const p = $('st-launched'); p.replaceChildren(`Mint ${s.launched.mint}`);
+    if (s.launched.signature) { const a = el('a', null, 'transaction'); a.href = 'https://solscan.io/tx/' + s.launched.signature; a.target = '_blank'; a.rel = 'noopener'; p.append(' · ', a); }
   }
   if (s.moment) {
     $('lpmoment').hidden = false;
@@ -60,6 +61,7 @@ async function unlock() {
   const r = await fetch('/admin/state', { headers: { Authorization: 'Bearer ' + token } });
   if (!r.ok) { lock(); log('That token is not right.'); return; }
   sessionStorage.setItem('wormAdminToken', token);
+  if (/not right/.test($('lplog').textContent)) $('lplog').textContent = '';
   $('lplock').hidden = true; $('lpcontrols').hidden = false;
   spawnView();
 }
@@ -72,14 +74,14 @@ const act = (btn, fn) => $(btn).addEventListener('click', async () => {
 act('lparm', async () => { await admin('arm'); log('Armed. Now tap the worm\'s head on the main page (the top of its body) until its cilia stop: the first touch that does is the moment.'); });
 act('lpdisarm', async () => { await admin('disarm'); log('Disarmed.'); });
 act('lpmeta', async () => {
-  if (!confirm('Upload the moment image and metadata to pump.fun\'s IPFS? This publishes them.')) return;
+  if (!confirm(`Upload the moment image and metadata to IPFS (through ${launchStatus?.uploader || 'pump.fun'})? This publishes them.`)) return;
   const j = await admin('metadata', { twitter: $('lptw').value.trim(), telegram: $('lptg').value.trim() });
   log('✓ Metadata: ' + j.metadata.uri);
 });
 
 /* ---------- the owner's wallet (Wallet Standard): it signs and sends; the server never holds a key ---------- */
 let prepared = null;
-act('lpwallet', async () => { const w = await connect(); log(`Connected ${w.name}: ${w.address}`); });
+act('lpwallet', async () => { const w = await connect(); log(`Connected ${w.name}: ${w.address}`); $('lpwallet').textContent = `Connected · ${w.address.slice(0, 4)}…${w.address.slice(-4)}`; });
 act('lpprep', async () => {
   if (!connected()) throw new Error('Connect a wallet first.');
   const amountSol = String(Math.max(0, Number($('lpbuy').value) || 0));
@@ -133,6 +135,9 @@ async function spawnView() {
   if (st.broken) parts.push('Its records could not be read: SPAWN is shut until someone looks at them.');
   $('spstatus').textContent = parts.join(' ');
   $('spowner').hidden = !!st.ownerFromEnv;
+  const wormMint = launchedMint || siteMint;
+  $('spbuyback').disabled = !wormMint;
+  $('spbuyback').title = wormMint ? '' : '$WORM has to launch first';
   $('spburn').hidden = !(st.heldWorm > 0);
 }
 // What the owner still has to do: set TOKEN_MINT once $WORM exists (a second record of the launch), and give SPAWN its
