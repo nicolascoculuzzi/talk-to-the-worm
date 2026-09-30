@@ -540,7 +540,7 @@ test('with nowhere lasting to keep pictures, SPAWN still opens: a coin gets its 
   assert.equal(typeof cc.uri, 'function', 'its metadata address is named after the coin, which only exists once the transaction is built');
   assert.equal(cc.uri(MINT), `https://worm.example/spawn/m/${MINT}.json`);
   assert.deepEqual(await sp.coinMetadata(made.mint), {
-    name: 'Worm Coin', symbol: 'WORMC', description: `$WORMC was spawned on SPAWN, the BRAINWORM launchpad, priced in $BRAINWORM. It hatched its own copy of a simulated worm larva's nervous system, which feels every trade of it, and every buy pokes the live worm. https://worm.example/spawn`,
+    name: 'Worm Coin', symbol: 'WORMC', description: `$WORMC was spawned on SPAWN, the BRAINWORM launchpad, priced in $BRAINWORM. It hatched its own copy of a simulated worm larva's nervous system, which feels every trade on its bonding curve, and every buy pokes the live worm. https://worm.example/spawn`,
     image: 'https://worm.example/spawn/hatch/WORMC.png', showName: true, createdOn: 'https://worm.example/spawn', website: 'https://worm.example/spawn',
   });
   // a coin on SPAWN's config pointing here is served (its picture too); anything else is not
