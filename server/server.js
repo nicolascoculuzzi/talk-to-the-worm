@@ -228,9 +228,16 @@ export function createWormServer(overrides = {}) {
   }
   const coinWorms = createCoinWorms({ dir: dataDir, D, render });
   const hatchLimiter = new RateLimiter({ ratePerSec: 2, burst: 12 }), hatched = new Map();   // the spawn form's previews, kept
+  const hatchPreview = (ticker) => {
+    let h = hatched.get(ticker);
+    if (!h) { h = previewHatch({ D, render, ticker }); hatched.set(ticker, h); if (hatched.size > 300) hatched.delete(hatched.keys().next().value); }
+    return h;
+  };
   const spawn = createSpawn({
     dir: dataDir, dbc: config.spawnDeps?.dbc || dbc, rootMint: tokenMint, fetchImpl: config.spawnDeps?.fetchImpl || fetch, coinWorms, render, D,
     moderate: (t) => checkMessage(t, blocklist()), onTrade: onSpawnTrade,
+    // coins whose picture is their worm's first sight: drawn ahead, a few each refresh, so a page of them after a deploy isn't refused
+    onCoins: (coins) => { let n = 0; for (const c of coins) { const t = /\/spawn\/hatch\/([A-Z0-9]{1,10})\.png$/.exec(c.image || '')?.[1]; if (t && !hatched.has(t) && n++ < 3) hatchPreview(t); } },
     opts: {
       rpc: config.token.solanaRpc, ws: config.spawnDeps ? config.spawnDeps.ws || null : config.token.solanaWs, WebSocketImpl: config.spawnDeps?.WebSocketImpl, publicUrl: config.publicUrl,
       pinataJwt: config.token.pinataJwt, uploadPinata: config.spawnDeps?.uploadPinata || solana.uploadPinataMetadata, jupiterKey: config.token.jupiterKey, owner: config.spawn.owner, localMeta: config.spawn.localMeta,
@@ -598,7 +605,7 @@ export function createWormServer(overrides = {}) {
       .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${desc}">`)
       .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${sym} · ${name}">\n<meta property="og:url" content="${config.publicUrl}/c/${c.mint}">`)
       .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${desc}">`)
-      .replace(/<meta property="og:image" content="[^"]*">/, `<meta property="og:image" content="${config.publicUrl}/spawn/worm/${c.mint}-og.png">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">`);
+      .replace(/<meta property="og:image" content="[^"]*">/, (tag) => (coinWorms.has(c.mint) ? `<meta property="og:image" content="${config.publicUrl}/spawn/worm/${c.mint}-og.png">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">` : tag));   // no worm yet: SPAWN's own
   }
   const json = (res, code, o) => { res.writeHead(code, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' }); res.end(JSON.stringify(o)); };
   const notFound = (res) => { res.writeHead(404, { 'Content-Type': MIME['.txt'] }); res.end('Not found'); };
@@ -731,10 +738,10 @@ export function createWormServer(overrides = {}) {
   // SPAWN's endpoints build transactions for people's own wallets; each has its own budget per address
   const spawnLimits = {
     quote: new RateLimiter({ ratePerSec: 0.5, burst: 12 }), swap: new RateLimiter({ ratePerSec: 0.2, burst: 6 }),
-    create: new RateLimiter({ ratePerSec: 6 / 3600, burst: 3 }), created: new RateLimiter({ ratePerSec: 0.3, burst: 6 }), claim: new RateLimiter({ ratePerSec: 0.2, burst: 4 }),
+    create: new RateLimiter({ ratePerSec: 1 / 120, burst: 6 }), created: new RateLimiter({ ratePerSec: 0.3, burst: 6 }), claim: new RateLimiter({ ratePerSec: 0.2, burst: 4 }),
     confirm: new RateLimiter({ ratePerSec: 1, burst: 40 }),
   };
-  const spawnCreateAll = new RateLimiter({ ratePerSec: 60 / 3600, burst: 10 });   // pictures are uploaded before anyone signs
+  const spawnCreateAll = new RateLimiter({ ratePerSec: 60 / 3600, burst: 10 });   // picked pictures are uploaded before anyone signs: a budget for the site
   function readJson(req, limit) {
     return new Promise((resolve, reject) => {
       let size = 0; const chunks = [];
@@ -747,12 +754,12 @@ export function createWormServer(overrides = {}) {
     const act = p.slice('/spawn/'.length), lim = spawnLimits[act];
     if (!lim) return json(res, 404, { error: 'not found' });
     if (config.allowedOrigins.length && req.headers.origin && !config.allowedOrigins.includes(req.headers.origin)) return json(res, 403, { error: 'Wrong origin.' });
-    if (!lim.take(clientIp(req)) || (act === 'create' && !spawnCreateAll.take('all'))) return json(res, 429, { error: 'Slow down a little and try again.' });
+    if (!lim.take(clientIp(req))) return json(res, 429, { error: 'Slow down a little and try again.' });
     readJson(req, act === 'create' ? 2_600_000 : 4096).then((b) => {
       if (!b || typeof b !== 'object') throw new Error('Bad request.');
       if (act === 'quote') return spawn.quote(b);
       if (act === 'swap') return spawn.swap(b);
-      if (act === 'create') return spawn.create(b);
+      if (act === 'create') return spawn.create(b, { canUpload: () => spawnCreateAll.take('all') });
       if (act === 'claim') return spawn.claimCreator(b);
       if (act === 'confirm') return spawn.confirm(b);
       return { ok: spawn.created(b) };
@@ -818,7 +825,7 @@ export function createWormServer(overrides = {}) {
       const m = /^\/c\/([1-9A-HJ-NP-Za-km-z]{32,44})$/.exec(p);
       if (!m) return notFound(res);
       const send = () => {
-        const c = spawn.publicState().coins.find((x) => x.mint === m[1]);
+        const c = spawn.publicState().coins.find((x) => x.mint === m[1]) || spawn.pending(m[1]);
         if (!c) { res.writeHead(302, { Location: '/spawn' }); return res.end(); }
         const html = coinPage(c);
         if (!html) return notFound(res);
@@ -856,13 +863,8 @@ export function createWormServer(overrides = {}) {
     if (p.startsWith('/spawn/hatch/')) {   // what a fresh worm makes of a ticker: the spawn form's preview
       const m = /^\/spawn\/hatch\/([A-Z0-9]{1,10})\.(json|png)$/.exec(p);
       if (!m) return notFound(res);
-      let h = hatched.get(m[1]);
-      if (!h) {
-        if (!hatchLimiter.take(clientIp(req))) { res.writeHead(429, { 'Retry-After': '2', 'Content-Type': MIME['.txt'] }); return res.end('Too many requests'); }
-        h = previewHatch({ D, render, ticker: m[1] });
-        hatched.set(m[1], h);
-        if (hatched.size > 300) hatched.delete(hatched.keys().next().value);
-      }
+      if (!hatched.has(m[1]) && !hatchLimiter.take(clientIp(req))) { res.writeHead(429, { 'Retry-After': '2', 'Content-Type': MIME['.txt'] }); return res.end('Too many requests'); }
+      const h = hatchPreview(m[1]);
       if (m[2] === 'json') return json(res, 200, { ticker: m[1], peak: h.peak });
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400', 'Content-Length': h.png.length });
       return res.end(req.method === 'HEAD' ? undefined : h.png);
