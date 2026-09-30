@@ -23,7 +23,8 @@ const launchForm = mountLaunchForm($('spawnform'), { onLaunched: () => setTimeou
 let data = null, sort = 'new', linked = new URLSearchParams(location.search).get('coin') || (/^\/c\/([1-9A-HJ-NP-Za-km-z]{32,44})$/.exec(location.pathname) || [])[1];
 async function load() {
   try { data = await api('/spawn.json'); render(); } catch (e) { $('spstate').hidden = false; $('spstate').textContent = 'Could not reach the launchpad. Retrying…'; return; }
-  // /spawn?coin=<mint> opens that coin's trade window
+  // an old /spawn?coin=<mint> link goes to the coin's own page
+  if (linked && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(linked) && !location.pathname.startsWith('/c/')) { location.replace(`/c/${linked}`); return; }
   const c = linked && data.coins.find((x) => x.mint === linked);
   if (c) { linked = null; openTrade(c); }
 }
