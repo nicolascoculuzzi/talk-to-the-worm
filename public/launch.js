@@ -14,7 +14,7 @@ const log = (line) => { const p = $('lplog'); p.textContent = (p.textContent + '
 const fmtTime = (ts) => new Date(ts).toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
 
 /* ---------- public status ---------- */
-let launchedMint = '';   // $BRAINWORM's mint, once its launch has confirmed
+let launchedMint = '';   // $WORM's mint, once its launch has confirmed
 async function refresh() {
   const s = await fetch('/launch/status.json', { cache: 'no-store' }).then((r) => r.json()).catch(() => null);
   if (!s) return;
@@ -40,7 +40,7 @@ async function refresh() {
   }
   const was = launchedMint;
   launchedMint = s.launched?.mint || '';
-  if (launchedMint && launchedMint !== was && !$('lpcontrols').hidden) { spawnView(); loadPrice(); }   // it just launched: SPAWN's side of it
+  if (launchedMint && launchedMint !== was && !$('lpcontrols').hidden) { spawnView(); }   // it just launched: SPAWN's side of it
   todo();
 }
 refresh(); setInterval(refresh, 5000);
@@ -61,7 +61,7 @@ async function unlock() {
   if (!r.ok) { lock(); log('That token is not right.'); return; }
   sessionStorage.setItem('wormAdminToken', token);
   $('lplock').hidden = true; $('lpcontrols').hidden = false;
-  spawnView(); loadPrice();
+  spawnView();
 }
 $('lplock').addEventListener('submit', (e) => { e.preventDefault(); token = $('lptoken').value.trim(); unlock(); });
 if (token) unlock();
@@ -69,7 +69,7 @@ const act = (btn, fn) => $(btn).addEventListener('click', async () => {
   $(btn).disabled = true;
   try { await fn(); } catch (e) { log('✗ ' + e.message); } finally { $(btn).disabled = false; refresh(); }
 });
-act('lparm', async () => { await admin('arm'); log('Armed. The first time a touch makes it stop swimming from now is the moment.'); });
+act('lparm', async () => { await admin('arm'); log('Armed. Now tap the worm\'s head on the main page (the top of its body) until its cilia stop: the first touch that does is the moment.'); });
 act('lpdisarm', async () => { await admin('disarm'); log('Disarmed.'); });
 act('lpmeta', async () => {
   if (!confirm('Upload the moment image and metadata to pump.fun\'s IPFS? This publishes them.')) return;
@@ -85,6 +85,10 @@ act('lpprep', async () => {
   const amountSol = String(Math.max(0, Number($('lpbuy').value) || 0));
   const j = await admin('prepare', { creator: connected().address, amountSol });
   prepared = j;
+  const ca = $('lpca'), b = el('b');
+  b.append(...breakable(j.mint));
+  ca.replaceChildren('Its address (CA) will be ', b, '. Sign within a minute: after that the transaction expires, and preparing again gives a new address.');
+  ca.hidden = false;
   log(`Prepared. Mint ${j.mint}`);
   log(`Fee payer ${j.summary.feePayer} · signers ${j.summary.signers.join(', ')}`);
   log(`Programs ${j.summary.programIds.join(', ')}`);
@@ -93,102 +97,59 @@ act('lpprep', async () => {
 });
 act('lpsign', async () => {
   if (!prepared || !connected()) throw new Error('Prepare the transaction first.');
-  if (!confirm(`Launch $BRAINWORM now? Your wallet will show the transaction and its cost. This cannot be undone.\n\nMint: ${prepared.mint}`)) return;
+  if (!confirm(`Launch $WORM now? Your wallet will show the transaction and its cost. This cannot be undone.\n\nMint: ${prepared.mint}`)) return;
   const signature = await signAndSend(prepared.tx);
   log('Sent: ' + signature);
   $('lpsign').disabled = true;
   for (let k = 0; k < 20; k++) {
     await sleep(3000);
     const c = await admin('confirm', { signature }).catch((e) => ({ ok: false, error: e.message }));
-    if (c.ok) { log('✓ Launched. Trades now reach the worm.'); return; }
+    if (c.ok) { log('✓ Launched. Trades now reach the worm.'); $('lpca').hidden = true; return; }
     log('Waiting for confirmation…');
   }
-  log('Not confirmed yet. Check the transaction on Solscan, then press Sign again only if it failed.');
+  log('Not confirmed yet. The server keeps watching the chain and records the launch as soon as it lands. Check it on Solscan; prepare again only if it failed.');
 });
 
-/* ---------- SPAWN: the launchpad's configs, claim and burn, and the buyback ---------- */
-// Until $BRAINWORM exists, coins are priced in SOL: a config's market caps are in SOL. After, a config priced in
-// $BRAINWORM takes over for new coins; its market caps are set in SOL and converted at today's price. The server
-// builds each config transaction with the config's fresh key signed in; the owner's wallet pays its rent (about
-// 0.008 SOL), signs and sends it. Fees in $BRAINWORM are claimed and burned in the same transactions. Fees in SOL wait
-// in their pools until $BRAINWORM exists; then they are claimed, swapped for $BRAINWORM, and exactly what that bought is burned.
-const SOL_MINT = 'So11111111111111111111111111111111111111112';
-let spPrice = null, spState = null, siteMint = '';
+/* ---------- SPAWN: its rewards wallet, collecting the creator rewards, and the $WORM buyback and burn ---------- */
+// Every coin launched on SPAWN is a pump.fun coin that names SPAWN's rewards wallet as its creator, so every coin's
+// creator rewards collect in that wallet's pump.fun vaults. The owner collects them (one transaction); 64% of all that
+// was collected buys $WORM (one transaction, on its curve or through Jupiter), and exactly what that bought is burned
+// (one more). The other 36% stays in the wallet. The server builds each transaction; the owner's wallet signs and sends.
+let spState = null, siteMint = '';
+const sol = (x) => Number(x || 0).toLocaleString('en-US', { maximumFractionDigits: 4 });
 async function spawnView() {
   const r = await fetch('/admin/state', { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
   if (!r || !r.ok) return;
   const a = await r.json(), st = spState = a.spawn;
-  siteMint = a.trades?.mint || '';   // what the site itself knows: TOKEN_MINT, or the launch record while the disk lasts
+  siteMint = a.trades?.mint || '';   // what the site itself knows: TOKEN_MINT, or the launch record
   todo();
-  const cur = st.configs.find((c) => c.address === st.current), inRoot = (c) => c.quoteMint && c.quoteMint !== SOL_MINT;
-  const parts = [];
-  if (!cur) parts.push('No config yet. Make one priced in SOL and SPAWN opens: coins can be launched from then on.');
-  else parts.push(`${st.open ? 'Open' : 'Not open yet'}. New coins go on ${cur.address}, priced in ${inRoot(cur) ? '$BRAINWORM' : 'SOL'}, graduating at ${compact(cur.graduationQuote)} ${inRoot(cur) ? '$BRAINWORM' : 'SOL'} (${st.configs.length} config${st.configs.length > 1 ? 's' : ''} in all).`);
-  if (!st.hosting) parts.push('Picked pictures need PINATA_JWT on the server; until then every coin gets its worm\'s first sight.');
-  if (!st.owner) parts.push('Set SPAWN_OWNER on the server to the owner wallet\'s address: SPAWN then finds its configs on the chain after every deploy.');
-  parts.push(`${compact(st.burned)} $BRAINWORM burned so far, ${compact(st.waiting)} $BRAINWORM and ${compact(st.waitingSol)} SOL waiting.`);
-  if (st.stuck?.length) parts.push(`Waiting over 10 minutes to graduate: ${st.stuck.map((x) => '$' + (x.symbol || x.mint.slice(0, 4))).join(', ')}. Meteora's migrator usually does it; migrator.meteora.ag can do it by hand.`);
+  const w = st.rewards || {}, v = st.vaults || {};
+  const parts = [st.open ? 'Open.' : 'Not open yet.'];
+  parts.push(st.owner ? `Rewards wallet: ${st.owner}${st.ownerFromEnv ? ' (set by SPAWN_OWNER)' : ''}.` : 'No rewards wallet yet: connect the one that will collect SPAWN\'s creator rewards (not the one that launches $WORM) and press "Use this wallet for SPAWN".');
+  parts.push(`${st.coins} coin${st.coins === 1 ? '' : 's'}.`);
+  parts.push(`Creator rewards: ${sol((v.curve || 0) + (v.amm || 0))} SOL waiting in SPAWN's vaults, ${sol(w.collected)} SOL collected, ${sol(w.spent)} SOL spent on $WORM, ${sol(w.owed)} SOL owed to the buyback. ${compact(st.burned)} $WORM burned.`);
   $('spstatus').textContent = parts.join(' ');
+  $('spowner').hidden = !!st.ownerFromEnv;
 }
-// What the owner still has to do once $BRAINWORM exists: set TOKEN_MINT (without a disk a deploy forgets the launch
-// record; after one that already has, SPAWN may have found the mint in the owner's configs on chain), and make SPAWN's
-// config priced in it. Shown to the owner only.
+// What the owner still has to do: set TOKEN_MINT once $WORM exists (a second record of the launch), and give SPAWN its
+// rewards wallet. Shown to the owner only.
 const breakable = (s) => s.match(/.{1,22}/g).flatMap((x, i) => (i ? [el('wbr'), x] : [x]));   // an address can wrap on a phone
 function todo() {
-  const owner = !$('lpcontrols').hidden, mint = launchedMint || (!siteMint && spState?.foundRoot) || '', root = mint || siteMint;
-  const setMint = () => { const b = el('b'); b.append('TOKEN_MINT=', ...breakable(mint)); return ['Set ', b, ' in Railway\'s variables now: without a disk, a deploy forgets the launch.']; };
-  $('lpmint').hidden = !(owner && mint);
+  const owner = !$('lpcontrols').hidden, mint = launchedMint || '';
+  const setMint = () => { const b = el('b'); b.append('TOKEN_MINT=', ...breakable(mint)); return ['Set ', b, ' in Railway\'s variables too: a second record of the launch, in case the server\'s disk is ever lost.']; };
+  $('lpmint').hidden = !(owner && mint && mint !== siteMint);
   if (!$('lpmint').hidden) $('lpmint').replaceChildren(...setMint());
-  const lines = [...(mint ? [setMint()] : []), ...(root && spState?.configs.every((c) => c.quoteMint === SOL_MINT) ? [['Make SPAWN\'s $BRAINWORM config below: new coins will be priced in it.']] : [])];
+  const lines = [...(spState && !spState.owner ? [['Give SPAWN its rewards wallet below: coins can be launched from then on.']] : [])];
   $('sptodo').hidden = !(owner && lines.length);
   $('sptodo').replaceChildren(...lines.flatMap((l, i) => (i ? [el('br'), ...l] : l)));
 }
-// What buyers put in before a coin graduates, in SOL (its constant-product curve between the two caps), and priced in
-// $BRAINWORM, that as a share of all of it (1,000,000,000) at today's price, in %.
-const raisedSol = (start, grad) => { const r = Math.sqrt(start / grad); return grad * r / (1 + r); };
-const rootShare = (start, grad) => raisedSol(start, grad) / spPrice.rootSol / 1e7;
-function calc() {
-  const start = Number($('spstart').value), grad = Number($('spgrad').value), root = $('spquote').value === 'root';
-  const usd = (x) => (spPrice?.solUsd ? ` ≈ $${compact(x * spPrice.solUsd)}` : '');
-  if (!(start > 0 && grad > start)) { $('spcalc').textContent = 'The graduation market cap has to be above the starting one.'; return null; }
-  const raised = raisedSol(start, grad);
-  if (!root) {
-    $('spcalc').textContent = `Coins start at ${compact(start)} SOL${usd(start)} and graduate at ${compact(grad)} SOL${usd(grad)}, once buyers have put in ${raised.toFixed(1)} SOL.`;
-    return { startMcap: start, graduationMcap: grad };
-  }
-  if (!spPrice?.rootSol) { $('spcalc').textContent = spPrice?.root ? '$BRAINWORM has no price yet. Try again in a minute.' : '$BRAINWORM has no price yet (it has to launch first).'; return null; }
-  const startMcap = start / spPrice.rootSol, graduationMcap = grad / spPrice.rootSol, share = rootShare(start, grad);
-  const text = `At today's price that is ${compact(startMcap)} → ${compact(graduationMcap)} $BRAINWORM. A coin graduates once buyers have put in ${compact(raised / spPrice.rootSol)} $BRAINWORM (≈ ${raised.toFixed(1)} SOL, ${share.toFixed(2)}% of all $BRAINWORM).`;
-  // right after its launch $BRAINWORM is cheap: caps set in SOL can take more of it than there is, and no coin could graduate
-  $('spcalc').textContent = share <= 10 ? text : `${text} Too big for today's price: a coin would need ${share.toFixed(share < 100 ? 1 : 0)}% of all $BRAINWORM to graduate. Keep new coins in SOL until $BRAINWORM's market cap is higher (about ${compact(Math.ceil(raised * 10 / 50) * 50)} SOL for these caps), or lower the caps.`;
-  return share > 25 ? null : { startMcap, graduationMcap };
-}
-for (const id of ['spstart', 'spgrad', 'spquote']) $(id).addEventListener('input', calc);
-async function loadPrice() {
-  try { spPrice = (await admin('price', {}, 'spawn')).price; } catch { spPrice = null; }
-  $('spquote').querySelector('[value="root"]').disabled = !spPrice?.root;
-  // it picks $BRAINWORM by itself only when a graduation would take at most 10% of all of it at these caps
-  const start = Number($('spstart').value), grad = Number($('spgrad').value);
-  if (spPrice?.root && !$('spquote').dataset.touched) $('spquote').value = spPrice.rootSol && start > 0 && grad > start && rootShare(start, grad) <= 10 ? 'root' : 'sol';
-  calc();
-}
-$('spquote').addEventListener('change', () => { $('spquote').dataset.touched = '1'; });
-act('spcfg', async () => {
-  if (!connected()) throw new Error('Connect the owner wallet first: it pays for the config and claims its fees.');
-  await loadPrice();
-  const m = calc(), quote = $('spquote').value;
-  if (!m) throw new Error('Check the market caps.');
-  const j = await admin('config', { partner: connected().address, startMcap: String(m.startMcap), graduationMcap: String(m.graduationMcap), quote }, 'spawn');
-  log(`Config ${j.address}, priced in ${j.quote}: coins graduate at ${compact(j.curve.graduationQuote)} ${j.quote}.`);
-  if (!confirm(`Create SPAWN's config ${j.address}, priced in ${j.quote}?\n\nNew coins will use it; it can't be changed afterwards (you can make a newer one). Your wallet pays its rent, about 0.008 SOL.`)) return;
-  const signature = await signAndSend(j.tx);
-  log('Sent: ' + signature);
-  for (let k = 0; k < 20; k++) {
-    await sleep(3000);
-    const c = await admin('confirm', { signature }, 'spawn').catch((e) => ({ ok: false, error: e.message }));
-    if (c.ok) { log(`✓ SPAWN is open with this config. Set SPAWN_OWNER=${connected().address} on the server if it isn't set.`); spawnView(); return; }
-  }
-  log('Not confirmed yet. Check it on Solscan.');
+act('spowner', async () => {
+  if (!connected()) throw new Error('Connect the wallet that will collect SPAWN\'s creator rewards first.');
+  const me = connected().address;
+  if (!confirm(`Use ${me} as SPAWN's rewards wallet?\n\nEvery coin launched on SPAWN from now on names it as its pump.fun creator, so their creator rewards go to it. Use a different wallet from the one that launches $WORM.`)) return;
+  await admin('owner', { wallet: me }, 'spawn');
+  log(`✓ SPAWN's rewards wallet is ${me}. SPAWN is open. To keep it across deploys even without the disk, set SPAWN_OWNER=${me} in Railway.`);
+  spawnView();
 });
 // has a transaction landed? (the public endpoint the trade window uses)
 async function landed(signature) {
@@ -208,57 +169,32 @@ async function recordBurn(signature) {
   }
   log(`Not confirmed yet: ${signature}. Check it on Solscan.`);
 }
-act('spclaim', async () => {
-  if (!connected()) throw new Error('Connect the fee claimer wallet first.');
+act('spcollect', async () => {
+  if (!connected()) throw new Error('Connect SPAWN\'s rewards wallet first.');
   const me = connected().address;
-  // fees on the curves, claimed and burned in the same transactions; then the graduated pools' fees, claimed, then burned
-  const { txs } = await admin('claim', { feeClaimer: me }, 'spawn');
-  const { txs: grad } = await admin('claim-graduated', { feeClaimer: me }, 'spawn');
-  if (!txs.length && !grad.length) { log('Nothing waiting to burn (at least 1 $BRAINWORM per coin on the curves, and no graduated coins priced in $BRAINWORM).'); return; }
-  const total = txs.reduce((n, t) => n + t.burn, 0), coins = txs.reduce((n, t) => n + t.pools.length, 0), gcoins = grad.reduce((n, t) => n + t.coins.length, 0);
-  const what = [txs.length ? `${compact(total)} $BRAINWORM from ${coins} coin${coins > 1 ? 's' : ''} on their curves` : '', grad.length ? `your share of the fees in ${gcoins} graduated coin${gcoins > 1 ? 's\'' : '\'s'} pool${gcoins > 1 ? 's' : ''} (burned as soon as each claim lands)` : ''].filter(Boolean).join(', and ');
-  if (!confirm(`Claim and burn ${what}? Your wallet signs ${txs.length + 2 * grad.length} transaction${txs.length + 2 * grad.length > 1 ? 's' : ''}.`)) return;
-  for (const t of txs) {
-    const signature = await signAndSend(t.tx);
-    log(`Sent: ${signature} (burns ${compact(t.burn)})`);
-    await recordBurn(signature);
+  const j = await admin('collect', { wallet: me }, 'spawn');
+  if (!confirm(`Collect about ${sol(j.sol)} SOL of creator rewards from SPAWN's vaults into ${me}? Your wallet signs one transaction.`)) return;
+  const signature = await signAndSend(j.tx);
+  log(`Sent: ${signature}`);
+  for (let k = 0; k < 20; k++) {
+    await sleep(3000);
+    const c = await admin('collected', { signature }, 'spawn').catch((e) => ({ ok: false, error: e.message }));
+    if (c.ok) { log(`✓ Collected${c.sol ? ` ${sol(c.sol)} SOL` : ''}.${c.owed ? ` ${sol(c.owed)} SOL is owed to the $WORM buyback.` : ''}`); spawnView(); return; }
   }
-  for (const t of grad) {
-    const claim = await signAndSend(t.tx);
-    log(`Claimed from ${t.coins.length} graduated pool${t.coins.length > 1 ? 's' : ''}: ${claim}`);
-    if (!(await landed(claim))) { log(`That claim has not landed; nothing was burned. When it has, burn it by running Claim and burn again after its $BRAINWORM arrives, or ask for a burn of ${claim}.`); continue; }
-    const b = await admin('burn-claimed', { signature: claim }, 'spawn');
-    if (!b.tx) { log('Nothing had built up to burn yet.'); continue; }
-    const bs = await signAndSend(b.tx);
-    log(`Burning ${b.burns.map((x) => compact(x.amount)).join(' + ')}: ${bs}`);
-    await recordBurn(bs);
-  }
-  spawnView();
+  log('Not confirmed yet. Check it on Solscan.');
 });
-// Fees in SOL: claimed into the fee claimer's wrapped SOL, then all of that swapped for $BRAINWORM, then exactly what
-// the swap bought burned. A claim that already landed is picked up by the buyback even if the page was closed in between.
+// 64% of everything collected buys $WORM; then exactly what that bought is burned
 act('spbuyback', async () => {
-  if (!connected()) throw new Error('Connect the fee claimer wallet first.');
+  if (!connected()) throw new Error('Connect SPAWN\'s rewards wallet first.');
   const me = connected().address;
-  const { txs } = await admin('claim-sol', { feeClaimer: me }, 'spawn');
-  const claimed = txs.reduce((n, t) => n + (t.claim || 0), 0);
-  if (txs.length) {
-    if (!confirm(`Claim ${claimed ? compact(claimed) + ' SOL of fees from the curves' : 'the SOL fees'}${txs.some((t) => t.coins) ? ' and graduated pools' : ''}? Your wallet signs ${txs.length} transaction${txs.length > 1 ? 's' : ''}; the SOL stays wrapped for the buyback.`)) return;
-    for (const t of txs) {
-      const sig = await signAndSend(t.tx);
-      log(`Claimed: ${sig}`);
-      if (!(await landed(sig))) { log('That claim has not landed. Run this again once it has.'); return; }
-    }
-  }
-  const bb = await admin('buyback', { feeClaimer: me }, 'spawn');
-  if (!confirm(`Swap all ${bb.sol} SOL of claimed fees for about ${compact(bb.root)} $BRAINWORM (at least ${compact(bb.min)}) through Jupiter, then burn exactly what it bought?`)) return;
+  const bb = await admin('buyback', { wallet: me }, 'spawn');
+  if (!confirm(`Spend ${sol(bb.sol)} SOL (64% of the creator rewards collected, less earlier buybacks) on about ${compact(bb.worm)} $WORM (at least ${compact(bb.min)}), then burn all of it? Your wallet signs two transactions.`)) return;
   const swap = await signAndSend(bb.tx);
   log(`Bought: ${swap}`);
-  if (!(await landed(swap))) { log('The swap has not landed or failed; nothing was burned. Run this again.'); return; }
-  const b = await admin('burn-claimed', { signature: swap, buyback: '1' }, 'spawn');
-  if (!b.tx) { log('The swap brought no $BRAINWORM to burn.'); return; }
+  if (!(await landed(swap))) { log('The buy has not landed or failed; nothing was burned. Run this again.'); return; }
+  const b = await admin('burn-bought', { signature: swap }, 'spawn');
   const bs = await signAndSend(b.tx);
-  log(`Burning ${b.burns.map((x) => compact(x.amount)).join(' + ')} $BRAINWORM: ${bs}`);
+  log(`Burning ${compact(b.amount)} $WORM: ${bs}`);
   await recordBurn(bs);
   spawnView();
 });

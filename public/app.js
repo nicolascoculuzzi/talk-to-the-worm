@@ -974,11 +974,11 @@ async function loadSpawn() {
   if (!j) return;
   spawnData = j;
   launchForm.update(j);
-  for (const id of ['spawnpill', 'spawnopen']) { const p = $(id); p.textContent = j.open ? (j.quote === 'SOL' ? 'Open · priced in SOL' : 'Open') : 'Opening soon'; p.classList.toggle('live', !!j.open); }
-  const r = j.root || {}, inSol = !r.mint || j.quote === 'SOL';
+  for (const id of ['spawnpill', 'spawnopen']) { const p = $(id); p.textContent = j.open ? 'Open · on pump.fun' : 'Opening soon'; p.classList.toggle('live', !!j.open); }
+  const r = j.root || {};
   $('lccoins').textContent = compact(j.coins?.length || 0);
-  $('lcwaitk').textContent = inSol ? 'Buyback SOL' : 'Burned';
-  $('lcwait').textContent = inSol ? compact(r.waitingSol || 0) : compact(r.burned || 0);
+  $('lcwaitk').textContent = r.burned ? '$WORM burned' : 'Rewards SOL';
+  $('lcwait').textContent = r.burned ? compact(r.burned) : compact((j.rewards?.waiting || 0) + (j.rewards?.collected || 0));
   $('lcpokes').textContent = compact(j.pokesToday || 0);
   renderHomeCoins(j);
   showSpawnCoins(j);
@@ -993,9 +993,10 @@ function renderHomeCoins(j) {
   const all = [...(j.coins || [])].sort(HOME_SORTS[homeSort]), coins = all.slice(0, 12);
   $('homecoins').replaceChildren(...(coins.length ? coins.map((c) => coinCard(c)) : [el('p', 'empty', j.open ? 'No coins yet. Launch the first one: it takes a minute.' : 'Opening soon. The first coins will show up here.')]));
   $('homeall').textContent = all.length > coins.length ? `All ${all.length} coins →` : 'All coins →';
-  const f = j.fee, r = j.root || {};
-  if (!f) return;
-  const burned = r.burned ? `${compact(r.burned)} $BRAINWORM burned so far. ` : '', waiting = r.waitingSol ? `${compact(r.waitingSol)} SOL of fees waiting to buy $BRAINWORM${r.mint ? '' : ' when it launches'}.` : '';
+  const w = j.rewards, r = j.root || {};
+  if (!w) return;
+  const burned = r.burned ? `${compact(r.burned)} $WORM burned so far. ` : '', earned = w.waiting + w.collected;
+  const waiting = earned ? `${compact(earned)} SOL of creator rewards so far; ${Math.round(w.share * 100)}% of it buys $WORM${r.mint ? '' : ' once it launches'}, and all of that is burned.` : '';
   $('homefee').textContent = burned + waiting;
 }
 setInterval(() => { if (!document.hidden) loadSpawn(); }, 30_000);

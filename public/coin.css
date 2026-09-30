@@ -26,7 +26,9 @@ body.cpage{min-height:100vh;display:flex;flex-direction:column;
 .cpsub #name{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .cpwhen{flex:none;color:var(--faint)}
 .cpwhen:not(:empty)::before{content:"·";margin-right:8px}
-.cpmeta{margin:8px 0 0;display:flex}
+.cpmeta{margin:8px 0 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cppump{font:500 11px/1 var(--mono);color:var(--mute);text-decoration:none;padding:6px 10px;border:1px solid var(--rule2);border-radius:999px;background:rgba(2,4,6,.55);transition:color .15s ease,border-color .15s ease}
+@media (hover:hover) and (pointer:fine){.cppump:hover{color:var(--bright);border-color:rgba(255,184,77,.5)}}
 .cpca{display:inline-flex;align-items:center;gap:7px;max-width:100%;padding:6px 10px 6px 9px;font:500 11px/1 var(--mono);color:var(--mute);background:rgba(2,4,6,.55);border:1px solid var(--rule2);border-radius:999px;
   transition:color .15s ease,border-color .15s ease,transform .16s var(--ease-out)}
 .cpca .k{color:var(--faint);letter-spacing:.12em}

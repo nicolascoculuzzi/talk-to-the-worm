@@ -79,15 +79,14 @@
 
       <section class="dsec" id="spawn" aria-labelledby="spawn-h">
         <h2 id="spawn-h">What SPAWN is</h2>
-        <p>The launchpad at <a href="/spawn">/spawn</a>, on Meteora's Dynamic Bonding Curve. New coins are priced in SOL until $BRAINWORM launches, then in $BRAINWORM.</p>
-        <div class="dfee" role="img" aria-label="Where each trade's 1% fee goes: 64% to $BRAINWORM's burn, 16% to the coin's creator, 20% to Meteora">
-          <div class="dfeebar"><i class="burn"></i><i class="creator"></i><i class="meteora"></i></div>
-          <ul class="feekey" aria-hidden="true"><li><i class="burn"></i>$BRAINWORM's burn <b>64%</b></li><li><i class="creator"></i>The coin's creator <b>16%</b></li><li><i class="meteora"></i>Meteora <b>20%</b></li></ul>
+        <p>The launchpad at <a href="/spawn">/spawn</a>. Every coin launched there is a pump.fun coin: it trades on pump.fun's bonding curve and moves to PumpSwap when the curve sells out. Every coin names SPAWN's rewards wallet as its pump.fun creator.</p>
+        <div class="dfee" role="img" aria-label="Where SPAWN's creator rewards go: 64% buys $WORM, all of it burned; 36% stays with the team">
+          <ul class="feekey" aria-hidden="true"><li><i class="burn"></i>Buys $WORM, all of it burned <b>64%</b></li><li><i class="creator"></i>Stays with the team <b>36%</b></li></ul>
         </div>
         <ul class="plain">
-          <li><b>1% fee on every trade.</b> Meteora keeps 20%, the coin's creator gets 20% of the rest, and the rest goes to $BRAINWORM's burn.</li>
+          <li><b>pump.fun's fees.</b> Currently 1.25% of each trade on the curve: 0.95% to pump.fun and 0.30% to the coin's creator. pump.fun sets them and can change them.</li>
+          <li><b>Creator rewards go to SPAWN.</b> SPAWN is every coin's creator, so its creator rewards, on the curve and on PumpSwap after graduation, go to SPAWN, not to the coin's launcher. 64% of them buy $WORM, and all of that $WORM is burned; 36% stays with the team.</li>
           <li><b>Every coin hatches its own worm.</b> A fresh copy of the same larva, whose first sight is the coin's ticker. It feels only that coin's trades, and any browser can rebuild it and check it. Each buy also pokes the live worm, at a spot picked from the coin's address.</li>
-          <li><b>Locked for good.</b> When a coin graduates to Meteora DAMM v2, its liquidity is locked for good.</li>
           <li><b>Your keys stay yours.</b> The server never holds anyone's keys: your wallet signs every transaction.</li>
         </ul>
       </section>
@@ -105,22 +104,17 @@
 
       <section class="dsec" id="programs" aria-labelledby="programs-h">
         <h2 id="programs-h">The programs it uses</h2>
-        <p>Solana programs that SPAWN's and $BRAINWORM's transactions call. They are programs, not coins.</p>
+        <p>Solana programs that SPAWN's and $WORM's transactions call. They are programs, not coins.</p>
         <div class="dprogs">
           <div class="dprog">
-            <h3>Meteora Dynamic Bonding Curve</h3>
-            <p>Every SPAWN coin's curve, until it graduates.</p>
-            <div class="daddr"><code>dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN</code><span class="dbtns"><button type="button" class="btn-ghost" data-copy="dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN">Copy</button><a class="btn-ghost" href="https://solscan.io/account/dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN" target="_blank" rel="noopener">Solscan</a></span></div>
-          </div>
-          <div class="dprog">
-            <h3>Meteora DAMM v2</h3>
-            <p>Where a coin trades once it graduates, with its liquidity locked.</p>
-            <div class="daddr"><code>cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG</code><span class="dbtns"><button type="button" class="btn-ghost" data-copy="cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG">Copy</button><a class="btn-ghost" href="https://solscan.io/account/cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG" target="_blank" rel="noopener">Solscan</a></span></div>
-          </div>
-          <div class="dprog">
             <h3>pump.fun</h3>
-            <p>Where $BRAINWORM launches and trades.</p>
+            <p>Where $WORM and every SPAWN coin are created, and where they trade on their bonding curves until they graduate.</p>
             <div class="daddr"><code>6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P</code><span class="dbtns"><button type="button" class="btn-ghost" data-copy="6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P">Copy</button><a class="btn-ghost" href="https://solscan.io/account/6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P" target="_blank" rel="noopener">Solscan</a></span></div>
+          </div>
+          <div class="dprog">
+            <h3>PumpSwap</h3>
+            <p>pump.fun's own exchange, where a coin trades once it graduates.</p>
+            <div class="daddr"><code>pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA</code><span class="dbtns"><button type="button" class="btn-ghost" data-copy="pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA">Copy</button><a class="btn-ghost" href="https://solscan.io/account/pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA" target="_blank" rel="noopener">Solscan</a></span></div>
           </div>
         </div>
       </section>
@@ -128,7 +122,7 @@
       <section class="dsec" id="endpoints" aria-labelledby="endpoints-h">
         <h2 id="endpoints-h">Public endpoints</h2>
         <dl class="dends">
-          <div><dt><a href="/spawn.json">/spawn.json</a></dt><dd>SPAWN's coins, their worms, the fee split and the burns so far.</dd></div>
+          <div><dt><a href="/spawn.json">/spawn.json</a></dt><dd>SPAWN's coins, their worms, the creator rewards and the burns so far.</dd></div>
           <div><dt><code>/spawn/worm/&lt;mint&gt;.json</code></dt><dd>One coin's own worm: its ticker, every trade in order, its state hash.</dd></div>
           <div><dt><a href="/config.json">/config.json</a></dt><dd>The model's parameters, the data's SHA-256s, the tug's calibration and what is switched on.</dd></div>
           <div><dt><a href="/manifest.json">/manifest.json</a></dt><dd>Every number the model uses, measured or chosen.</dd></div>
@@ -166,7 +160,7 @@
 
     <footer class="foot">
       <p>Data: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> <a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">eLife (2025)</a> · <a href="https://github.com/JekelyLab/Platynereis_3D_connectome_2024" target="_blank" rel="noopener">data</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Changed: positions derived, data re-encoded, simulation and body added. Not affiliated with the authors.</p>
-      <p>Coins on SPAWN are made by their creators, not by BRAINWORM, and can lose all their value. Nothing here is investment advice.</p>
+      <p>Coins on SPAWN are launched by the people who make them, not by BRAINWORM, and can lose all their value. Nothing here is investment advice.</p>
     </footer>
   </main>
 </div>

@@ -26,7 +26,8 @@ Node 20 or newer.
 - **Proof:** live check badge, in-browser replay, the log as it's written, the hourly proof chain with Bitcoin timestamps, and a manifest of every number the model uses (measured or chosen).
 - **/stream** 16:9 layout for OBS, with an optional Twitch chat bridge (`!worm message`, `!poke`).
 - **/mod** phone-friendly moderation: pause chat or pokes, slow mode, hide, mute, announcements, blocklist.
-- **/launch** the $BRAINWORM launch (below).
+- **SPAWN, the launchpad** (the launch card on the main page, and `/spawn`): anyone can launch a pump.fun coin there, on pump.fun's bonding curve, with pump.fun's fees and its graduation to PumpSwap when the curve sells out. Launching is free apart from about 0.02 SOL of rent for the coin's accounts and an optional first buy in the same transaction, which the launcher's own wallet signs and sends. Every coin names SPAWN's rewards wallet as its pump.fun creator, so its creator rewards (on the curve, and on PumpSwap after graduation) go to SPAWN, not to its launcher: 64% of everything SPAWN collects buys $WORM and all of that $WORM is burned, each purchase and burn a public transaction; the other 36% stays with the team. Every coin hatches its own worm, a fresh copy of the larva whose first sight is "$TICKER" and which then feels every trade of the coin (a buy touches its head end, a sell its tail end), rebuildable in any browser; every buy also pokes the live worm at the coin's own spot. Each coin has its page at `/c/<mint>` with its chart, buy and sell, its worm and a share link.
+- **/launch** the $WORM launch (below), and the owner's SPAWN controls.
 
 ## Deploy
 
@@ -36,7 +37,7 @@ Load test (2,000 simultaneous viewers with constant messages and pokes, one proc
 
 ## Settings
 
-All optional, as environment variables (see `.env.example`): `PORT`, `TRUST_PROXY`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `PUBLIC_URL`, `LOG_DIR`, `CHUNK_MINUTES`, `OTS`, `TOKEN_MINT`, `BIG_BUY_SOL`, `TRADES_PER_SEC`, `TX_URL`, `SOLANA_RPC`, `SOLANA_WS`, `PUMPPORTAL_API_KEY`, `PINATA_JWT`, `POW_BITS`, `SITE_TICKER`, `SITE_CONTRACT`, `SITE_CHAIN`, `SITE_LINKS`, `TWITCH_CHANNEL`, `TWITCH_PREFIX`, and the rate limits.
+All optional, as environment variables (see `.env.example`): `PORT`, `TRUST_PROXY`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `PUBLIC_URL`, `LOG_DIR`, `CHUNK_MINUTES`, `OTS`, `TOKEN_MINT`, `BIG_BUY_SOL`, `TRADES_PER_SEC`, `TX_URL`, `SOLANA_RPC`, `SOLANA_WS`, `PUMPPORTAL_API_KEY`, `PINATA_JWT`, `SPAWN_OWNER`, `SPAWN_LOCAL_META`, `JUPITER_API_KEY`, `POW_BITS`, `SITE_TICKER`, `SITE_CONTRACT`, `SITE_CHAIN`, `SITE_LINKS`, `TWITCH_CHANNEL`, `TWITCH_PREFIX`, and the rate limits.
 
 ## Checking it's real
 
@@ -45,13 +46,17 @@ All optional, as environment variables (see `.env.example`): `PORT`, `TRUST_PROX
 - **Proof chain:** each hour's log ends with the hash of the state it left; the next hour starts from that exact state. Each hour's proof file names the log's SHA-256 and the previous proof's SHA-256, and is timestamped via OpenTimestamps (`/proof.json`, `/proof/<file>.txt`, `.ots`).
 - **Open data:** `/manifest.json`, `/board.json`, `/proof.json`, `/log/index.json`, `/log/<file>` are public with open CORS.
 
-## $BRAINWORM launch (ready, not launched)
+## $WORM launch (ready, not launched)
 
-1. A mod arms the launch on `/launch`. The first full-body startle after that is the launch moment; the arming and the moment go into the log, and a replay confirms the moment was the first startle and matches the logged state hash.
+The project's own coin is named BRAINWORM, ticker $WORM, created on pump.fun.
+
+1. A mod arms the launch on `/launch`. The first time a touch makes the worm stop swimming after that (its cilia stop, outside its own stop-and-go rhythm) is the launch moment; the arming and the moment go into the log, and a replay confirms the moment was the first stop after arming and matches the logged state hash.
 2. The token image is rendered from the worm's exact activity at that step (`server/render.js`).
 3. On the owner's click, the image and metadata go to IPFS (through Pinata if `PINATA_JWT` is set, otherwise pump.fun's own uploader, which PumpPortal's docs now say is being retired).
 4. The server prepares the pump.fun create transaction (PumpPortal) with a fresh mint key signed in; the owner's wallet (Phantom, Solflare… via Wallet Standard) adds its signature and sends it. The server never holds the owner's key.
 5. When it confirms, the mint becomes the site's contract and trades reach the worm: buys poke the head end, sells the tail end, big buys flash light, each logged with its signature.
+
+$WORM's own pump.fun creator rewards stay with the team. Launch it from a different wallet than SPAWN's rewards wallet, so the two sets of creator rewards stay apart.
 
 ## Chat safety and bots
 

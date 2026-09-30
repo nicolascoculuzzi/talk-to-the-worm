@@ -24,7 +24,7 @@ export const config = {
   // Absolute site URL used in link previews. Defaults to the first allowed origin.
   publicUrl: (env.PUBLIC_URL || allowedOrigins[0] || '').replace(/\/+$/, ''),
 
-  // $BRAINWORM on Solana (pump.fun). Once the mint is known (set here, or by confirming the launch
+  // $WORM on Solana (pump.fun). Once the mint is known (set here, or by confirming the launch
   // on /launch), live trades reach the worm as logged stimuli.
   token: {
     mint: (env.TOKEN_MINT || '').trim(),

@@ -86,6 +86,6 @@ const peak = peakActivity(D);
 console.log(`peak: ${peak.n} cells firing at step ${peak.step}`);
 save('spawn-og.png', renderActivityPNG({
   D, act: peak.act, layout: 'og', badge: 'LAUNCHPAD', title: ['SPAWN'], titleColors: ['amber'],
-  lines: ['COINS PRICED IN $BRAINWORM.', 'EVERY BUY POKES THE WORM.'],
-  footnote: 'EVERY TRADE FEEDS THE $BRAINWORM BURN',
+  lines: ['EVERY COIN HATCHES ITS OWN WORM.', 'EVERY BUY POKES THE WORM.'],
+  footnote: 'CREATOR REWARDS BUY AND BURN $WORM',
 }));

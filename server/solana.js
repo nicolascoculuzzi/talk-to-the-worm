@@ -1,4 +1,4 @@
-// Solana plumbing for the $BRAINWORM launch: base58, Ed25519 keys, program-derived addresses, the
+// Solana plumbing for the $WORM launch: base58, Ed25519 keys, program-derived addresses, the
 // transaction wire format, partial signing, PumpPortal's create API, live trades (Solana RPC logs, free;
 // or PumpPortal's paid stream) and two RPC reads.
 // Nothing here sends a transaction or spends anything (only the metadata uploaders publish, to IPFS).

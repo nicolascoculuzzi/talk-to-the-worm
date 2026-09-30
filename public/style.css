@@ -561,6 +561,8 @@ body.lp{background:radial-gradient(ellipse at 70% -10%,#0E1C27,transparent 60%),
 .lpmoment img{width:100%;height:auto;border-radius:12px;border:1px solid var(--rule2);box-shadow:0 20px 70px rgba(0,0,0,.5)}
 .lpadmin{border:1px solid var(--rule2);border-radius:14px;padding:20px;background:rgba(7,12,18,.9);display:grid;gap:14px}
 .lprow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lpguide{margin:0 0 20px;padding-left:20px;display:grid;gap:8px;font-size:13.5px;line-height:1.55;color:var(--mute)}
+.lpguide b{color:var(--ink);font-weight:600}
 .lprow input[type=text]{flex:1 1 180px}
 .lprow label input{width:80px;margin-left:6px;flex:none}
 .lprow select{margin-left:6px;background:rgba(2,4,6,.7);border:1px solid var(--rule2);border-radius:9px;color:var(--bright);font:500 13px var(--mono);padding:8px 10px}

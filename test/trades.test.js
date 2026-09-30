@@ -42,7 +42,7 @@ test('token trades reach the worm as logged, replayable pokes and flashes', asyn
     await until((m) => m.t === 'state');
     const cfg = await (await fetch(`http://127.0.0.1:${port}/config.json`)).json();
     assert.equal(cfg.site.contract, MINT, 'the mint is the site contract');
-    assert.equal(cfg.site.ticker, '$BRAINWORM');
+    assert.equal(cfg.site.ticker, '$WORM');
     assert.ok(cfg.site.links.some((l) => l.url.includes('pump.fun/coin/' + MINT)));
 
     const buy = { signature: sig(), side: 'buy', sol: 2.5, tokens: 1000, trader: MINT, marketCapSol: 40, pool: 'pump', ts: Date.now() };

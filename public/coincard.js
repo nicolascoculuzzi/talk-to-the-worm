@@ -13,7 +13,7 @@ function tiny(n) {
 export const sol = (n) => (n >= 1 ? fmt(n, 2) : n >= 0.001 ? fmt(n, 4) : n > 0 ? tiny(n) : '0') + ' SOL';
 export const usd = (n) => (n > 0 ? '$' + (n >= 1 ? fmt(n, 2) : n >= 0.0001 ? fmt(n, 6) : tiny(n)) : '');
 export const coinPicture = (c) => c.image || (c.own ? `/spawn/worm/${c.mint}.png?t=${c.own.trades}` : '');
-export const stageText = (c) => (c.stage === 'graduating' ? 'Graduating to its Meteora pool…' : c.graduated ? 'Graduated · LP locked' : `${Math.round((c.progress || 0) * 100)}% to graduation`);
+export const stageText = (c) => (c.stage === 'graduating' ? 'Moving to PumpSwap…' : c.graduated ? 'Graduated · on PumpSwap' : `${Math.round((c.progress || 0) * 100)}% to graduation`);
 
 /** The card; its Buy button calls onBuy(c), or else the whole card links to the coin's own page. */
 export function coinCard(c, { onBuy = null, buyHref = null } = {}) {

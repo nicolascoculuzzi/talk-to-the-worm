@@ -86,7 +86,7 @@
     <section class="launchcard" id="launchcard" aria-labelledby="lch">
       <p class="lceyebrow">SPAWN · the BRAINWORM launchpad <span class="pill" id="spawnopen">Opening soon</span></p>
       <h2 class="lctitle" id="lch">Launch a coin.<span>It hatches its own worm.</span></h2>
-      <p class="lcsub">Every coin gets its own copy of a real worm larva's brain, simulated live. It feels every trade. <a href="#spawnhow">How?</a></p>
+      <p class="lcsub">Every coin gets its own copy of a real worm larva's brain, simulated live. It feels every trade. Creator rewards go to SPAWN, not to the launcher. <a href="#spawnhow">How?</a></p>
       <form id="launchform" class="lf lfcard" autocomplete="off" aria-labelledby="lch">
         <label class="lfpic" title="Upload your coin's picture, or keep its worm's first sight">
           <input type="file" data-lf="pic" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Upload your coin's picture (optional)">
@@ -103,7 +103,7 @@
       </form>
       <dl class="lcstats">
         <div><dt>Coins</dt><dd id="lccoins">0</dd></div>
-        <div><dt id="lcwaitk">Buyback SOL</dt><dd id="lcwait">0</dd></div>
+        <div><dt id="lcwaitk">Rewards SOL</dt><dd id="lcwait">0</dd></div>
         <div><dt>Pokes today</dt><dd id="lcpokes">0</dd></div>
       </dl>
       <p class="lcfoot"><a href="#coins">See every coin ↓</a><a href="#spawnhow">How it works</a></p>
@@ -192,13 +192,13 @@
         <span class="n">02</span>
         <figure class="ex"><img src="/spawn/hatch/YOURCOIN.png" alt="What a fresh worm makes of the ticker $YOURCOIN" width="120" height="120" loading="lazy"><figcaption>A coin called $YOURCOIN would hatch this</figcaption></figure>
         <h3>Every coin hatches its own</h3>
-        <p>Launch a coin and a fresh copy of that worm hatches for it. The first thing it sees is your ticker. After that it feels every trade on your coin's bonding curve, and nothing else: a buy touches its head, a sell its tail.</p>
+        <p>Launch a coin and a fresh copy of that worm hatches for it. The first thing it sees is your ticker. After that it feels every trade of your coin, and nothing else: a buy touches its head, a sell its tail.</p>
       </li>
       <li>
         <span class="n">03</span>
         <svg class="ic" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 42c-8 0-13-5-13-12 0-8 7-10 8-18 5 3 6 8 6 11 2-2 3-5 3-8 5 4 9 9 9 15 0 7-5 12-13 12z"/><path d="M24 42c-3 0-5-2-5-5 0-4 3-5 5-9 2 4 5 5 5 9 0 3-2 5-5 5z"/></svg>
-        <h3>Every trade feeds $BRAINWORM</h3>
-        <p>Coins trade on a Meteora bonding curve. Each trade pays 1%: a fifth to Meteora, a fifth of the rest to the coin's creator, and the rest goes to burning $BRAINWORM. Every buy also pokes the big worm above, live.</p>
+        <h3>Every trade feeds the $WORM burn</h3>
+        <p>Coins launch on pump.fun, and every SPAWN coin names SPAWN as its creator. So the creator rewards pump.fun pays on every trade go to SPAWN, not to the coin's launcher: 64% of them buy $WORM, and all of that $WORM is burned. Every buy also pokes the big worm above, live.</p>
       </li>
       <li>
         <span class="n">04</span>
@@ -234,14 +234,14 @@
     <p class="eyebrow">The tech, in plain words</p>
     <h2 class="display" id="techh">What's under the hood, and why it matters</h2>
     <p class="lede">The short version is below. The full story, from the study to the digital worm to the launchpad, is on <a href="/about">About</a>; every test is on <a href="/lab">Tests</a>; every line of code is on <a href="/docs">Docs</a>.</p>
-    <p class="flow" aria-label="What happens when someone buys a coin"><span class="hot">Someone buys a coin</span><i>→</i><span>its own worm feels a touch on its head</span><i>→</i><span>the big worm is poked at the coin's own spot</span><i>→</i><span>neurons fire, the body swims</span><i>→</i><span class="hot">1% fee: most of it burns $BRAINWORM</span></p>
+    <p class="flow" aria-label="What happens when someone buys a coin"><span class="hot">Someone buys a coin</span><i>→</i><span>its own worm feels a touch on its head</span><i>→</i><span>the big worm is poked at the coin's own spot</span><i>→</i><span>neurons fire, the body swims</span><i>→</i><span class="hot">the creator reward: 64% burns $WORM</span></p>
     <ol class="tech6">
       <li><span class="k">A real connectome</span><h3>A real nervous system.</h3><p>A connectome is a complete map of every nerve cell and every connection between them. Ours is the published whole-body map of a three-day-old <i>Platynereis</i> larva: 2,675 cells, 26,881 synapses. We run it as it was mapped; nothing is invented or trained.</p><p class="why"><b>Why it matters:</b> what you see it do comes from real wiring, not from a model someone tuned to look good.</p></li>
       <li><span class="k">One worm, live</span><h3>Everyone sees the same worm</h3><p>One simulation runs on the server, 30 steps a second, and streams to every visitor. Messages you type reach its eyes as light; pokes touch its touch sensors; a lamp in its tank closes the loop with its body.</p><p class="why"><b>Why it matters:</b> it is one shared, living thing, not a video or a random animation.</p></li>
       <li><span class="k">Checked by your browser</span><h3>Your browser re-runs it</h3><p>The simulation is exactly reproducible, so your browser runs its own copy and compares a fingerprint of its state with the server's every second. One wrong number anywhere and the check fails, in public.</p><p class="why"><b>Why it matters:</b> nobody, not even us, can fake what the worm does. <a href="#proof">See the live check</a></p></li>
       <li><span class="k">Sealed in Bitcoin</span><h3>Every hour, on the record</h3><p>Everything that happens to the worm is logged with its step. Each hour is sealed, chained to the last, and timestamped into Bitcoin. Anyone can replay any hour and get the same result.</p><p class="why"><b>Why it matters:</b> its history can't be edited after the fact. <a href="#proof">Replay an hour</a></p></li>
       <li><span class="k">Tests written first</span><h3>Science, not vibes</h3><p>Each question we ask the worm had its rule written down and timestamped before it ever ran, and runs on the real wiring and on 50 scrambled copies. Passes and failures are both published.</p><p class="why"><b>Why it matters:</b> results you can trust, including the ones that failed. <a href="/lab">See every test</a></p></li>
-      <li><span class="k">SPAWN, the launchpad</span><h3>Your coin, its own worm, your keys</h3><p>Coins launch on Meteora's audited bonding curve: fixed supply, nothing held back, liquidity locked for good at graduation. Every coin's worm can be rebuilt from its trades in any browser. Your wallet signs every transaction; the site never holds a key. All the code is published here.</p><p class="why"><b>Why it matters:</b> a launchpad you can check end to end. <a href="/docs">Read the code</a></p></li>
+      <li><span class="k">SPAWN, the launchpad</span><h3>Your coin, its own worm, your keys</h3><p>Coins launch on pump.fun: they trade on its bonding curve, pay its fees, and move to its own exchange, PumpSwap, once the curve sells out. Every coin's worm can be rebuilt from its trades in any browser. Your wallet signs every transaction; the site never holds a key. All the code is published here.</p><p class="why"><b>Why it matters:</b> a launchpad you can check end to end. <a href="/docs">Read the code</a></p></li>
     </ol>
   </section>
 
@@ -340,8 +340,8 @@
       </article>
       <article class="exp">
         <p class="exphead">The launch <span class="pill" id="launchpill">Not armed</span></p>
-        <h3>$BRAINWORM, from a logged moment</h3>
-        <p id="launchtext">Once armed, the first time a touch makes it stop swimming is the launch moment: logged, replayable, and drawn as the token's image. After launch, buys poke its head and sells its tail.</p>
+        <h3>$WORM, from a logged moment</h3>
+        <p id="launchtext">Once armed, the first time a touch makes it stop swimming is the launch moment: logged, replayable, and drawn as $WORM's image. After launch, buys poke its head and sells its tail.</p>
         <a class="more" href="/launch">launch status and proof →</a>
       </article>
       <article class="exp wide">
@@ -360,7 +360,7 @@
         <div class="expcol">
           <p class="exphead">SPAWN <span class="pill" id="spawnpill">Opening soon</span></p>
           <h3>A launchpad where every coin hatches its own worm</h3>
-          <p>Each coin on SPAWN hatches its own copy of this larva, which feels that coin's trades and nothing else, and anyone can rebuild it and check. Every buy also pokes this worm at the coin's own spot. Coins are priced in SOL for now and in $BRAINWORM later, and most of every fee goes to burning $BRAINWORM.</p>
+          <p>Each coin on SPAWN hatches its own copy of this larva, which feels that coin's trades and nothing else, and anyone can rebuild it and check. Every buy also pokes this worm at the coin's own spot. Coins are pump.fun coins that name SPAWN as their creator: 64% of the creator rewards SPAWN collects buy $WORM, and all of it is burned.</p>
           <p class="morelinks"><a class="more" href="#top" data-go="launch">launch a coin →</a> <a class="more" href="/spawn">open SPAWN →</a></p>
         </div>
         <figure class="spawnfig">
@@ -458,7 +458,7 @@
   <section class="section wide coin" id="coin" data-scene="proof" hidden>
     <div class="castrip"><div><p class="eyebrow">Contract address <span id="cointick"></span></p><code id="coinca"></code></div><button type="button" class="btn-ghost" id="copyca">Copy</button></div>
     <dl class="kv" id="cointable"></dl>
-    <p class="small">The only contract address on this site. Chat blocks all addresses and links, so any other is fake.</p>
+    <p class="small">$WORM's only contract address. Chat blocks all addresses and links, so any other address posted as $WORM is fake.</p>
   </section>
 
   <section class="section story" id="plainly" data-scene="plainly">
@@ -472,8 +472,8 @@
         <li><b>Some choices are ours.</b> The eye mapping, the light sensors' threshold, the poke cells, the swimming physics and the drawing.</li>
         <li><b>Positions are partly placed.</b> 1,199 cells at traced positions, 1,009 placed by segment and side, 467 fragments not drawn.</li>
         <li><b>The body is ours.</b> The glass outline, the swimming physics and the lamp are ours. Only the lamp feeds the body back into the brain.</li>
-        <li><b>Coins aren't the worm's.</b> A SPAWN coin's buys poke it at a spot we pick from the coin's address, and each coin's own worm is a copy fed only that coin's trades on its bonding curve (after a coin graduates to its Meteora pool, its worm stops feeling its trades). The worm knows nothing about coins or prices, and it doesn't pick winners.</li>
-        <li><b>Where the fees go.</b> Every trade on SPAWN pays 1%. Meteora keeps a fifth, the coin's creator gets a fifth of the rest, and the rest goes to $BRAINWORM: burned when the coin is priced in it, and for coins priced in SOL, kept in their pools until $BRAINWORM launches, then used to buy it, and what that buys is burned. Every claim and burn is a public transaction.</li>
+        <li><b>Coins aren't the worm's.</b> A SPAWN coin's buys poke it at a spot we pick from the coin's address, and each coin's own worm is a copy fed only that coin's trades. The worm knows nothing about coins or prices, and it doesn't pick winners.</li>
+        <li><b>Where the rewards go.</b> SPAWN coins are pump.fun coins and pay pump.fun's fees: currently 1.25% of each trade on the curve, 0.95% to pump.fun and 0.30% to the coin's creator. SPAWN is named as every coin's creator, so those creator rewards, and pump.fun's creator share on PumpSwap after graduation, go to SPAWN, not to the coin's launcher. 64% of them buy $WORM, and all of that $WORM is burned; the other 36% stays with the team, and so do $WORM's own creator rewards. Every purchase and burn is a public transaction. Coins can lose all their value, and nothing here is investment advice.</li>
       </ul>
     </div>
   </section>

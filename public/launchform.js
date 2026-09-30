@@ -160,7 +160,7 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
       ph.lastChild.textContent = state.pictures ? 'Upload' : 'Its worm';
       if (!state.pictures && custom) custom = null;
       showPic();
-      unit.textContent = state.quote === '$BRAINWORM' ? '$BRAINWORM' : 'SOL';
+      unit.textContent = 'SOL';
       go.disabled = busy || !state.open;
       go.textContent = state.open ? 'Launch' : 'Opening soon';
       idle();

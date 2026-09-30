@@ -259,14 +259,12 @@ body.ab{background:
 .ab-steps li{counter-increment:ab-s;display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;padding:16px 0;border-bottom:1px solid var(--rule2);font-size:.96em;line-height:1.64}
 .ab-steps li::before{content:counter(ab-s,decimal-leading-zero);font:500 12px/2 var(--mono);color:var(--green)}
 
-/* ---------- 09: the fee ---------- */
+/* ---------- 09: SPAWN's creator rewards ---------- */
 .ab-feebar{display:flex;gap:3px;height:18px;margin:4px 0 18px;border-radius:9px;overflow:hidden}
 .ab-feebar i{display:block;height:100%}
-.ab-feebar .f-met{flex:20}
-.ab-feebar .f-cre{flex:16}
 .ab-feebar .f-burn{flex:64}
-.f-met{background:#2A3945}
-.f-cre{background:var(--cyan)}
+.ab-feebar .f-team{flex:36}
+.f-team{background:var(--cyan)}
 .f-burn{background:linear-gradient(90deg,#FFC874,var(--amber));box-shadow:0 0 18px rgba(255,184,77,.35)}
 .ab-feekey{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .ab-feekey li{display:grid;grid-template-columns:10px 46px minmax(0,1fr);gap:10px;align-items:baseline;font-size:14px;line-height:1.5;color:var(--mute)}

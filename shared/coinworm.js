@@ -1,7 +1,7 @@
 // A coin's own worm on SPAWN. Every coin hatches a fresh copy of the same larva (the wiring and model the site
 // runs, nothing added). Its first sight is the coin's ticker, shown to its eyes the way a message is. After that it
 // feels its coin's trades and nothing else: a buy touches its head end and a sell its tail end, three touch cells
-// picked from the trade's transaction signature (the same mapping the site's worm uses for $BRAINWORM's trades), and
+// picked from the trade's transaction signature (the same mapping the site's worm uses for $WORM's trades), and
 // each trade then runs STEPS_PER_TRADE steps of its time. Between trades its time stands still.
 //
 // So a coin's worm is a pure function of its ticker and its list of trades. Anyone can rebuild it from that list

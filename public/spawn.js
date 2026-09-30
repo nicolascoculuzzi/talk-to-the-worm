@@ -1,6 +1,5 @@
-// SPAWN: the launchpad page. Coins trade on their own curves (in SOL, or in $BRAINWORM once it has launched); buying a
-// coin priced in $BRAINWORM with SOL goes SOL → $BRAINWORM → coin through Jupiter. The visitor's own wallet signs
-// every transaction; the server only builds them.
+// SPAWN: the launchpad page. Coins are pump.fun coins: they trade in SOL on their pump.fun curve, and through Jupiter on
+// PumpSwap once they have graduated. The visitor's own wallet signs every transaction; the server only builds them.
 import { pixelWordmark } from '/pixel.js';
 import { connect, connected, signAndSend, short, noWallet } from '/wallet.js';
 import { mountLaunchForm, openInWallet } from '/launchform.js';
@@ -36,36 +35,36 @@ function render() {
   st.hidden = !!data.open; st.textContent = data.open ? '' : data.reason || 'Opening soon.';
   $('stcoins').textContent = fmt(data.coins.length);
   $('stburn').textContent = compact(data.root?.burned || 0);
-  // before $BRAINWORM, what waits is SOL for buying it
-  const inSol = !data.root?.mint || data.quote === 'SOL';
-  $('stwaitk').textContent = inSol ? 'SOL for buybacks' : 'Waiting to burn';
-  $('stwait').textContent = inSol ? compact(data.root?.waitingSol || 0) : compact(data.root?.waiting || 0);
-  $('splede').textContent = data.quote === '$BRAINWORM'
-    ? 'Launch a coin and it hatches its own worm. Every coin here is priced in $BRAINWORM, most of every fee is burned, and every buy pokes the big worm.'
-    : 'Launch a coin and it hatches its own worm. Every buy pokes the big one. Coins are priced in SOL for now, and most of every fee goes to burning $BRAINWORM.';
+  const w = data.rewards || {};
+  $('stwaitk').textContent = 'Creator rewards, SOL';
+  $('stwait').textContent = compact((w.waiting || 0) + (w.collected || 0));
+  $('splede').textContent = 'Launch a coin on pump.fun and it hatches its own worm. Every buy pokes the big one. Its creator rewards go to SPAWN: 64% of them buy $WORM, and all of that is burned.';
   launchForm.update(data);
   const lb = data.root?.burns?.[0], lbp = $('lastburn');
   lbp.hidden = !lb;
-  if (lb) lbp.replaceChildren(`Last burn: ${compact(lb.amount)} $BRAINWORM · `, link(lb.signature));
-  if (data.graduationQuote) $('spawnnote').textContent = `Free to launch. No mint or freeze authority, and nothing held back for anyone: all 1,000,000,000 coins are on the curve or go to the graduated pool. It graduates to Meteora DAMM v2 once buyers have put in ${compact(data.graduationQuote)} ${data.quote || 'SOL'}, with its liquidity locked for good. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.`;
+  if (lb) lbp.replaceChildren(`Last burn: ${compact(lb.amount)} $WORM · `, link(lb.signature));
+  const f = data.fee || {}, pct = (bps) => `${(bps / 100).toFixed(2).replace(/0$/, '')}%`;
+  if (f.protocolBps != null && $('spawnnote')) $('spawnnote').textContent = `Free to launch, apart from about 0.02 SOL of rent for its accounts and an optional first buy, made in the same transaction. It's a pump.fun coin: its bonding curve, pump.fun's fee (currently ${pct(f.protocolBps + f.creatorBps)} of each trade, ${pct(f.creatorBps)} of it the creator's), and its graduation to PumpSwap when the curve sells out. Its creator is SPAWN, so its creator rewards come here, not to whoever launched it: 64% of them buy $WORM, all of it burned, and the other 36% stays with the team. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.`;
   $('stpokes').textContent = fmt(data.pokesToday || 0);
   renderFee(data.fee);
   renderMovers(data.movers || []);
   renderCoins();
 }
 
+// where SPAWN's creator rewards go: 64% buys $WORM, all of it burned; 36% to the team
 function renderFee(f) {
   if (!f) return;
-  const protocol = Math.round(f.protocolShare * 100), creator = Math.round((1 - f.protocolShare) * f.creatorShare * 100), burn = 100 - protocol - creator;
-  $('feepct').textContent = `${f.bps / 100}%`;
+  const burn = Math.round((f.buyback ?? 0.64) * 100), team = 100 - burn;
+  if ($('feepct') && f.creatorBps != null) $('feepct').textContent = `${(f.creatorBps / 100).toFixed(2).replace(/0$/, '')}%`;
   const sq = $('squares');
-  if (sq.childElementCount !== 100 || sq.dataset.k !== `${burn}-${creator}`) {
-    sq.replaceChildren(); sq.dataset.k = `${burn}-${creator}`;
-    for (let i = 0; i < 100; i++) sq.append(el('i', i < burn ? 'burn' : i < burn + creator ? 'creator' : 'meteora'));
+  if (sq && (sq.childElementCount !== 100 || sq.dataset.k !== `${burn}`)) {
+    sq.replaceChildren(); sq.dataset.k = `${burn}`;
+    for (let i = 0; i < 100; i++) sq.append(el('i', i < burn ? 'burn' : 'creator'));
   }
-  const key = $('feekey'); key.replaceChildren();
-  const burnText = data?.quote === '$BRAINWORM' ? 'burns $BRAINWORM for good' : 'buys $BRAINWORM to burn, once it launches';
-  for (const [cls, pct, text] of [['burn', burn, burnText], ['creator', creator, "to the coin's creator"], ['meteora', protocol, 'kept by Meteora']]) {
+  const key = $('feekey');
+  if (!key) return;
+  key.replaceChildren();
+  for (const [cls, pct, text] of [['burn', burn, data?.root?.mint ? 'buys $WORM, and all of it is burned' : 'buys $WORM once it launches, and all of it is burned'], ['creator', team, 'to the team']]) {
     const li = el('li'); li.append(el('i', cls), el('b', null, `${pct}%`), ` ${text}`); key.append(li);
   }
 }
@@ -108,10 +107,9 @@ function openTrade(c) {
   $('tradeh').textContent = '$' + c.symbol;
   const pic = coinPicture(c);
   $('timg').hidden = !pic; if (pic) $('timg').src = pic;
-  $('tprice').textContent = `${c.priceUsd ? usd(c.priceUsd) + ' · ' : ''}${sol(c.priceSol)} · priced in ${c.quote || '$BRAINWORM'}`;
-  // a coin priced in SOL trades in SOL only; one priced in $BRAINWORM in either
-  $('paywith').hidden = c.quote === 'SOL';
-  if (c.quote === 'SOL') pay = 'sol';
+  $('tprice').textContent = `${c.priceUsd ? usd(c.priceUsd) + ' · ' : ''}${sol(c.priceSol)} · in SOL`;
+  $('paywith').hidden = true;   // every SPAWN coin trades in SOL
+  pay = 'sol';
   setSide('buy'); $('tamount').value = ''; $('tquote').replaceChildren(); $('tlog').textContent = '';
   showClaim(); showOwn(c);
   $('trade').hidden = false; $('tamount').focus();
@@ -211,35 +209,17 @@ function setSide(s) {
   $('tgo').textContent = s === 'buy' ? 'Buy' : 'Sell';
   setPay(pay);
 }
-// pay (or get) SOL through Jupiter, or $BRAINWORM straight on the coin's curve
+// every SPAWN coin trades in SOL
 function setPay(p) {
   pay = p;
   $('psol').setAttribute('aria-selected', String(p === 'sol')); $('proot').setAttribute('aria-selected', String(p === 'root'));
-  $('tunit').textContent = side === 'sell' ? '$' + coin.symbol : p === 'sol' ? 'SOL' : '$BRAINWORM';
+  $('tunit').textContent = side === 'sell' ? '$' + coin.symbol : 'SOL';
   requote();
 }
 $('psol').addEventListener('click', () => setPay('sol'));
 $('proot').addEventListener('click', () => setPay('root'));
-// the coin's creator can claim their share of its fees here
-function showClaim() {
-  const b = $('tclaim'), me = connected()?.address;
-  b.hidden = !(coin && me && coin.creator === me && (coin.creatorFees > 0 || coin.stage === 'graduated'));
-  if (!b.hidden) b.textContent = coin.stage === 'graduated' ? 'Claim your creator fees' : `Claim your ${compact(coin.creatorFees)} ${coin.quote || '$BRAINWORM'} in creator fees`;
-}
-$('tclaim').addEventListener('click', async () => {
-  const log = $('tlog');
-  try {
-    $('tclaim').disabled = true; log.textContent = 'Building the transaction…';
-    const { txs } = await api('/spawn/claim', { mint: coin.mint, creator: connected().address });
-    let sig = null;
-    for (const [k, tx] of txs.entries()) {
-      log.textContent = txs.length > 1 ? `Claim ${k + 1} of ${txs.length}: check your wallet.` : 'Check your wallet.';
-      sig = await signAndSend(tx);
-    }
-    log.replaceChildren('Claimed. ', link(sig));
-    setTimeout(load, 4000);
-  } catch (e) { log.textContent = e.message; } finally { $('tclaim').disabled = false; }
-});
+// a coin's creator rewards go to SPAWN (64% of them to burning $WORM): nothing here for its launcher to claim
+function showClaim() { $('tclaim').hidden = true; }
 $('tbuy').addEventListener('click', () => setSide('buy'));
 $('tsell').addEventListener('click', () => setSide('sell'));
 $('tclose').addEventListener('click', () => { $('trade').hidden = true; stopWatching(); });

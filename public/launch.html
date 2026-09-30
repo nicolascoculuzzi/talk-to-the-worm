@@ -20,9 +20,9 @@
 
 <main class="lpwrap">
   <header class="lphead">
-    <p class="eyebrow">$BRAINWORM · Solana · pump.fun</p>
+    <p class="eyebrow">BRAINWORM · $WORM · Solana · pump.fun</p>
     <h1 id="lpmark"><span class="sr">BRAINWORM launch</span></h1>
-    <p class="lede">Once the launch is armed, <b>the first time a touch makes it stop swimming</b> is the launch moment: its startle reflex, outside its own stop-and-go rhythm. That exact step goes into the public log, the token's image is drawn from the worm's activity at that step, and a replay of the log shows it really was the first one after arming.</p>
+    <p class="lede">Once the launch is armed, <b>the first time a touch makes it stop swimming</b> is the launch moment: its startle reflex, outside its own stop-and-go rhythm. That exact step goes into the public log, $WORM's image is drawn from the worm's activity at that step, and a replay of the log shows it really was the first one after arming.</p>
   </header>
 
   <ol class="lpsteps" id="lpsteps">
@@ -47,6 +47,10 @@
     <p class="eyebrow">For the owner</p>
     <form id="lplock" autocomplete="off"><input type="password" id="lptoken" placeholder="Admin token" aria-label="Admin token"><button class="btn-amber" type="submit">Unlock</button></form>
     <div id="lpcontrols" hidden>
+      <ol class="lpguide">
+        <li><b>Open SPAWN.</b> Connect the wallet that will be SPAWN's rewards wallet and press <i>Use this wallet for SPAWN</i> below (or set SPAWN_OWNER on the server). Every new coin names it as its pump.fun creator, so every coin's creator rewards collect there. Use a different wallet from the one that launches $WORM, so $WORM's own creator rewards stay apart. Coins can be launched as soon as it is set.</li>
+        <li><b>Launch $WORM.</b> Arm the launch, then tap the worm's head on the main page (the top of its body) until its cilia stop: the first touch that does is the moment. Upload the image and metadata, connect a wallet other than SPAWN's rewards wallet, set your dev buy, prepare the transaction (it shows the coin's address), then sign it within a minute.</li>
+      </ol>
       <div class="lprow"><button type="button" class="btn-ghost" id="lparm">Arm the launch</button><button type="button" class="btn-ghost" id="lpdisarm">Disarm</button></div>
       <div class="lprow">
         <input type="text" id="lptw" placeholder="X link (optional)" aria-label="X link">
@@ -59,20 +63,15 @@
         <button type="button" class="btn-ghost" id="lpprep">Prepare transaction</button>
         <button type="button" class="btn-amber" id="lpsign" disabled>Sign and launch</button>
       </div>
+      <p class="modstate" id="lpca" role="status" hidden></p>
       <div class="lpspawn">
         <p class="eyebrow">SPAWN, the launchpad</p>
         <p class="modstate" id="sptodo" role="status" hidden></p>
         <p class="small" id="spstatus">Loading…</p>
         <div class="lprow">
-          <label class="small">Priced in <select id="spquote" aria-label="What new coins are priced in"><option value="sol">SOL</option><option value="root">$BRAINWORM</option></select></label>
-          <label class="small">Start market cap (SOL) <input type="text" id="spstart" value="28" inputmode="decimal" aria-label="Starting market cap in SOL"></label>
-          <label class="small">Graduation market cap (SOL) <input type="text" id="spgrad" value="400" inputmode="decimal" aria-label="Graduation market cap in SOL"></label>
-          <button type="button" class="btn-ghost" id="spcfg">Make a config</button>
-        </div>
-        <p class="small" id="spcalc"></p>
-        <div class="lprow">
-          <button type="button" class="btn-ghost" id="spclaim">Claim and burn ($BRAINWORM fees)</button>
-          <button type="button" class="btn-ghost" id="spbuyback">Buy $BRAINWORM with the SOL fees and burn it</button>
+          <button type="button" class="btn-ghost" id="spowner">Use this wallet for SPAWN</button>
+          <button type="button" class="btn-ghost" id="spcollect">Collect the creator rewards</button>
+          <button type="button" class="btn-amber" id="spbuyback">Buy $WORM with 64% of them and burn it</button>
         </div>
       </div>
       <pre class="lplog" id="lplog" aria-live="polite"></pre>

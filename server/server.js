@@ -32,8 +32,8 @@ import { createTwitchBridge } from './twitch.js';
 import * as render from './render.js';
 import * as solana from './solana.js';
 import { createLaunch } from './launch.js';
-import * as dbc from './dbc.js';
-import { createSpawn, IMAGE_HOSTS } from './spawn.js';
+import * as pump from './pump.js';
+import { createSpawn, IMAGE_HOSTS, BUYBACK_SHARE } from './spawn.js';
 import { createCoinWorms, previewHatch } from './coinworms.js';
 import { COINWORM_VERSION, STEPS_PER_TRADE } from '../shared/coinworm.js';
 
@@ -113,6 +113,7 @@ export function createWormServer(overrides = {}) {
     poke: { kind: 'chosen', maxCells: MAX_POKE_CELLS, steps: POKE_STEPS, drive: POKE_DRIVE },
     spawn: {
       kind: 'chosen', poke: 'a buy of a coin on SPAWN, the BRAINWORM launchpad, pokes three touch cells picked from the SHA-256 of the coin\'s address: the same spot for every buy of that coin, logged with its transaction',
+      rewards: `every SPAWN coin is a pump.fun coin that names SPAWN's rewards wallet as its creator; of the creator rewards SPAWN collects, ${BUYBACK_SHARE * 100}% buy $WORM and all of that $WORM is burned`,
       coinWorm: { version: COINWORM_VERSION, what: 'every coin on SPAWN also has its own worm: a fresh copy of this larva, nothing added', birth: 'its first sight is "$TICKER", shown to its eyes as a message', trades: `a buy touches three head-end touch cells, a sell three tail-end ones, picked from the trade\'s signature, then ${STEPS_PER_TRADE} steps; between trades its time stands still`, check: '/spawn/worm/<mint>.json lists its ticker, every trade in order and its state hash; shared/coinworm.js rebuild() recomputes it' },
     },
     tug: { kind: 'chosen', order: TUG_ORDER, scored: TUG_SCORED, gapSteps: TUG_GAP, score: 'how fast the body turned toward word A (rad/s), from its cilia and muscles as it steers, averaged over the scored passes; a tie below 0.0001' },
@@ -198,14 +199,14 @@ export function createWormServer(overrides = {}) {
   const headTouch = worm.roles.touch.filter((i) => ['episphere', 'segment_0', 'segment_1'].includes(segOf(i)));
   const tailTouch = worm.roles.touch.filter((i) => ['segment_2', 'segment_3', 'pygidium'].includes(segOf(i)));
   const launch = dataDir ? createLaunch({
-    dir: dataDir, worm, D, writeLog, render, solana, publicUrl: config.publicUrl, pinataJwt: config.token.pinataJwt,
+    dir: dataDir, worm, D, writeLog, render, solana, publicUrl: config.publicUrl, pinataJwt: config.token.pinataJwt, rpcUrl: config.token.solanaRpc,
     onChange: (st) => broadcast({ t: 'launch', launch: st }),
     onLaunched: (l) => startTrades(l.mint),
   }) : null;
   const tokenMint = () => config.token.mint || (launch && launch.mint) || '';
   let lab = null;
 
-  // SPAWN, the launchpad: coins priced in SOL, and in $BRAINWORM once it exists (server/spawn.js). A buy of one pokes the worm at that coin's
+  // SPAWN, the launchpad: pump.fun coins whose creator rewards go to SPAWN's wallet (server/spawn.js). A buy of one pokes the worm at that coin's
   // own spot: three touch cells picked from the coin's address, the same for every buy of it. The mapping is ours;
   // the worm has no idea what a coin is. Each poke is logged with its transaction.
   const spawnPokes = new Map();   // poke id -> the coin's mint, to credit the cells it lit
@@ -235,7 +236,7 @@ export function createWormServer(overrides = {}) {
     return h;
   };
   const spawn = createSpawn({
-    dir: dataDir, dbc: config.spawnDeps?.dbc || dbc, rootMint: tokenMint, fetchImpl: config.spawnDeps?.fetchImpl || fetch, coinWorms, render, D,
+    dir: dataDir, pump: config.spawnDeps?.pump || pump, rootMint: tokenMint, fetchImpl: config.spawnDeps?.fetchImpl || fetch, coinWorms, render, D,
     moderate: (t) => checkMessage(t, blocklist()), onTrade: onSpawnTrade,
     // coins whose picture is their worm's first sight: drawn ahead, a few each refresh, so a page of them after a deploy isn't refused
     onCoins: (coins) => { let n = 0; for (const c of coins) { const t = /\/spawn\/hatch\/([A-Z0-9]{1,10})\.png$/.exec(c.image || '')?.[1]; if (t && !hatched.has(t) && n++ < 3) hatchPreview(t); } },
@@ -280,7 +281,7 @@ export function createWormServer(overrides = {}) {
     const mint = tokenMint();
     const links = [...config.site.links];
     if (mint && !config.site.contract) links.unshift({ label: 'pump.fun', url: `https://pump.fun/coin/${mint}` }, { label: 'Solscan', url: `https://solscan.io/token/${mint}` });
-    return { ...config.site, ticker: config.site.ticker || '$BRAINWORM', contract: config.site.contract || mint, chain: config.site.chain || (mint ? 'Solana' : ''), links, txUrl: config.token.txUrl };
+    return { ...config.site, ticker: config.site.ticker || '$WORM', contract: config.site.contract || mint, chain: config.site.chain || (mint ? 'Solana' : ''), links, txUrl: config.token.txUrl };
   };
 
   /* ---------- streaming ---------- */
@@ -695,6 +696,7 @@ export function createWormServer(overrides = {}) {
           if (act === 'prepare') {
             const creator = String(q.get('creator') || '');
             if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(creator)) throw new Error('That is not a Solana address.');
+            if (spawn.owner && creator === spawn.owner) throw new Error('Launch $WORM from a different wallet than SPAWN\'s rewards wallet: their pump.fun creator rewards would mix in one vault.');
             return { ok: true, ...(await launch.prepare({ creator, amountSol: Math.max(0, Number(q.get('amountSol')) || 0) })) };
           }
           return await launch.confirm({ signature: String(q.get('signature') || ''), url: config.token.solanaRpc });
@@ -702,17 +704,14 @@ export function createWormServer(overrides = {}) {
         run().then((r) => json(res, 200, r)).catch((e) => json(res, 200, { ok: false, error: e.message }));
         return;
       }
-      case '/admin/spawn/price': case '/admin/spawn/config': case '/admin/spawn/confirm': case '/admin/spawn/claim': case '/admin/spawn/claim-graduated': case '/admin/spawn/claim-sol': case '/admin/spawn/buyback': case '/admin/spawn/burn-claimed': case '/admin/spawn/burned': {
-        const act = p.slice('/admin/spawn/'.length), feeClaimer = q.get('feeClaimer') || '';
+      case '/admin/spawn/owner': case '/admin/spawn/collect': case '/admin/spawn/collected': case '/admin/spawn/buyback': case '/admin/spawn/burn-bought': case '/admin/spawn/burned': {
+        const act = p.slice('/admin/spawn/'.length), wallet = q.get('wallet') || '';
         const run = async () => {
-          if (act === 'price') return { ok: true, price: await spawn.rootPrice() };
-          if (act === 'config') return { ok: true, ...(await spawn.buildConfig({ partner: q.get('partner') || '', startMcap: q.get('startMcap'), graduationMcap: q.get('graduationMcap'), quote: q.get('quote') || undefined })) };
-          if (act === 'confirm') return await spawn.confirmConfig({ signature: q.get('signature') || '' });
-          if (act === 'claim') return { ok: true, txs: await spawn.buildClaimAndBurn({ feeClaimer }) };
-          if (act === 'claim-graduated') return { ok: true, txs: await spawn.buildClaimGraduated({ feeClaimer }) };
-          if (act === 'claim-sol') return { ok: true, txs: await spawn.buildClaimSol({ feeClaimer }) };
-          if (act === 'buyback') return { ok: true, ...(await spawn.buyback({ feeClaimer })) };
-          if (act === 'burn-claimed') return { ok: true, ...(await spawn.burnClaimed({ signature: q.get('signature') || '', buyback: flag('buyback') === true })) };
+          if (act === 'owner') return { ok: true, ...(await spawn.setOwner({ wallet, wormCreator: launch?.creator || '' })) };
+          if (act === 'collect') return { ok: true, ...(await spawn.collect({ wallet })) };
+          if (act === 'collected') return await spawn.collected({ signature: q.get('signature') || '' });
+          if (act === 'buyback') return { ok: true, ...(await spawn.buyback({ wallet })) };
+          if (act === 'burn-bought') return { ok: true, ...(await spawn.burnBought({ signature: q.get('signature') || '' })) };
           return await spawn.burned({ signature: q.get('signature') || '' });
         };
         run().then((r) => json(res, 200, r)).catch((e) => json(res, 200, { ok: false, error: e.message }));
@@ -740,7 +739,7 @@ export function createWormServer(overrides = {}) {
   // SPAWN's endpoints build transactions for people's own wallets; each has its own budget per address
   const spawnLimits = {
     quote: new RateLimiter({ ratePerSec: 0.5, burst: 12 }), swap: new RateLimiter({ ratePerSec: 0.2, burst: 6 }),
-    create: new RateLimiter({ ratePerSec: 1 / 120, burst: 6 }), created: new RateLimiter({ ratePerSec: 0.3, burst: 6 }), claim: new RateLimiter({ ratePerSec: 0.2, burst: 4 }),
+    create: new RateLimiter({ ratePerSec: 1 / 120, burst: 6 }), created: new RateLimiter({ ratePerSec: 0.3, burst: 6 }),
     confirm: new RateLimiter({ ratePerSec: 1, burst: 40 }),
   };
   const spawnCreateAll = new RateLimiter({ ratePerSec: 60 / 3600, burst: 10 });   // picked pictures are uploaded before anyone signs: a budget for the site
@@ -762,7 +761,6 @@ export function createWormServer(overrides = {}) {
       if (act === 'quote') return spawn.quote(b);
       if (act === 'swap') return spawn.swap(b);
       if (act === 'create') return spawn.create(b, { canUpload: () => spawnCreateAll.take('all') });
-      if (act === 'claim') return spawn.claimCreator(b);
       if (act === 'confirm') return spawn.confirm(b);
       return { ok: spawn.created(b) };
     }).then((r) => json(res, 200, r)).catch((e) => json(res, 400, { error: e.message }));
@@ -880,12 +878,11 @@ export function createWormServer(overrides = {}) {
       res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400', 'Content-Length': h.png.length });
       return res.end(req.method === 'HEAD' ? undefined : h.png);
     }
-    if (p.startsWith('/spawn/m/')) {   // a SPAWN coin's metadata, when its picture is its worm's first sight: rebuilt from the chain
-      const m = /^\/spawn\/m\/([1-9A-HJ-NP-Za-km-z]{32,44})\.json$/.exec(p);
-      if (!m) return notFound(res);
+    if (p.startsWith('/m/')) {   // a SPAWN coin's metadata: its link on chain is short, /m/<12 characters>
+      const f = spawn.metaFile(p.slice(3) + '.json');
+      if (!f) return notFound(res);
       res.setHeader('Access-Control-Allow-Origin', '*');   // wallets and explorers read coin metadata from anywhere
-      spawn.coinMetadata(m[1]).then((meta) => (meta ? json(res, 200, meta) : notFound(res)), () => notFound(res));
-      return;
+      return sendFile(req, res, f, 'application/json; charset=utf-8', 'public, max-age=31536000, immutable');
     }
     if (p.startsWith('/spawn/meta/')) {
       const f = spawn.metaFile(p.slice('/spawn/meta/'.length));
@@ -923,6 +920,7 @@ export function createWormServer(overrides = {}) {
       if (twitch) await twitch.stop();
       if (trades) await trades.stop();
       spawn.stop();
+      launch?.stop();
       coinWorms.stop();
       if (lab) await lab.stop();
       for (const ws of clients) ws.terminate();

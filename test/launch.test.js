@@ -73,10 +73,55 @@ test('the launch moment is the first time a touch stops its cilia after arming, 
   assert.equal(launched.mint, prep.mint);
   assert.equal(launch.status().launched.signature, 'sig');
   assert.deepEqual(calls.map((c) => c[0]), ['upload', 'prepare']);
-  assert.equal(calls[0][2], 'BRAINWORM');
+  assert.deepEqual([calls[0][1], calls[0][2]], ['BRAINWORM', 'WORM'], 'named BRAINWORM, its ticker $WORM');
   // state survives a restart
   const again = createLaunch({ dir, worm, D, writeLog: () => {}, render, solana });
   assert.equal(again.mint, prep.mint);
+});
+
+test('a prepared launch is found on the chain even if nobody confirms it, and never twice', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'launch-'));
+  const worm = new WormCore(D);
+  const MINTS = ['MintAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'MintBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB'];
+  let n = 0;
+  const onChain = new Map();   // mint -> the signature that made it
+  const solana = {
+    uploadPumpMetadata: async () => ({ metadataUri: 'https://ipfs.example/meta.json' }),
+    prepareLaunch: async (o) => ({ mint: MINTS[n++], tx: 'AA==', summary: { feePayer: o.creator, signers: [o.creator], programIds: [] } }),
+    confirmLaunch: async ({ signature, mint }) => ({ confirmed: [...onChain.values()].includes(signature) || signature === 'other', err: null, mintExists: onChain.has(mint) }),
+    rpc: async (method, params) => {
+      if (method === 'getAccountInfo') return { value: onChain.has(params[0]) ? { data: ['', 'base64'] } : null };
+      if (method === 'getSignaturesForAddress') return onChain.has(params[0]) ? [{ signature: 'buy-after', err: null }, { signature: onChain.get(params[0]), err: null }] : [];
+      if (method === 'getTransaction') return { meta: { err: null }, transaction: { message: { accountKeys: ['Creator', ...[...onChain].filter(([, s]) => s === params[0]).map(([m]) => m)] } } };
+      throw new Error('unexpected ' + method);
+    },
+  };
+  const render = { renderActivityPNG: () => Buffer.from('png') };
+  let launched = null;
+  const open = () => createLaunch({ dir, worm, D, writeLog: () => {}, render, solana, watchEveryMs: 3600_000, onLaunched: (l) => { launched = l; } });
+  const launch = open();
+  launch.arm();
+  worm.poke('p', worm.roles.touch.slice(0, 6));
+  for (let t = 0; t < 600 && !launch.status().moment; t++) { worm.tick(); launch.onStep(); }
+  await launch.uploadMetadata();
+  const first = await launch.prepare({ creator: 'Creator11111111111111111111111111111111111' });
+  const second = await launch.prepare({ creator: 'Creator11111111111111111111111111111111111' });   // the first one's blockhash ran out, say
+  assert.deepEqual([first.mint, second.mint], MINTS);
+  launch.stop();
+
+  // a signature that made some other coin is not the launch
+  onChain.set('SomeOtherMint111111111111111111111111111111', 'other');
+  assert.equal((await launch.confirm({ signature: 'other' })).ok, false);
+
+  // the first transaction landed late and the page was closed; after a restart the server finds it by itself
+  onChain.set(MINTS[0], 'made-it');
+  const again = open();
+  assert.equal(await again.watch(), true);
+  again.stop();
+  assert.equal(again.mint, MINTS[0]);
+  assert.equal(launched.signature, 'made-it', 'the transaction that made it, not a later buy');
+  await assert.rejects(again.prepare({ creator: 'Creator11111111111111111111111111111111111' }), /Already launched/);
+  assert.equal((await again.confirm({ signature: 'made-it' })).ok, true, 'the page confirming it afterwards is fine');
 });
 
 test('with a Pinata JWT configured, the launch uploads through Pinata', async () => {
@@ -95,5 +140,5 @@ test('with a Pinata JWT configured, the launch uploads through Pinata', async ()
   for (let t = 0; t < 600 && !launch.status().moment; t++) { worm.tick(); launch.onStep(); }
   const meta = await launch.uploadMetadata();
   assert.equal(meta.uri, 'https://ipfs.io/ipfs/bafymeta');
-  assert.deepEqual(calls, [['pinata', 'jwt-test', 'BRAINWORM']]);
+  assert.deepEqual(calls, [['pinata', 'jwt-test', 'WORM']]);
 });

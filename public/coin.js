@@ -112,7 +112,10 @@ function renderHead() {
   $('gradbar').style.width = `${(p * 100).toFixed(2)}%`;
   $('gradpct').textContent = done ? '100%' : `${Math.floor(p * 100)}%`;
   $('gradk').textContent = done ? 'Graduated' : c.stage === 'graduating' ? 'Graduating' : 'To graduation';
-  $('gradnote').textContent = done ? 'On Meteora, liquidity locked for good' : c.stage === 'graduating' ? 'Moving to its Meteora pool…' : '';
+  $('gradnote').textContent = done ? 'Trading on PumpSwap' : c.stage === 'graduating' ? 'Moving to PumpSwap…' : '';
+  // it's a pump.fun coin: its page there too, once per coin
+  const cpm = $('ca').closest('.cpmeta');
+  if (cpm && !cpm.querySelector('.cppump')) { const a = el('a', 'cppump', 'pump.fun ↗'); a.href = `https://pump.fun/coin/${c.mint}`; a.target = '_blank'; a.rel = 'noopener'; cpm.append(' ', a); }
   $('gradbarw').classList.toggle('moving', c.stage === 'graduating');
   $('gradbarw').classList.toggle('full', !!done);
   const pill = $('stagepill');
@@ -245,14 +248,14 @@ async function fallbackTrades() {
 
 /* ---------- trading: the server builds each transaction, the visitor's own wallet signs and sends it ---------- */
 const amountEl = $('amount');
-const unitText = () => (side === 'sell' ? '$' + (coin?.symbol || '') : pay === 'sol' ? 'SOL' : '$BRAINWORM');
+const unitText = () => (side === 'sell' ? '$' + (coin?.symbol || '') : 'SOL');
 function say(parts, bad = false) { const l = $('log'); l.classList.toggle('bad', bad); l.replaceChildren(...[].concat(parts)); }
 // what a wallet says, in words
 const walletError = (e) => { const m = String(e?.message || e || 'Something went wrong.'); return /reject|cancel|denied|declined/i.test(m) ? 'Cancelled in your wallet.' : m; };
 
 function syncPanel() {
   const inSol = !coin || coin.quote === 'SOL';
-  if (inSol) pay = 'sol';   // a coin priced in SOL trades in SOL only; one priced in $BRAINWORM in either
+  if (inSol) pay = 'sol';   // every SPAWN coin trades in SOL
   $('tbuy').setAttribute('aria-selected', String(side === 'buy'));
   $('tsell').setAttribute('aria-selected', String(side === 'sell'));
   $('paywith').hidden = inSol;
@@ -371,14 +374,8 @@ $('go').addEventListener('click', async () => {
     // the server spends a quote once it builds from it: never reuse one, get a fresh one
     ++quoteSeq; quote = null;
     const why = /price moved/i.test(String(e?.message)) ? 'The price moved, so here is a new quote.' : walletError(e);
-    if (done && q.for.side === 'buy' && q.for.pay === 'sol') {
-      // step one bought $BRAINWORM and landed; step two didn't happen
-      pay = 'root'; amountEl.value = ''; $('quote').replaceChildren(); syncPanel();
-      say(`${why} You now hold $BRAINWORM from step 1: buy again with Pay with $BRAINWORM.`, true);
-    } else {
-      say(done ? `${why} Step 1 landed, so you now hold $BRAINWORM from it.` : why, true);
-      requote();
-    }
+    say(done ? `${why} Step ${done} landed.` : why, true);
+    requote();
   } finally { busy = false; updateGo(); }
 });
 // the next step spends what this one bought, so it waits until this one has landed
@@ -392,26 +389,8 @@ async function landed(sig) {
   throw new Error('The first step has not landed yet. Check your wallet before trying again.');
 }
 
-// the coin's creator can claim their share of its fees here
-function showClaim() {
-  const b = $('claim'), me = connected()?.address;
-  b.hidden = !(coin && me && coin.creator === me && (coin.creatorFees > 0 || coin.stage === 'graduated'));
-  if (!b.hidden) b.textContent = coin.stage === 'graduated' ? 'Claim your creator fees' : `Claim your ${amt(coin.creatorFees)} ${coin.quote || '$BRAINWORM'} in creator fees`;
-}
-$('claim').addEventListener('click', async () => {
-  const b = $('claim');
-  try {
-    b.disabled = true; say('Building the transaction…');
-    const { txs } = await api('/spawn/claim', { mint: coin.mint, creator: connected().address });
-    let sig = null;
-    for (const [k, tx] of txs.entries()) {
-      say(txs.length > 1 ? `Claim ${k + 1} of ${txs.length}: check your wallet.` : 'Check your wallet.');
-      sig = await signAndSend(tx);
-    }
-    say(['Claimed. ', solscan(sig)]);
-    setTimeout(load, 4000);
-  } catch (e) { say(walletError(e), true); } finally { b.disabled = false; }
-});
+// a coin's creator rewards go to SPAWN (and 64% of them to burning $WORM), so there is nothing here for its launcher to claim
+function showClaim() { $('claim').hidden = true; }
 
 /* ---------- sharing ---------- */
 $('share').addEventListener('click', async () => {
@@ -502,7 +481,7 @@ function wait(text) { const w = $('wwait'); w.hidden = !text; w.textContent = te
 
 function renderOwn() {
   const c = coin, o = c.own, sym = '$' + c.symbol, done = c.graduated || c.stage !== 'curve';
-  $('wormlede').textContent = `${sym} hatched its own copy of a real larva's wiring. The first thing it saw was "${sym}". Since then it feels every trade on its bonding curve: a buy touches its head, a sell its tail.`;
+  $('wormlede').textContent = `${sym} hatched its own copy of a real larva's wiring. The first thing it saw was "${sym}". Since then it feels every trade of it: a buy touches its head, a sell its tail.`;
   $('grow').textContent = done ? `Drawn at full size: ${sym} has graduated. Same wiring, same model.` : `Drawn bigger as ${sym} nears graduation. Same wiring, same model.`;
   const set = (id, v, u) => { const d = $(id); d.replaceChildren(v); if (u) d.append(el('small', null, u)); };
   if (!o) {

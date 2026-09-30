@@ -1,4 +1,4 @@
-// The $BRAINWORM launch: the first time a touch makes the worm stop swimming after arming sets the
+// The $WORM launch (the coin is named BRAINWORM, its ticker $WORM): the first time a touch makes the worm stop swimming after arming sets the
 // moment and the image.
 //
 //  1. armed:     a mod arms it. From then on, the first step where its cilia are stopped (mean arrest of
@@ -12,24 +12,29 @@
 //                mint key signed in. The owner's wallet adds its signature and sends it. The server
 //                never holds the owner's key and never sends anything itself.
 //  5. launched:  once the transaction confirms, the mint is the site's contract address and live
-//                trades start reaching the worm.
+//                trades start reaching the worm. Every prepared mint (a public address; its key was discarded
+//                once it signed) is kept on disk, and the server watches the chain for them: a launch is
+//                recorded even if the owner's page closed or the server restarted before confirming it, and a
+//                second coin is never prepared once one of them exists.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { stateString } from '../shared/replay.js';
 
 export const STOP = 0.05;
-export const TOKEN = { name: 'BRAINWORM', symbol: 'BRAINWORM' };
+export const TOKEN = { name: 'BRAINWORM', symbol: 'WORM' };
 const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
 const commas = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');   // same bytes on every Node build
 
-export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}, publicUrl = '', pinataJwt = '', onChange = () => {}, onLaunched = () => {}, logger = console }) {
+const WATCH_MS = 3600_000;   // how long a prepared transaction is looked for on the chain (it can land for about a minute)
+
+export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}, publicUrl = '', pinataJwt = '', rpcUrl, watchEveryMs = 15_000, onChange = () => {}, onLaunched = () => {}, logger = console }) {
   const root = path.join(dir, 'launch');
   fs.mkdirSync(root, { recursive: true });
   const file = path.join(root, 'state.json');
-  let s = { armed: null, moment: null, metadata: null, launched: null };
+  let s = { armed: null, moment: null, metadata: null, launched: null, prepared: [] };
   try { s = { ...s, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { /* first run */ }
-  let pending = null;   // {mint, preparedAt} of the last prepared transaction
+  s.prepared ||= [];   // every transaction prepared for the owner, newest first: {mint, at}
   const save = () => { fs.writeFileSync(file, JSON.stringify(s, null, 1)); onChange(status()); };
 
   function status() {
@@ -93,22 +98,68 @@ export function createLaunch({ dir, worm, D, writeLog, render, solana, site = {}
   async function prepare({ creator, amountSol = 0, slippage = 10, priorityFee = 0.0005, fetchImpl } = {}) {
     if (s.launched) throw new Error('Already launched.');
     if (!s.metadata) throw new Error('Upload the metadata first.');
+    // one prepared earlier may have landed after all (a slow wallet, a closed page): never make a second coin
+    if (await watch({ fetchImpl })) throw new Error(`Already launched: ${s.launched.mint}.`);
     const r = await solana.prepareLaunch({ creator, ...TOKEN, uri: s.metadata.uri, amountSol, slippage, priorityFee, fetchImpl });
-    pending = { mint: r.mint, preparedAt: Date.now() };
+    s.prepared = [{ mint: r.mint, at: Date.now() }, ...s.prepared].slice(0, 8);
+    s.creator = creator;   // the wallet launching $WORM: its pump.fun creator
+    save();
     return r;
   }
 
-  async function confirm({ signature, fetchImpl, url } = {}) {
-    if (!pending) throw new Error('Nothing was prepared.');
-    const r = await solana.confirmLaunch({ signature, mint: pending.mint, fetchImpl, url });
-    if (!r.confirmed || r.err || !r.mintExists) return { ok: false, ...r };
-    s.launched = { mint: pending.mint, signature, confirmedAt: Date.now() };
-    writeLog({ k: 'launch-confirmed', step: worm.step, mint: pending.mint, signature });
-    pending = null;
+  function launched(mint, signature, r = {}) {
+    s.launched = { mint, signature, confirmedAt: Date.now() };
+    writeLog({ k: 'launch-confirmed', step: worm.step, mint, signature });
     save();
     onLaunched(s.launched);
     return { ok: true, ...r };
   }
+  // the transaction that made the coin has its mint among its signers: check it is this one, when the chain can be asked
+  async function madeBy(signature, mint, { fetchImpl, url }) {
+    if (typeof solana.rpc !== 'function') return true;
+    const t = await solana.rpc('getTransaction', [signature, { encoding: 'json', maxSupportedTransactionVersion: 0, commitment: 'confirmed' }], { url, fetchImpl });
+    return !!t && !t.meta?.err && (t.transaction?.message?.accountKeys || []).includes(mint);
+  }
 
-  return { status, arm, disarm, onStep, uploadMetadata, prepare, confirm, description, get mint() { return s.launched ? s.launched.mint : null; }, imagePath: path.join(root, 'moment.png') };
+  async function confirm({ signature, fetchImpl, url = rpcUrl } = {}) {
+    if (s.launched) return s.launched.signature === signature ? { ok: true, already: true } : { ok: false, error: `Already launched: ${s.launched.mint}.` };
+    if (!s.prepared.length) throw new Error('Nothing was prepared.');
+    let last = {};
+    for (const { mint } of s.prepared) {
+      const r = await solana.confirmLaunch({ signature, mint, fetchImpl, url });
+      last = r;
+      if (!r.confirmed || r.err) break;   // the transaction itself hasn't landed: no mint will do
+      if (r.mintExists && await madeBy(signature, mint, { fetchImpl, url })) return launched(mint, signature, r);
+    }
+    return { ok: false, ...last };
+  }
+
+  /** Has a prepared transaction landed without being confirmed here? Then that is the launch. True once launched. */
+  let watching = false;
+  async function watch({ fetchImpl, url = rpcUrl } = {}) {
+    if (s.launched) return true;
+    const recent = s.prepared.filter((x) => Date.now() - x.at < WATCH_MS);
+    if (watching || !recent.length || typeof solana.rpc !== 'function') return false;
+    watching = true;
+    try {
+      for (const { mint } of recent) {
+        const acct = await solana.rpc('getAccountInfo', [mint, { encoding: 'base64', commitment: 'confirmed' }], { url, fetchImpl });
+        if (!acct?.value) continue;
+        const sigs = await solana.rpc('getSignaturesForAddress', [mint, { limit: 1000, commitment: 'confirmed' }], { url, fetchImpl });
+        const first = (sigs || []).filter((x) => !x.err).at(-1);   // newest first: the last is the one that made it
+        if (!first) continue;
+        const r = await solana.confirmLaunch({ signature: first.signature, mint, fetchImpl, url });
+        if (r.confirmed && !r.err && r.mintExists && await madeBy(first.signature, mint, { fetchImpl, url })) {
+          logger.log(`launch found on the chain: ${mint}`);
+          launched(mint, first.signature, r);
+          return true;
+        }
+      }
+      return false;
+    } finally { watching = false; }
+  }
+  const timer = setInterval(() => { watch().catch((e) => logger.warn(`[launch] watching the chain: ${e.message}`)); }, watchEveryMs);
+  timer.unref?.();
+
+  return { status, arm, disarm, onStep, uploadMetadata, prepare, confirm, watch, stop: () => clearInterval(timer), description, get mint() { return s.launched ? s.launched.mint : null; }, get creator() { return s.creator || ''; }, imagePath: path.join(root, 'moment.png') };
 }
