@@ -366,3 +366,47 @@ test('the server before SPAWN has a rewards wallet: /spawn says it opens soon, a
     assert.equal((await (await fetch(`http://127.0.0.1:${port}/config.json`)).json()).features.spawn, false);
   } finally { await app.close(); }
 });
+
+test('robust: a coin seen on chain is never forgotten; a buyback survives a restart; strangers\' coins make no work', async () => {
+  const f = fakes();
+  const { sp, dir } = open(f);
+  f.NEW = addr();
+  const { mint } = await sp.create({ creator: CREATOR, name: 'Kept Coin', symbol: 'KEPT', image: 'worm' });
+  f.curves.set(mint, curve());
+  await sp.fresh(true);
+  assert.equal(sp.publicState().coins.length, 1);
+  // an hour on, a node answers nothing for it: it's not listed this time, but it's not forgotten either
+  f.curves.delete(mint);
+  const real = Date.now, later = real() + 2 * 3600_000;
+  Date.now = () => later;
+  try { await sp.fresh(true); } finally { Date.now = real; }
+  f.curves.set(mint, curve());
+  await sp.fresh(true);
+  assert.deepEqual(sp.publicState().coins.map((c) => c.symbol), ['KEPT']);
+
+  // the buyback is built, then the server restarts before its burn: it is recorded with what it was built for, once
+  const S = sig();
+  f.logs.set(S, collectLogs(OWNER, 1_000_000_000n));
+  await sp.collected({ signature: S });
+  f.curves.set(WORM, curve({ creator: WORM_CREATOR }));
+  const bb = await sp.buyback({ wallet: OWNER });
+  assert.equal(bb.sol, 0.64);
+  sp.stop();
+  const { sp: again } = open(f, { dir });
+  await again.burnBought({ signature: sig() });
+  assert.equal(again.publicState().rewards.owed, 0, 'not owed twice');
+  assert.equal(again.publicState().rewards.spentOnWorm, 0.64);
+
+  // trades of a coin someone else made naming SPAWN's wallet: no refresh, no poke, nothing
+  const reads = () => f.calls.filter((x) => x[0] === 'fetch' && /price\/v3/.test(x[1])).length;
+  const ws = [], seen = [];
+  class WS extends EventEmitter { constructor() { super(); ws.push(this); setImmediate(() => this.emit('open')); } send() {} ping() {} terminate() {} }
+  const live = createSpawn({ dir: fs.mkdtempSync(path.join(os.tmpdir(), 'spawn-')), pump: f.pump, rootMint: () => WORM, moderate, fetchImpl: f.fetchImpl, onTrade: (t) => seen.push(t), opts: { rpc: 'http://rpc.test', publicUrl: 'https://worm.example', localMeta: true, owner: OWNER, ws: 'wss://x', WebSocketImpl: WS }, logger: quiet });
+  await live.fresh(true);
+  const base = reads();
+  for (let k = 0; k < 5; k++) for (const w of ws) w.emit('message', JSON.stringify({ method: 'logsNotification', params: { result: { value: { signature: sig(), err: null, logs: tradeLogs({ mint: addr() }) } } } }));
+  await sleep(50);
+  assert.equal(reads(), base, 'no refreshes for coins that aren\'t SPAWN\'s');
+  assert.deepEqual(seen, [], 'and no pokes');
+  live.stop();
+});

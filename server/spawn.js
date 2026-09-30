@@ -75,7 +75,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
 
   const quotes = new Map();   // quoteId -> {leg, at, user}: the server keeps each quote, so nobody can swap in a doctored one
   let cache = { at: 0, coins: [], curves: new Map(), byPool: new Map(), prices: {}, vaults: { curve: 0n, amm: 0n } };
-  let collectLockUntil = 0, buybackLockUntil = 0, pendingBuyback = null;
+  let collectLockUntil = 0, buybackLockUntil = 0;
   const worm = () => rootMint() || '';
   /** SPAWN's rewards wallet: every coin launched now names it as its pump.fun creator. */
   const owner = () => opts.owner || s.owner || '';
@@ -151,6 +151,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     for (const mint of mints) {
       const c = curves.get(mint), own = s.coins[mint];
       if (!c || !mine.has(c.creator)) continue;   // not on chain (yet), or not SPAWN's
+      if (!own.seen) { own.seen = true; save(); }
       const stage = !c.complete ? 'curve' : livePools.has(mint) ? 'graduated' : 'graduating';
       if (stage !== 'curve') byPool.set(pools.get(mint), mint);
       const priceSol = stage === 'curve' ? pump.priceSol(c) : prices[mint]?.usdPrice && solUsd ? prices[mint].usdPrice / solUsd : pump.priceSol(c);
@@ -159,8 +160,9 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
         quote: 'SOL', priceQuote: priceSol, priceSol, priceUsd: priceSol * solUsd, mcapSol: priceSol * SUPPLY, progress: pump.progress(c, state?.global), graduated: stage !== 'curve', stage,
       });
     }
-    // coins launched on the page that never made it on chain are forgotten after an hour, and their kept pictures later
-    for (const [mint, c] of Object.entries(s.coins)) if (!curves.get(mint) && Date.now() - c.createdAt > STALE_COIN_MS) delete s.coins[mint];
+    // coins launched on the page that never made it on chain are forgotten after an hour, and their kept pictures later;
+    // one that has ever been seen on chain never is (a node's missing answer is not a missing coin)
+    for (const [mint, c] of Object.entries(s.coins)) if (!c.seen && !curves.get(mint) && Date.now() - c.createdAt > STALE_COIN_MS) delete s.coins[mint];
     await sweepUploads(new Set(coins.map((c) => c.mint))).catch((e) => logger.warn(`[spawn] sweeping pictures: ${e.message}`));
     let vaults = cache.vaults;
     if (owner()) try { vaults = await pump.fetchCreatorFees({ creator: owner(), ...chain }); } catch (e) { logger.warn(`[spawn] vaults: ${e.message}`); }
@@ -382,11 +384,11 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     if (image !== 'worm' && !canUpload()) throw new Error('Many coins are being launched right now. Try again in a minute, or give it its worm\'s first sight.');
     let meta;
     if (image === 'worm') {
-      // its picture is its worm's first sight (a fresh worm shown the ticker, drawn from the real wiring): here it is
-      // drawn on request, so only its metadata is kept; with Pinata the picture goes to IPFS too
-      if (pinata() && (!render || !D)) throw new Error('Pictures from the worm are not available here.');
-      const png = pinata() ? (await import('./coinworms.js')).previewHatch({ D, render, ticker: sy.text, width: 512 }).png : null;
-      meta = await uploadMeta({ image: png, type: 'image/png', name: nm.text, symbol: sy.text, wormImage: pinata() ? null : wormPicture(sy.text) });
+      // its picture is its worm's first sight (a fresh worm shown the ticker, drawn from the real wiring), drawn once
+      // now and kept like a picked one: a coin's picture never changes. Where nothing can draw, it links to the drawing.
+      const png = render && D ? (await import('./coinworms.js')).previewHatch({ D, render, ticker: sy.text, width: 512 }).png : null;
+      if (!png && pinata()) throw new Error('Pictures from the worm are not available here.');
+      meta = await uploadMeta({ image: png, type: 'image/png', name: nm.text, symbol: sy.text, wormImage: png ? null : wormPicture(sy.text) });
     } else meta = await uploadMeta({ image: bytes, type: m[1], name: nm.text, symbol: sy.text });
     let built;
     try { built = await pump.buildCreate({ user: creator, creator: owner(), name: nm.text, symbol: sy.text, uri: meta.uri, firstBuySol: buy, state: await programState(), ...chain }); } catch (e) { throw human(e); }
@@ -479,7 +481,8 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
         if (!j.swapTransaction) throw new Error('Jupiter did not return a transaction.');
         tx = j.swapTransaction; out = BigInt(q.outAmount); min = BigInt(q.otherAmountThreshold);
       }
-      pendingBuyback = { lamports: owed, at: Date.now() };
+      s.pendingBuyback = { lamports: String(owed), at: Date.now() };
+      save();
       return { tx, sol: sol(owed), worm: Number(out) / 10 ** DECIMALS, min: Number(min) / 10 ** DECIMALS };
     } catch (e) { buybackLockUntil = 0; throw human(e); }
   }
@@ -489,8 +492,15 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     const b = await pump.buildBurnReceived({ signature, owner: owner(), mint: worm(), ...chain });
     if (!b) throw new Error('That transaction brought no $WORM.');
     if (!s.buybacks.some((x) => x.signature === signature)) {
-      s.buybacks.push({ signature, lamports: String(pendingBuyback?.lamports ?? 0n), worm: b.amount, at: Date.now() });
-      pendingBuyback = null; buybackLockUntil = 0; save();
+      // what it spent: the amount the buyback was built for (kept on disk until now), else what left the wallet in it
+      let lamports = s.pendingBuyback ? BigInt(s.pendingBuyback.lamports) : null;
+      if (lamports == null) {
+        const tx = await rpc('getTransaction', [signature, { encoding: 'json', maxSupportedTransactionVersion: 0, commitment: 'confirmed' }], chain).catch(() => null);
+        const i = tx?.transaction?.message?.accountKeys?.indexOf(owner()) ?? -1;
+        lamports = i >= 0 ? BigInt(Math.max(0, tx.meta.preBalances[i] - tx.meta.postBalances[i])) : 0n;
+      }
+      s.buybacks.push({ signature, lamports: String(lamports), worm: b.amount, at: Date.now() });
+      s.pendingBuyback = null; buybackLockUntil = 0; save();
     }
     return { tx: b.tx, amount: b.amount };
   }
@@ -565,7 +575,8 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     }
     return out;
   }
-  let stream = null, streamKey = '';
+  let stream = null, streamKey = '', lookedAt = 0;
+  const waitingCoin = () => Object.entries(s.coins).some(([m, c]) => !c.seen && Date.now() - c.createdAt < STALE_COIN_MS && !cache.coins.some((x) => x.mint === m));
   const vaultsOf = (w) => [pump.creatorVault(w), pump.ammCreatorVaultAuthority(w)];
   function startStream() {
     const mentions = owners().flatMap(vaultsOf), key = mentions.join(',');
@@ -574,8 +585,10 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     streamKey = key;
     stream = logsStream({ url: opts.ws, mentions, logger, WebSocketImpl: opts.WebSocketImpl, onLogs: (signature, logs) => {
       let trades = tradesIn(logs);
-      if (!trades.length && pump.eventsFromLogs(logs).some((e) => e.kind === 'trade' && e.pool === 'pump' && owners().includes(e.creator))) {
-        // a coin this listing doesn't have yet (just launched): look again, then read it
+      if (!trades.length && waitingCoin() && Date.now() - lookedAt > 10_000 && pump.eventsFromLogs(logs).some((e) => e.kind === 'trade' && e.pool === 'pump' && s.coins[e.mint])) {
+        // a coin launched here that the listing doesn't have yet: look again, then read it. (Anyone can make a coin naming
+        // SPAWN's wallet as its creator; its trades are not SPAWN's and make no work here.)
+        lookedAt = Date.now();
         fresh(true).then(() => { for (const t of tradesIn(logs)) take(t, signature); }).catch(() => {});
         return;
       }
