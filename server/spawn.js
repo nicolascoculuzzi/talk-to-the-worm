@@ -397,21 +397,24 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     if (q.user && q.user !== user) throw new Error('That quote is for another wallet.');
     const k = Number(step) || 0, leg = q.legs[k];
     if (!leg || k !== q.next) throw new Error('Those steps are out of order. Enter the amount again.');
+    const was = q.user;
+    q.user = user; q.next = k + 1;   // marked before anything is awaited: two requests at once can't both build this step
     let tx;
-    if (leg.kind === 'jup') {
-      const j = await jupSwap(leg.res, user);
-      if (!j.swapTransaction) throw new Error('Jupiter did not return a transaction.');
-      tx = j.swapTransaction;
-    } else {
-      const [p] = await dbc.fetchPools({ addresses: [leg.pool], ...chain });
-      if (!p) throw new Error('That coin\'s pool is not there.');
-      // priced again now: a swap that would come in under the quote's floor could only fail on chain
-      let now = -1n;
-      try { now = curveOut(leg.cfg, p.sqrtPrice, leg.side === 'buy', leg.amountIn); } catch { /* the curve can't take it any more */ }
-      if (now < leg.min) throw new Error('The price moved. Get a new quote.');
-      tx = (await dbc.buildSwap({ pool: p, side: leg.side, trader: user, amountIn: leg.amountIn, minOut: leg.min, ...chain })).tx;
-    }
-    q.user = user; q.next = k + 1;
+    try {
+      if (leg.kind === 'jup') {
+        const j = await jupSwap(leg.res, user);
+        if (!j.swapTransaction) throw new Error('Jupiter did not return a transaction.');
+        tx = j.swapTransaction;
+      } else {
+        const [p] = await dbc.fetchPools({ addresses: [leg.pool], ...chain });
+        if (!p) throw new Error('That coin\'s pool is not there.');
+        // priced again now: a swap that would come in under the quote's floor could only fail on chain
+        let now = -1n;
+        try { now = curveOut(leg.cfg, p.sqrtPrice, leg.side === 'buy', leg.amountIn); } catch { /* the curve can't take it any more */ }
+        if (now < leg.min) throw new Error('The price moved. Get a new quote.');
+        tx = (await dbc.buildSwap({ pool: p, side: leg.side, trader: user, amountIn: leg.amountIn, minOut: leg.min, ...chain })).tx;
+      }
+    } catch (e) { if (q.next === k + 1) { q.user = was; q.next = k; } throw e; }   // nothing was built: the step can be asked for again
     if (q.next >= q.legs.length) quotes.delete(quoteId);
     return { tx, step: k, steps: q.legs.length };
   }
@@ -425,7 +428,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
 
   /* ---------- spawning a coin ---------- */
 
-  const describe = (symbol, cfg) => `$${symbol} was spawned on SPAWN, the BRAINWORM launchpad${inSol(cfg) ? '' : ', priced in $BRAINWORM'}. It hatched its own copy of a simulated worm larva's nervous system, which feels every trade of it, and every buy pokes the live worm.${opts.publicUrl ? ` ${opts.publicUrl}/spawn` : ''}`;
+  const describe = (symbol, cfg) => `$${symbol} was spawned on SPAWN, the BRAINWORM launchpad${inSol(cfg) ? '' : ', priced in $BRAINWORM'}. It hatched its own copy of a simulated worm larva's nervous system, which feels every trade on its bonding curve, and every buy pokes the live worm.${opts.publicUrl ? ` ${opts.publicUrl}/spawn` : ''}`;
   async function uploadMeta({ image, type, name, symbol, cfg }) {
     const site = opts.publicUrl ? `${opts.publicUrl}/spawn` : '';
     const description = describe(symbol, cfg);
@@ -563,14 +566,17 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     if (!current()) throw new Error('The launchpad is not set up.');
     checkPartner(feeClaimer, 'fee claimer');
     if (Date.now() < claimLockUntil) throw new Error('The last claim and burn may still land. Try again in a minute.');
-    await fresh(true, true);
+    claimLockUntil = Date.now() + CLAIM_LOCK_MS;   // taken before anything is awaited: two requests at once can't both build
     const out = [];
-    for (const cfg of s.configs) {
-      if (inSol(cfg)) continue;
-      const pools = [...cache.pools.values()].filter((p) => p.config === cfg.address && Number(p.partnerQuoteFee) / 10 ** ROOT_DECIMALS >= min);
-      out.push(...await dbc.buildClaimAndBurn({ pools, feeClaimer, ...chain }));
-    }
-    if (out.length) claimLockUntil = Date.now() + CLAIM_LOCK_MS;
+    try {
+      await fresh(true, true);
+      for (const cfg of s.configs) {
+        if (inSol(cfg)) continue;
+        const pools = [...cache.pools.values()].filter((p) => p.config === cfg.address && Number(p.partnerQuoteFee) / 10 ** ROOT_DECIMALS >= min);
+        out.push(...await dbc.buildClaimAndBurn({ pools, feeClaimer, ...chain }));
+      }
+    } catch (e) { claimLockUntil = 0; throw e; }
+    if (!out.length) claimLockUntil = 0;
     return out;
   }
   /**
@@ -594,16 +600,19 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     if (!brainworm()) throw new Error('Fees in SOL wait in their pools until $BRAINWORM launches: then they buy it and it is burned.');
     checkPartner(feeClaimer, 'fee claimer');
     if (Date.now() < solLockUntil) throw new Error('The last claim may still land. Try again in a minute.');
-    await fresh(true, true);
+    solLockUntil = Date.now() + CLAIM_LOCK_MS;   // taken before anything is awaited, like the claim and burn's
     const out = [];
-    for (const cfg of s.configs) {
-      if (!inSol(cfg)) continue;
-      const pools = [...cache.pools.values()].filter((p) => p.config === cfg.address && Number(p.partnerQuoteFee) / 1e9 >= min);
-      out.push(...await dbc.buildClaimAndBurn({ pools, feeClaimer, burn: false, ...chain }));
-    }
-    const graduated = [...cache.pools.values()].filter((p) => p.stage === 'graduated' && inSol(p.cfg)).map(coinOf);
-    if (graduated.length) out.push(...await dbc.buildClaimGraduated({ coins: graduated, owner: feeClaimer, ...chain }));
-    if (out.length) solLockUntil = Date.now() + CLAIM_LOCK_MS;
+    try {
+      await fresh(true, true);
+      for (const cfg of s.configs) {
+        if (!inSol(cfg)) continue;
+        const pools = [...cache.pools.values()].filter((p) => p.config === cfg.address && Number(p.partnerQuoteFee) / 1e9 >= min);
+        out.push(...await dbc.buildClaimAndBurn({ pools, feeClaimer, burn: false, ...chain }));
+      }
+      const graduated = [...cache.pools.values()].filter((p) => p.stage === 'graduated' && inSol(p.cfg)).map(coinOf);
+      if (graduated.length) out.push(...await dbc.buildClaimGraduated({ coins: graduated, owner: feeClaimer, ...chain }));
+    } catch (e) { solLockUntil = 0; throw e; }
+    if (!out.length) solLockUntil = 0;
     return out;
   }
   /**
@@ -632,7 +641,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
   }
   // how much $BRAINWORM SPAWN's fee claimer burned in a transaction (0 if none), read from the chain
   async function burnedIn(signature) {
-    const tx = await rpc('getTransaction', [signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 1, commitment: 'confirmed' }], chain);
+    const tx = await rpcRetry('getTransaction', [signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 1, commitment: 'confirmed' }]);
     if (!tx) return null;
     if (tx.meta?.err) return 0;
     const claimers = new Set([...s.configs.map((c) => c.partner), ...(opts.owner ? [opts.owner] : [])]);
@@ -661,18 +670,20 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     burnsScanned = true;
     const got = [];
     let before;
-    for (let seen = 0; seen < 1000;) {
-      const page = await rpcRetry('getSignaturesForAddress', [opts.owner, { limit: 200, ...(before ? { before } : {}), commitment: 'confirmed' }]);
-      for (const x of page) {
-        if (x.err) continue;
-        const amount = await burnedIn(x.signature).catch(() => 0);
-        if (amount > 0) got.push({ signature: x.signature, amount, at: (x.blockTime || 0) * 1000 });
-        await sleep(250);   // gentle on the RPC
+    try {
+      for (let seen = 0; seen < 1000;) {
+        const page = await rpcRetry('getSignaturesForAddress', [opts.owner, { limit: 200, ...(before ? { before } : {}), commitment: 'confirmed' }]);
+        for (const x of page) {
+          if (x.err) continue;
+          const amount = await burnedIn(x.signature);   // a read the RPC keeps refusing stops the scan: it isn't "no burn"
+          if (amount > 0) got.push({ signature: x.signature, amount, at: (x.blockTime || 0) * 1000 });
+          await sleep(1000);   // about a read a second: gentle on the RPC
+        }
+        seen += page.length;
+        if (page.length < 200) break;
+        before = page.at(-1).signature;
       }
-      seen += page.length;
-      if (page.length < 200) break;
-      before = page.at(-1).signature;
-    }
+    } catch (e) { burnsScanned = false; throw e; }   // a later refresh starts it again
     if (got.length && !s.burns.length) { s.burns = got.reverse(); save(); }
   }
 
@@ -847,19 +858,27 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
  * with pings and backoff. DBC reports swaps through a self-CPI event, not its logs, so only the signature is
  * passed on and the caller reads the transaction.
  */
-export function logsStream({ url, mentions, onSignature, logger = console, WebSocketImpl = WebSocket }) {
+export function logsStream({ url, mentions, onSignature, logger = console, WebSocketImpl = WebSocket, pongTimeoutMs = 60_000 }) {
   let ws = null, stopped = false, backoff = 1000, timer = null, ping = null;
   const seen = new Set();
   function open() {
     if (stopped) return;
     const sock = ws = new WebSocketImpl(url, { handshakeTimeout: 10_000 });
+    let heardAt = Date.now();   // a link can die without closing: one that answers nothing for a minute is dropped and opened again
     sock.on('open', () => {
-      backoff = 1000;
+      heardAt = Date.now();
       mentions.forEach((m, i) => sock.send(JSON.stringify({ jsonrpc: '2.0', id: i + 1, method: 'logsSubscribe', params: [{ mentions: [m] }, { commitment: 'confirmed' }] })));
-      ping = setInterval(() => { try { sock.ping(); } catch { /* closing */ } }, 30_000);
+      ping = setInterval(() => {
+        if (Date.now() - heardAt > pongTimeoutMs) { logger.warn('[spawn] stream: no answer for a minute, reconnecting'); sock.terminate(); return; }
+        try { sock.ping(); } catch { /* closing */ }
+      }, 30_000);
     });
+    sock.on('pong', () => { heardAt = Date.now(); });
     sock.on('message', (data) => {
+      heardAt = Date.now();
       let m; try { m = JSON.parse(String(data)); } catch { return; }
+      if (m.id && m.error) { logger.warn(`[spawn] stream: subscription refused (${m.error.message || m.error.code}), reconnecting`); sock.terminate(); return; }
+      if (m.id && m.result != null) backoff = 1000;   // subscribed: the link is good (only then does the wait between tries start over)
       const v = m.method === 'logsNotification' ? m.params?.result?.value : null;
       if (!v || v.err || !v.signature || seen.has(v.signature)) return;
       seen.add(v.signature);

@@ -124,7 +124,7 @@ async function spawnView() {
   const parts = [];
   if (!cur) parts.push('No config yet. Make one priced in SOL and SPAWN opens: coins can be launched from then on.');
   else parts.push(`${st.open ? 'Open' : 'Not open yet'}. New coins go on ${cur.address}, priced in ${inRoot(cur) ? '$BRAINWORM' : 'SOL'}, graduating at ${compact(cur.graduationQuote)} ${inRoot(cur) ? '$BRAINWORM' : 'SOL'} (${st.configs.length} config${st.configs.length > 1 ? 's' : ''} in all).`);
-  if (!st.hosting) parts.push('Coin pictures need PINATA_JWT set on the server before anyone can launch.');
+  if (!st.hosting) parts.push('Picked pictures need PINATA_JWT on the server; until then every coin gets its worm\'s first sight.');
   if (!st.owner) parts.push('Set SPAWN_OWNER on the server to the owner wallet\'s address: SPAWN then finds its configs on the chain after every deploy.');
   parts.push(`${compact(st.burned)} $BRAINWORM burned so far, ${compact(st.waiting)} $BRAINWORM and ${compact(st.waitingSol)} SOL waiting.`);
   if (st.stuck?.length) parts.push(`Waiting over 10 minutes to graduate: ${st.stuck.map((x) => '$' + (x.symbol || x.mint.slice(0, 4))).join(', ')}. Meteora's migrator usually does it; migrator.meteora.ag can do it by hand.`);
