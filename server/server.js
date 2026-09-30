@@ -583,13 +583,13 @@ export function createWormServer(overrides = {}) {
       "connect-src 'self' ws: wss:", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'self'",
     ].join('; '));
   }
-  // /spawn's page with one coin in its title and link preview (the page opens that coin's trade window itself)
+  // a coin's own page (coin.html; /spawn's page before it existed) with the coin in its title and link preview
   const escapeHtml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   let spawnHtml = null;
   function coinPage(c) {
     try {
-      const f = path.join(ROOT, 'public', 'spawn.html'), st = fs.statSync(f);
-      if (!spawnHtml || spawnHtml.mtimeMs !== st.mtimeMs) spawnHtml = { mtimeMs: st.mtimeMs, html: fs.readFileSync(f, 'utf8').replaceAll('%ORIGIN%', config.publicUrl) };
+      const own = path.join(ROOT, 'public', 'coin.html'), f = fs.existsSync(own) ? own : path.join(ROOT, 'public', 'spawn.html'), st = fs.statSync(f);
+      if (!spawnHtml || spawnHtml.file !== f || spawnHtml.mtimeMs !== st.mtimeMs) spawnHtml = { file: f, mtimeMs: st.mtimeMs, html: fs.readFileSync(f, 'utf8').replaceAll('%ORIGIN%', config.publicUrl) };
     } catch { return null; }
     const sym = escapeHtml('$' + c.symbol), name = escapeHtml(c.name), trades = c.own?.trades || 0;
     const desc = `${name} (${sym}) on SPAWN, the BRAINWORM launchpad. It hatched its own worm, a copy of a real larva's wiring, which has felt ${trades} trade${trades === 1 ? '' : 's'} of it. Every buy pokes the live worm too.`;

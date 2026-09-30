@@ -32,7 +32,7 @@ load();
 
 function render() {
   const st = $('spstate');
-  st.hidden = !!data.open; st.textContent = data.open ? '' : data.reason || 'Opens when $BRAINWORM launches.';
+  st.hidden = !!data.open; st.textContent = data.open ? '' : data.reason || 'Opening soon.';
   $('stcoins').textContent = fmt(data.coins.length);
   $('stburn').textContent = compact(data.root?.burned || 0);
   // before $BRAINWORM, what waits is SOL for buying it
@@ -41,7 +41,7 @@ function render() {
   $('stwait').textContent = inSol ? compact(data.root?.waitingSol || 0) : compact(data.root?.waiting || 0);
   $('splede').textContent = data.quote === '$BRAINWORM'
     ? 'Launch a coin and it hatches its own worm. Every coin here is priced in $BRAINWORM, most of every fee is burned, and every buy pokes the big worm.'
-    : 'Launch a coin and it hatches its own worm. Every buy pokes the big one. Coins are priced in SOL until $BRAINWORM launches, and most of every fee goes to burning it.';
+    : 'Launch a coin and it hatches its own worm. Every buy pokes the big one. Coins are priced in SOL for now, and most of every fee goes to burning $BRAINWORM.';
   launchForm.update(data);
   const lb = data.root?.burns?.[0], lbp = $('lastburn');
   lbp.hidden = !lb;
