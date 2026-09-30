@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BRAINWORM · docs and every line of its code</title>
+<meta name="description" content="What BRAINWORM and SPAWN are, how to check them yourself, and every file the site runs, readable here with its SHA-256.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BRAINWORM">
+<meta property="og:title" content="BRAINWORM · docs and every line of its code">
+<meta property="og:description" content="What BRAINWORM and SPAWN are, how to check them yourself, and every file the site runs, with its SHA-256.">
+<meta property="og:url" content="%ORIGIN%/docs">
+<meta property="og:image" content="%ORIGIN%/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#04070B">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@200..800&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/docs.css">
+</head>
+<body class="docs">
+<a class="skip" href="#main">Skip to content</a>
+<nav class="nav" aria-label="Site">
+  <a class="wordmark" href="/">BRAINWORM</a>
+  <div class="navlinks"><a href="/#coins">Coins</a><a href="/docs" aria-current="page">Docs</a><a class="navcta" href="/#top">Launch<span class="opt"> a coin</span></a></div>
+</nav>
+
+<div class="dbar">
+  <button type="button" class="dtoggle" id="dtoggle" aria-controls="dside" aria-expanded="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h8"/></svg>Files</button>
+  <p class="dwhere" id="dwhere"><span class="dir"></span><span class="base">Overview</span></p>
+</div>
+
+<div class="dshell">
+  <aside class="dside" id="dside" aria-label="Docs" tabindex="-1">
+    <div class="dsidein">
+      <div class="dsnav">
+        <a class="dhome" id="dhome" href="#overview" aria-current="page"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4.5h12M4 8.5h12M4 12.5h7"/><path d="M13.5 13.5l2 2 3-3.5"/></svg>Overview</a>
+        <ul class="dtoc">
+          <li><a href="#what">What BRAINWORM is</a></li>
+          <li><a href="#spawn">What SPAWN is</a></li>
+          <li><a href="#check">Check it yourself</a></li>
+          <li><a href="#programs">The programs it uses</a></li>
+          <li><a href="#endpoints">Public endpoints</a></li>
+          <li><a href="#files">All the code</a></li>
+        </ul>
+      </div>
+      <div class="dcodenav">
+        <div class="dcodehead"><h2>Code</h2><span id="dcount"></span></div>
+        <div class="dfilter">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5"/><path d="M12.5 12.5l4 4"/></svg>
+          <input type="search" id="dfilter" placeholder="Filter files" aria-label="Filter files" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+          <kbd aria-hidden="true">/</kbd>
+        </div>
+        <nav class="dtree" id="dtree" aria-label="Files"><p class="dempty">Loading the files…</p></nav>
+      </div>
+    </div>
+  </aside>
+  <div class="dscrim" id="dscrim" aria-hidden="true"></div>
+
+  <main class="dmain" id="main" tabindex="-1">
+    <article class="dover" id="overview">
+      <header class="dhero">
+        <p class="eyebrow">Docs</p>
+        <h1 class="dtitle">Read every line of it</h1>
+        <p class="dlede">What BRAINWORM and SPAWN are, how to check them yourself, and every file the site runs, each with its SHA-256.</p>
+        <p class="dmissing" id="dmissing" role="status" hidden></p>
+      </header>
+
+      <section class="dsec" id="what" aria-labelledby="what-h">
+        <h2 id="what-h">What BRAINWORM is</h2>
+        <p>One live simulation of a real larva's nervous system: the published wiring of a three-day-old marine worm, <i>Platynereis dumerilii</i>, with 2,675 cells, 14,066 connections and 26,881 synapses, run by a simple model that drives a simulated swimming body. There is one worm, on the server, and everyone sees the same one. Anyone can show it a message, which reaches its eyes as light, or poke it.</p>
+        <p><b>Every browser re-runs it</b> and checks the server's state hash every second.</p>
+      </section>
+
+      <section class="dsec" id="spawn" aria-labelledby="spawn-h">
+        <h2 id="spawn-h">What SPAWN is</h2>
+        <p>The launchpad at <a href="/spawn">/spawn</a>, on Meteora's Dynamic Bonding Curve. New coins are priced in SOL until $BRAINWORM launches, then in $BRAINWORM.</p>
+        <div class="dfee" role="img" aria-label="Where each trade's 1% fee goes: 64% to $BRAINWORM's burn, 16% to the coin's creator, 20% to Meteora">
+          <div class="dfeebar"><i class="burn"></i><i class="creator"></i><i class="meteora"></i></div>
+          <ul class="feekey" aria-hidden="true"><li><i class="burn"></i>$BRAINWORM's burn <b>64%</b></li><li><i class="creator"></i>The coin's creator <b>16%</b></li><li><i class="meteora"></i>Meteora <b>20%</b></li></ul>
+        </div>
+        <ul class="plain">
+          <li><b>1% fee on every trade.</b> Meteora keeps 20%, the coin's creator gets 20% of the rest, and the rest goes to $BRAINWORM's burn.</li>
+          <li><b>Every coin hatches its own worm.</b> A fresh copy of the same larva, whose first sight is the coin's ticker. It feels only that coin's trades, and any browser can rebuild it and check it. Each buy also pokes the live worm, at a spot picked from the coin's address.</li>
+          <li><b>Locked for good.</b> When a coin graduates to Meteora DAMM v2, its liquidity is locked for good.</li>
+          <li><b>Your keys stay yours.</b> The server never holds anyone's keys: your wallet signs every transaction.</li>
+        </ul>
+      </section>
+
+      <section class="dsec" id="check" aria-labelledby="check-h">
+        <h2 id="check-h">Check it yourself</h2>
+        <ul class="dchecks">
+          <li><h3>The live check</h3><p>Your browser runs its own copy of the worm and compares state hashes with the server every second. It runs in the <a href="/#proof">Proof</a> section of the main page.</p></li>
+          <li><h3>The log</h3><p><a href="/log/current.jsonl"><code>/log/current.jsonl</code></a> is this hour's log: every stimulus, at the step it happened. Earlier hours are listed at <a href="/log/index.json"><code>/log/index.json</code></a>.</p></li>
+          <li><h3>Replay</h3><p><code class="dcmd" id="dreplay">npm run replay -- https://this-site/log/current.jsonl</code> re-runs a log with a copy of this code and checks every published result. The main page's Replay button does the same in your browser.</p></li>
+          <li><h3>The manifest</h3><p><a href="/manifest.json"><code>/manifest.json</code></a> lists every number the model uses, marked measured or chosen, with the SHA-256 of the wiring and of the simulation's code.</p></li>
+          <li><h3>A coin's worm</h3><p><code>/spawn/worm/&lt;mint&gt;.json</code> lists its ticker, every trade in order and its state hash. <a href="#shared/coinworm.js">shared/coinworm.js</a> rebuilds it; the Check button on each coin does that in your browser.</p></li>
+        </ul>
+      </section>
+
+      <section class="dsec" id="programs" aria-labelledby="programs-h">
+        <h2 id="programs-h">The programs it uses</h2>
+        <p>Solana programs that SPAWN's and $BRAINWORM's transactions call. They are programs, not coins.</p>
+        <div class="dprogs">
+          <div class="dprog">
+            <h3>Meteora Dynamic Bonding Curve</h3>
+            <p>Every SPAWN coin's curve, until it graduates.</p>
+            <div class="daddr"><code>dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN</code><span class="dbtns"><button type="button" class="btn-ghost" data-copy="dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN">Copy</button><a class="btn-ghost" href="https://solscan.io/account/dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN" target="_blank" rel="noopener">Solscan</a></span></div>
+          </div>
+          <div class="dprog">
+            <h3>Meteora DAMM v2</h3>
+            <p>Where a coin trades once it graduates, with its liquidity locked.</p>
+            <div class="daddr"><code>cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG</code><span class="dbtns"><button type="button" class="btn-ghost" data-copy="cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG">Copy</button><a class="btn-ghost" href="https://solscan.io/account/cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG" target="_blank" rel="noopener">Solscan</a></span></div>
+          </div>
+          <div class="dprog">
+            <h3>pump.fun</h3>
+            <p>Where $BRAINWORM launches and trades.</p>
+            <div class="daddr"><code>6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P</code><span class="dbtns"><button type="button" class="btn-ghost" data-copy="6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P">Copy</button><a class="btn-ghost" href="https://solscan.io/account/6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P" target="_blank" rel="noopener">Solscan</a></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="dsec" id="endpoints" aria-labelledby="endpoints-h">
+        <h2 id="endpoints-h">Public endpoints</h2>
+        <dl class="dends">
+          <div><dt><a href="/spawn.json">/spawn.json</a></dt><dd>SPAWN's coins, their worms, the fee split and the burns so far.</dd></div>
+          <div><dt><code>/spawn/worm/&lt;mint&gt;.json</code></dt><dd>One coin's own worm: its ticker, every trade in order, its state hash.</dd></div>
+          <div><dt><a href="/config.json">/config.json</a></dt><dd>The model's parameters, the data's SHA-256s, the tug's calibration and what is switched on.</dd></div>
+          <div><dt><a href="/manifest.json">/manifest.json</a></dt><dd>Every number the model uses, measured or chosen.</dd></div>
+          <div><dt><a href="/lab.json">/lab.json</a></dt><dd>The lab: registered experiments against rewired worms, and their results.</dd></div>
+          <div><dt><a href="/log/index.json">/log/</a></dt><dd>The hourly event logs. <code>/log/current.jsonl</code> is this hour.</dd></div>
+          <div><dt><a href="/proof.json">/proof/</a></dt><dd>Each sealed hour's proof and its OpenTimestamps file. <code>/proof.json</code> lists the chain.</dd></div>
+          <div><dt><a href="/source/index.json">/source/</a></dt><dd>The files on this page: <code>/source/index.json</code> lists them with their SHA-256, <code>/source/&lt;path&gt;</code> serves each one as plain text.</dd></div>
+        </dl>
+      </section>
+
+      <section class="dsec" id="files" aria-labelledby="files-h">
+        <div class="dsechead"><h2 id="files-h">All the code</h2><button type="button" class="btn-ghost" id="dshalist" disabled>Copy SHA-256 list</button></div>
+        <p>All the code is below: every file the site runs, with its SHA-256. <span class="dtotals" id="dtotals"></span></p>
+        <div class="dfiles" id="dfiles"><p class="dempty">Loading the files…</p></div>
+        <p class="small dfilesnote">Not listed: the wiring data, served as it is at <a href="/data/wiring.json">/data/</a>, the pictures, and the chat's blocklist. To check a copy of the code, save the SHA-256 list and run <code>shasum -a 256 -c</code> on it.</p>
+      </section>
+    </article>
+
+    <section class="dview" id="dview" aria-labelledby="dpath" hidden>
+      <header class="dvhead">
+        <div class="dvtop">
+          <h1 class="dpath" id="dpath" tabindex="-1"></h1>
+          <a class="btn-ghost draw" id="draw" href="/source/index.json" target="_blank" rel="noopener">Raw<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8 5h7v7M15 5l-9 9"/></svg></a>
+        </div>
+        <p class="dmeta" id="dmeta"></p>
+        <div class="dsha">
+          <span class="dshak">SHA-256</span>
+          <code id="dsha"></code>
+          <button type="button" class="btn-ghost" id="dcopysha">Copy</button>
+          <span class="dcheck" id="dcheck" hidden></span>
+        </div>
+      </header>
+      <div class="dcodebox" id="dcodebox"><div class="dgut" id="dgut" aria-hidden="true"></div><pre class="dcode" id="dcode" tabindex="0"></pre></div>
+    </section>
+
+    <footer class="foot">
+      <p>Data: Verasztó C, Jasek S, Gühmann M, Bezares-Calderón LA, Williams EA, Shahidi R, Jékely G. <i>Whole-body connectome of a segmented annelid larva.</i> <a href="https://elifesciences.org/articles/97964" target="_blank" rel="noopener">eLife (2025)</a> · <a href="https://github.com/JekelyLab/Platynereis_3D_connectome_2024" target="_blank" rel="noopener">data</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Changed: positions derived, data re-encoded, simulation and body added. Not affiliated with the authors.</p>
+      <p>Coins on SPAWN are made by their creators, not by BRAINWORM, and can lose all their value. Nothing here is investment advice.</p>
+    </footer>
+  </main>
+</div>
+<script type="module" src="/docs.js"></script>
+</body>
+</html>

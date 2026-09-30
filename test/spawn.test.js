@@ -502,16 +502,19 @@ test('with the owner\'s address SPAWN needs no saved state: its configs from the
   f.configs.set(SOLCFG, cfg(SOLCFG, SOL_MINT)); f.configs.set(ROOTCFG, cfg(ROOTCFG, ROOT)); f.configs.set(NOTOURS, cfg(NOTOURS, SOL_MINT, false));
   f.dbc.findConfigs = async ({ feeClaimer }) => [...f.configs.values()].filter((c) => c.feeClaimer === feeClaimer);
   f.dbc.isSpawnConfig = (c) => c.spawn;
+  f.madeBy(SOLCFG, OWNER); f.madeBy(ROOTCFG, OWNER); f.madeBy(NOTOURS, OWNER);
   f.pools.push(f.pool(MINT, { config: SOLCFG, name: 'Found', symbol: 'FOUND', uri: 'https://ipfs.io/ipfs/bafkfoundmeta' }), f.pool(OTHER, { config: NOTOURS, name: 'Other', symbol: 'OTHER' }));
   f.pictures.set('https://ipfs.io/ipfs/bafkfoundmeta', { name: 'Found', image: 'https://ipfs.io/ipfs/bafkfoundimage' });
   const opts = { rpc: 'http://rpc.test', publicUrl: 'https://worm.example', owner: OWNER, pinataJwt: 'jwt', uploadPinata: async () => ({ metadataUri: 'https://ipfs.io/ipfs/bafkm', metadata: { image: 'https://ipfs.io/ipfs/bafki' } }) };
 
-  // before $BRAINWORM: its SOL config, found and open; a config with other parameters is not SPAWN's
+  // before $BRAINWORM (its config isn't on chain yet): its SOL config, found and open; a config with other parameters is not SPAWN's
+  f.configs.delete(ROOTCFG);
   const early = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => '', moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
   await early.fresh(true);
   assert.deepEqual([early.publicState().open, early.publicState().quote, early.publicState().config], [true, 'SOL', SOLCFG]);
   assert.deepEqual(early.publicState().coins.map((c) => c.symbol), ['FOUND']);
   early.stop();
+  f.configs.set(ROOTCFG, cfg(ROOTCFG, ROOT));
 
   // after: both, and new coins go on $BRAINWORM's
   const sp = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
@@ -561,6 +564,7 @@ test('right after $BRAINWORM launches, Jupiter has no price for it: its pump.fun
   const CURVE = f.curve(ROOT, { tokens: 800_000_000_000_000n, lamports: 40_000_000_000n });   // 40 SOL against 800,000,000 tokens: 5e-8 SOL each
   const opts = { rpc: 'http://rpc.test', owner: OWNER };
   f.dbc.findConfigs = async () => [f.configs.get(CFG)];
+  f.madeBy(CFG, OWNER);   // the owner's wallet made it
   f.dbc.isSpawnConfig = () => true;
   const sp = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
   await sp.fresh(true);
@@ -592,7 +596,7 @@ test('after a deploy without TOKEN_MINT, SPAWN finds $BRAINWORM in the config th
   f.configs.set(SOLCFG, cfg(SOLCFG, SOL_MINT)); f.configs.set(ROOTCFG, cfg(ROOTCFG, ROOT)); f.configs.set(FAKE, cfg(FAKE, addr()));
   f.dbc.findConfigs = async ({ feeClaimer }) => [...f.configs.values()].filter((c) => c.feeClaimer === feeClaimer);
   f.dbc.isSpawnConfig = () => true;   // all made with SPAWN's parameters
-  f.madeBy(ROOTCFG, OWNER); f.madeBy(FAKE, addr());
+  f.madeBy(SOLCFG, OWNER); f.madeBy(ROOTCFG, OWNER); f.madeBy(FAKE, addr());
   f.pools.push(f.pool(MINT, { config: ROOTCFG, name: 'Root Coin', symbol: 'ROOTC' }));
   const opts = { rpc: 'http://rpc.test', owner: OWNER, publicUrl: 'https://worm.example' };
   const sp = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => '', moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
@@ -608,12 +612,14 @@ test('after a deploy without TOKEN_MINT, SPAWN finds $BRAINWORM in the config th
   assert.equal(f.calls.filter((c) => c[0] === 'config').at(-1)[1].quoteMint, ROOT);
   sp.stop();
 
-  // the site knows it: nothing is looked up
+  // the site knows it: nothing is inferred, but who made each config found is still checked, once each, and the
+  // look-alike (someone else paid for it) is never used
   const known = createSpawn({ dir: null, dbc: f.dbc, rootMint: () => ROOT, moderate, fetchImpl: f.fetchImpl, opts, logger: quiet });
-  const asked = f.calls.filter((c) => c[0] === 'rpc' && c[1] === 'getSignaturesForAddress' && [ROOTCFG, FAKE].includes(c[2])).length;
+  const asked = () => f.calls.filter((c) => c[0] === 'rpc' && c[1] === 'getSignaturesForAddress' && [ROOTCFG, FAKE].includes(c[2])).length, before = asked();
   await known.fresh(true);
   assert.equal(known.foundRoot, '');
-  assert.equal(f.calls.filter((c) => c[0] === 'rpc' && c[1] === 'getSignaturesForAddress' && [ROOTCFG, FAKE].includes(c[2])).length, asked);
+  assert.equal(asked(), before + 2, 'each config once');
+  assert.ok(!known.status().configs.some((c) => c.address === FAKE), 'not the look-alike');
   known.stop();
 
   // only the look-alike, or the owner's configs in two mints: no $BRAINWORM, new coins stay in SOL
@@ -632,6 +638,7 @@ test('each coin\'s chart: every trade with its price after it, from the live str
   const sqrtOf = (price) => BigInt(Math.round(Math.sqrt(price * 1e3) * 2 ** 64));   // priced in SOL: (√ / 2^64)² × 10^(6 − 9)
   f.configs.set(CFG, { address: CFG, quoteMint: SOL_MINT, feeClaimer: OWNER, collectFeeMode: 0, creatorShare: 20, migrationQuoteThreshold: 84_000_000_000n, tokenDecimal: 6, sqrtStartPrice: sqrtOf(2.8e-8) });
   f.dbc.findConfigs = async () => [f.configs.get(CFG)];
+  f.madeBy(CFG, OWNER);   // the owner's wallet made it
   f.dbc.isSpawnConfig = () => true;
   const p = f.pool(MINT, { name: 'Chart Coin', symbol: 'CHRT', activationPoint: T0 });
   f.pools.push(p);

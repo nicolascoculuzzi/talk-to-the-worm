@@ -14,6 +14,7 @@ import { encodeFrame } from '../shared/frames.js';
 import { config as defaultConfig } from './config.js';
 import { checkMessage, findScam, loadBlocklist, RateLimiter } from './moderation.js';
 import { createStatic, MIME } from './static.js';
+import { createSource } from './source.js';
 import { createLedger, LOG_VERSION } from './ledger.js';
 import { stateString } from '../shared/replay.js';
 import * as text from '../shared/text.js';
@@ -579,6 +580,7 @@ export function createWormServer(overrides = {}) {
     { '/shared/': path.join(ROOT, 'shared'), '/data/': path.join(ROOT, 'data'), '/': path.join(ROOT, 'public') },
     { transformHtml: (html) => html.replaceAll('%ORIGIN%', config.publicUrl), maxAge: { '.json': 'public, max-age=3600', '.png': 'public, max-age=86400', '.bin': 'public, max-age=86400' } },
   );
+  const source = createSource({ root: ROOT });   // every file of the site's code, served as text for /docs
 
   function securityHeaders(res) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -820,6 +822,15 @@ export function createWormServer(overrides = {}) {
     if (p === '/about' || p === '/about/') return statics.serve(req, res, '/about.html') || notFound(res);  // what BRAINWORM is, all of it
     if (p === '/lab' || p === '/lab/') return statics.serve(req, res, '/lab.html') || notFound(res);     // every registered test and its result
     if (p === '/docs' || p === '/docs/') return statics.serve(req, res, '/docs.html') || notFound(res);  // the overview and all the code
+    if (p === '/source/index.json') { res.setHeader('Access-Control-Allow-Origin', '*'); return json(res, 200, source.index()); }
+    if (p.startsWith('/source/')) {   // one file of the code, as text, only from server/source.js's list
+      const f = source.file(p.slice('/source/'.length));
+      if (!f) return notFound(res);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      if (req.headers['if-none-match'] === f.etag) { res.writeHead(304, { ETag: f.etag, 'Cache-Control': 'no-cache' }); return res.end(); }
+      res.writeHead(200, { 'Content-Type': f.type, 'Content-Length': f.body.length, 'Cache-Control': 'no-cache', ETag: f.etag });
+      return res.end(req.method === 'HEAD' ? undefined : f.body);
+    }
     if (p === '/spawn.json') { const send = () => json(res, 200, spawn.publicState()); spawn.fresh().then(send, send); return; }
     if (p.startsWith('/c/')) {   // a coin's own page to share: /spawn with its trade window open, its worm in the link preview
       const m = /^\/c\/([1-9A-HJ-NP-Za-km-z]{32,44})$/.exec(p);

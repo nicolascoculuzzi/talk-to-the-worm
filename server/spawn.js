@@ -129,10 +129,15 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
   async function findConfigs() {
     if (!opts.owner || !dbc.findConfigs || (foundAt && Date.now() - foundAt < SCAN_MS)) return false;
     foundAt = Date.now();   // a failed search waits its turn too: it is the call RPC nodes ration
-    const found = (await dbc.findConfigs({ feeClaimer: opts.owner, ...chain })).filter((c) => dbc.isSpawnConfig(c, { creatorShare: FEE.creatorShare * 100, feeBps: FEE.bps }));
+    // only configs the owner's wallet paid for: anyone can make one naming the owner as its fee claimer, with its own
+    // supply, curve and liquidity locks, and a new one would otherwise become the config new coins go on
+    const found = [];
+    for (const c of await dbc.findConfigs({ feeClaimer: opts.owner, ...chain })) {
+      if (!dbc.isSpawnConfig(c, { creatorShare: FEE.creatorShare * 100, feeBps: FEE.bps })) continue;
+      if (await paidByOwner(c.address).catch((e) => { logger.warn(`[spawn] who made ${c.address}: ${e.message}`); return false; })) found.push(c);
+    }
     if (!rootMint()) {
-      const mints = new Set();
-      for (const c of found) if (c.quoteMint !== SOL_MINT && await paidByOwner(c.address).catch((e) => logger.warn(`[spawn] who made ${c.address}: ${e.message}`))) mints.add(c.quoteMint);
+      const mints = new Set(found.filter((c) => c.quoteMint !== SOL_MINT).map((c) => c.quoteMint));
       foundRoot = mints.size === 1 ? [...mints][0] : '';
     }
     let added = false;
@@ -146,7 +151,8 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
     return added;
   }
   // Did the owner's wallet pay for this config? The transaction that made it is the oldest to mention it (its address
-  // was a fresh key). The answer is kept; a config too busy to reach its first transaction (20,000 on) counts as not.
+  // was a fresh key). The answer is kept. A config too busy to reach its first transaction (20,000 on) counts as the
+  // owner's: a stranger's fresh look-alike is never that busy, and the real one soon is.
   const payers = new Map();   // config -> who paid for the transaction that made it
   async function paidByOwner(address) {
     if (!payers.has(address)) {
@@ -155,7 +161,7 @@ export function createSpawn({ dir, dbc, rootMint, moderate = (t) => ({ ok: true,
         const page = await rpcRetry('getSignaturesForAddress', [address, { limit: 1000, ...(before ? { before } : {}), commitment: 'confirmed' }]);
         if (page.length) oldest = page.at(-1).signature;
         if (page.length < 1000) break;
-        if (k === 19) { payers.set(address, ''); return false; }
+        if (k === 19) { payers.set(address, opts.owner); return true; }
         before = oldest;
       }
       const tx = oldest && await rpcRetry('getTransaction', [oldest, { encoding: 'json', maxSupportedTransactionVersion: 1, commitment: 'confirmed' }]);
