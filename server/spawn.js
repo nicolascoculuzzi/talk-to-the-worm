@@ -171,6 +171,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
       const priceSol = stage === 'curve' ? pump.priceSol(c) : prices[mint]?.usdPrice && solUsd ? prices[mint].usdPrice / solUsd : pump.priceSol(c);
       coins.push({
         mint, name: own.name, symbol: own.symbol, image: allowedImage(own.image) ? own.image : '', creator: own.creator, createdAt: own.createdAt,
+        description: own.description || '', twitter: own.twitter || '', telegram: own.telegram || '', website: own.website || '',
         quote: 'SOL', priceQuote: priceSol, priceSol, priceUsd: priceSol * solUsd, mcapSol: priceSol * SUPPLY, progress: pump.progress(c, state?.global), graduated: stage === 'graduated', stage,
       });
     }
@@ -322,17 +323,18 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
   // content: two coins with the same picture share the picture, never each other's metadata. Nothing is written until
   // a transaction names it (keep).
   const shortId = (b) => crypto.createHash('sha256').update(b).digest('base64url').slice(0, 12);
-  async function uploadMeta({ image, type, name, symbol, wormImage }) {
+  async function uploadMeta({ image, type, name, symbol, wormImage, description: own = '', twitter = '', telegram = '', website = '' }) {
     const site = opts.publicUrl ? `${opts.publicUrl}/spawn` : '';
-    const description = describe(symbol);
+    const description = own ? `${own}\n\n${describe(symbol)}` : describe(symbol);
+    const socials = { ...(twitter && { twitter }), ...(telegram && { telegram }), website: website || site };
     if (pinata()) {
-      const r = await opts.uploadPinata({ image, filename: `${symbol}.${IMAGE_TYPES[type]}`, name, symbol, description, website: site, createdOn: site, jwt: opts.pinataJwt, fetchImpl });
+      const r = await opts.uploadPinata({ image, filename: `${symbol}.${IMAGE_TYPES[type]}`, name, symbol, description, ...socials, createdOn: site, jwt: opts.pinataJwt, fetchImpl });
       return { uri: r.metadataUri, image: r.metadata?.image || '' };
     }
     if (!opts.localMeta || !root || !opts.publicUrl) throw new Error('Picture hosting is not set up yet.');
     const imageName = wormImage ? null : `${crypto.createHash('sha256').update(image).digest('hex').slice(0, 24)}.${IMAGE_TYPES[type]}`;
     const imageUrl = wormImage || `${opts.publicUrl}/spawn/meta/${imageName}`;
-    const json = JSON.stringify({ name, symbol, description, image: imageUrl, showName: true, createdOn: site, website: site }), jsonName = `${shortId(json)}.json`;
+    const json = JSON.stringify({ name, symbol, description, image: imageUrl, showName: true, createdOn: site, ...socials }), jsonName = `${shortId(json)}.json`;
     if (metaBytes + (image?.length || 0) + json.length > budget()) throw new Error('Picture uploads are full for now. Launch it with its worm\'s first sight, or try again later.');
     const keep = (mint) => {
       for (const [n, b] of [[imageName, image], [jsonName, json]]) {
@@ -378,7 +380,36 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
    * whose creator is SPAWN's rewards wallet, and an optional first buy for the launcher in the same transaction.
    * canUpload: asked just before a picked picture is kept, once everything else checks out (the site's budget for them).
    */
-  async function create({ creator, name, symbol, image, firstBuy }, { canUpload = () => true } = {}) {
+  /* ---------- a coin's description and links: what pump.fun's form takes, checked here ---------- */
+  const HANDLE = /^[A-Za-z0-9_]{1,15}$/, TG = /^[A-Za-z0-9_+]{3,40}$/;
+  const hostOf = (v) => { try { const u = new URL(/^https?:\/\//i.test(v) ? v : `https://${v}`); return u; } catch { return null; } };
+  /** "@name", "name", or any x.com / twitter.com link -> https://x.com/name; '' stays ''. */
+  function xLink(v) {
+    v = String(v || '').trim(); if (!v) return '';
+    let h = v.replace(/^@/, '');
+    if (/[/.]/.test(h)) { const u = hostOf(h); h = u && /^(www\.)?(x|twitter)\.com$/i.test(u.hostname) ? u.pathname.split('/').filter(Boolean)[0] || '' : ''; }
+    if (!HANDLE.test(h)) throw refusedInput('The X link should be a handle like @name, or x.com/name.');
+    return `https://x.com/${h}`;
+  }
+  /** "name", "@name", "t.me/name" or "https://t.me/+code" -> https://t.me/name; '' stays ''. */
+  function tgLink(v) {
+    v = String(v || '').trim(); if (!v) return '';
+    let h = v.replace(/^@/, '');
+    if (/[/.]/.test(h)) { const u = hostOf(h); h = u && /^(www\.)?(t\.me|telegram\.me)$/i.test(u.hostname) ? u.pathname.split('/').filter(Boolean)[0] || '' : ''; }
+    if (!TG.test(h)) throw refusedInput('The Telegram link should be t.me/name.');
+    return `https://t.me/${h}`;
+  }
+  /** An https link to anywhere, 200 characters at most; '' stays ''. */
+  function webLink(v) {
+    v = String(v || '').trim(); if (!v) return '';
+    const u = hostOf(v);
+    if (!u || v.length > 200 || u.username || u.password || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(u.hostname) || !['http:', 'https:'].includes(u.protocol)) throw refusedInput('The website should be a link like https://example.com.');
+    u.protocol = 'https:';
+    return u.href.replace(/\/$/, '');
+  }
+  const refusedInput = (message) => Object.assign(new Error(message), { input: true });
+
+  async function create({ creator, name, symbol, image, firstBuy, description = '', twitter = '', telegram = '', website = '' }, { canUpload = () => true } = {}) {
     // refused on what was asked alone, before any work: the server doesn't count these against the launcher's budget
     const refused = (message) => Object.assign(new Error(message), { input: true });
     if (!canLaunch()) throw refused('The launchpad is not open yet.');
@@ -393,8 +424,15 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     if (!nm.text || Buffer.byteLength(nm.text) > 32) throw refused('Names are 1 to 32 characters.');
     if (!/^[A-Z0-9]{1,10}$/.test(sy.text)) throw refused('Tickers are 1 to 10 letters or digits.');
     if (passesForWorm(nm.text, sy.text)) throw refused('That name or ticker looks like the site\'s own coin, $WORM. Pick another.');
+    // its description passes the chat filter whole (no links, no addresses, no starred words); its links are checked
+    const rawDesc = String(description || '').replace(/\s+/g, ' ').trim();
+    if (rawDesc.length > 300) throw refused('Descriptions are 300 characters at most.');
+    const ds = rawDesc ? moderate(rawDesc) : { ok: true, text: '' };
+    if (!ds.ok) throw refused(ds.message ? `The description: ${ds.message}` : 'That description is not allowed.');
+    if (ds.text !== rawDesc) throw refused('The description has a word the chat filter stops.');
+    const links = { twitter: xLink(twitter), telegram: tgLink(telegram), website: webLink(website) };
     const buy = Number(firstBuy || 0);
-    if (!(buy >= 0) || !Number.isFinite(buy) || buy > 100) throw refused('The first buy is a number of SOL (100 at most).');
+    if (!(buy >= 0) || !Number.isFinite(buy) || buy > 100) throw refused('The dev buy is a number of SOL (100 at most).');
     let m = null, bytes = null;
     if (image !== 'worm') {
       if (!canPick()) throw refused('Picture uploads are full for now. Launch it with its worm\'s first sight.');
@@ -407,7 +445,7 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     // before anything is kept: can this wallet pay for its coin? (its accounts' rent, and a first buy)
     const lamports = await rpc('getBalance', [creator, { commitment: 'confirmed' }], chain).then((r) => r.value, () => null);
     const need = LAUNCH_RENT_SOL + buy;
-    if (lamports != null && lamports / 1e9 < need) throw new Error(`Launching needs about ${round(need, 4)} SOL in that wallet (${buy ? `${buy} for the first buy, and about ${LAUNCH_RENT_SOL} for the coin's accounts` : `about ${LAUNCH_RENT_SOL} for the coin's accounts`}). It has ${round(lamports / 1e9, 4)}.`);
+    if (lamports != null && lamports / 1e9 < need) throw new Error(`Launching needs about ${round(need, 4)} SOL in that wallet (${buy ? `${buy} for the dev buy, and about ${LAUNCH_RENT_SOL} for the coin's accounts` : `about ${LAUNCH_RENT_SOL} for the coin's accounts`}). It has ${round(lamports / 1e9, 4)}.`);
     if (image !== 'worm' && !canUpload()) throw new Error('Many coins are being launched right now. Try again in a minute, or give it its worm\'s first sight.');
     let meta;
     if (image === 'worm') {
@@ -416,13 +454,13 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
       // Pinata the picture goes to IPFS.
       const png = pinata() && render && D ? (await import('./coinworms.js')).previewHatch({ D, render, ticker: sy.text, width: 512 }).png : null;
       if (pinata() && !png) throw new Error('Pictures from the worm are not available here.');
-      meta = await uploadMeta({ image: png, type: 'image/png', name: nm.text, symbol: sy.text, wormImage: pinata() ? null : wormPicture(sy.text) });
-    } else meta = await uploadMeta({ image: bytes, type: m[1], name: nm.text, symbol: sy.text });
+      meta = await uploadMeta({ image: png, type: 'image/png', name: nm.text, symbol: sy.text, wormImage: pinata() ? null : wormPicture(sy.text), description: ds.text, ...links });
+    } else meta = await uploadMeta({ image: bytes, type: m[1], name: nm.text, symbol: sy.text, description: ds.text, ...links });
     let built;
     try { built = await pump.buildCreate({ user: creator, creator: owner(), name: nm.text, symbol: sy.text, uri: meta.uri, firstBuySol: buy, state: await programState(), ...chain }); } catch (e) { throw human(e); }
     meta.keep?.(built.mint);
     if (!s.owners.includes(owner())) s.owners.push(owner());
-    s.coins[built.mint] = { name: nm.text, symbol: sy.text, image: meta.image, uri: meta.uri, creator, createdAt: Date.now() };
+    s.coins[built.mint] = { name: nm.text, symbol: sy.text, image: meta.image, uri: meta.uri, creator, createdAt: Date.now(), ...(ds.text && { description: ds.text }), ...Object.fromEntries(Object.entries(links).filter(([, v]) => v)) };
     save();
     const fb = built.firstBuy;
     return { tx: built.tx, mint: built.mint, firstBuy: fb ? { coins: Number(fb.tokens) / 10 ** DECIMALS, minCoins: Number(fb.minTokens) / 10 ** DECIMALS } : null, quote: 'SOL' };

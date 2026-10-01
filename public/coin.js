@@ -115,6 +115,15 @@ function renderHead() {
   // it's a pump.fun coin: its page there too, once per coin
   const cpm = $('ca').closest('.cpmeta');
   if (cpm && !cpm.querySelector('.cppump')) { const a = el('a', 'cppump', 'pump.fun ↗'); a.href = `https://pump.fun/coin/${c.mint}`; a.target = '_blank'; a.rel = 'noopener'; cpm.append(' ', a); }
+  // its description and links, as its launcher gave them (checked by the server: the links are x.com, t.me and one website)
+  const d = $('desc'); if (d) { d.textContent = c.description || ''; d.hidden = !c.description; }
+  if (cpm) {
+    for (const old of cpm.querySelectorAll('.cplink')) old.remove();
+    for (const [k, text] of [['twitter', 'X ↗'], ['telegram', 'Telegram ↗'], ['website', 'Website ↗']]) {
+      const href = c[k]; if (!href || !/^https:\/\//.test(href)) continue;
+      const a = el('a', 'cppump cplink', text); a.href = href; a.target = '_blank'; a.rel = 'noopener nofollow ugc'; cpm.append(' ', a);
+    }
+  }
   $('gradbarw').classList.toggle('moving', c.stage === 'graduating');
   $('gradbarw').classList.toggle('full', !!done);
   const pill = $('stagepill');

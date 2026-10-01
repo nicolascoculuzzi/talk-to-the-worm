@@ -1,4 +1,4 @@
-// The launch form, on the main page's dock and on /spawn: a coin's name, its ticker, an optional first buy, and a
+// The launch form, on the main page's dock and on /spawn: a coin's name, its ticker, an optional dev buy, and a
 // picture, which is its worm's first sight (a fresh worm shown "$TICKER", drawn from the real wiring) unless one is
 // picked. The server builds the transaction with the coin's fresh mint key signed in; the visitor's own wallet signs
 // and sends it. Nothing here holds a key.
@@ -47,6 +47,10 @@ async function shrink(file) {
 export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
   const $f = (k) => form.querySelector(`[data-lf="${k}"]`);
   const pic = $f('pic'), img = $f('picimg'), ph = $f('picph'), up = $f('up'), unpick = $f('unpick'), name = $f('name'), ticker = $f('ticker'), buy = $f('buy'), unit = $f('unit'), go = $f('go'), note = $f('note');
+  // description and links, like pump.fun's form; a form without them still works
+  const desc = $f('desc'), xh = $f('x'), tg = $f('tg'), web = $f('web'), more = $f('more');
+  const extras = { desc, x: xh, tg, web };
+  const val = (el) => (el ? el.value.trim() : '');
   let custom = null;            // a picked picture, as a data URL; without one it gets its worm's first sight
   let state = { open: false, quote: null, reason: 'Opening soon.', pictures: true };
   let busy = false, hatchTimer = null, hatchLine = '', done = false;
@@ -56,7 +60,7 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
   // the wallet app's browser opens this page with what was typed in it, so nothing has to be typed twice
   function here() {
     const u = new URL(location.href);
-    for (const [k, v] of [['lname', name.value.trim()], ['lticker', ticker.value], ['lbuy', buy.value]]) if (v) u.searchParams.set(k, v); else u.searchParams.delete(k);
+    for (const [k, v] of [['lname', name.value.trim()], ['lticker', ticker.value], ['lbuy', buy.value], ['ldesc', val(desc)], ['lx', val(xh)], ['ltg', val(tg)], ['lweb', val(web)]]) if (v) u.searchParams.set(k, v); else u.searchParams.delete(k);
     return u.href;
   }
   {
@@ -64,8 +68,9 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
     if (q.get('lname')) name.value = q.get('lname').slice(0, 32);
     if (q.get('lticker')) { ticker.value = q.get('lticker').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10); ticker.dataset.touched = '1'; }
     if (q.get('lbuy')) buy.value = q.get('lbuy').replace(/[^0-9.]/g, '');
+    for (const [k, el] of Object.entries(extras)) if (el && q.get('l' + k)) { el.value = q.get('l' + k).slice(0, k === 'desc' ? 300 : 200); if (more) more.open = true; }
     if (q.has('lname') || q.has('lticker')) {
-      const u = new URL(location.href); for (const k of ['lname', 'lticker', 'lbuy']) u.searchParams.delete(k);
+      const u = new URL(location.href); for (const k of ['lname', 'lticker', 'lbuy', 'ldesc', 'lx', 'ltg', 'lweb']) u.searchParams.delete(k);
       history.replaceState(history.state, '', u.pathname + u.search + u.hash);
       queueMicrotask(() => form.scrollIntoView?.({ block: 'center' }));
     }
@@ -149,8 +154,8 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
       let w = connected();
       if (!w) { say('Connect your wallet…'); w = await connect(); }
       say('Building the transaction…');
-      const j = await api('/spawn/create', { creator: w.address, name: nm, symbol: sym, image: custom || 'worm', firstBuy: buy.value.trim() || '0' });
-      say(j.firstBuy ? `Check your wallet. Your first buy gets about ${compact(j.firstBuy.coins)} $${sym}.` : 'Check your wallet.');
+      const j = await api('/spawn/create', { creator: w.address, name: nm, symbol: sym, image: custom || 'worm', firstBuy: buy.value.trim() || '0', description: val(desc), twitter: val(xh), telegram: val(tg), website: val(web) });
+      say(j.firstBuy ? `Check your wallet. Your dev buy gets about ${compact(j.firstBuy.coins)} $${sym}.` : 'Check your wallet.');
       const sig = await signAndSend(j.tx);
       await api('/spawn/created', { mint: j.mint, signature: sig }).catch(() => {});
       // launched once the chain says so: until then it's only sent
@@ -163,6 +168,8 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
       if (st.confirmed) say(`Launched $${sym}. `, link(`/c/${j.mint}`, 'See it'), ' · ', link(`https://x.com/intent/post?text=${encodeURIComponent(post)}&url=${encodeURIComponent(page)}`, 'Share on X', true), ' · ', link(`https://solscan.io/tx/${sig}`, 'Solscan', true));
       else say(`Sent $${sym}, not confirmed yet: `, link(`https://solscan.io/tx/${sig}`, 'check Solscan', true), '. If it lands, its page is ', link(`/c/${j.mint}`, 'here'), '.');
       name.value = ''; ticker.value = ''; ticker.dataset.touched = ''; buy.value = ''; custom = null; hatchLine = ''; showPic();
+      for (const el of Object.values(extras)) if (el) el.value = '';
+      if (more) more.open = false;
       onLaunched({ mint: j.mint, symbol: sym, signature: sig });
     } catch (err) {
       if (noWallet(err)) { note.classList.add('bad'); note.replaceChildren(...openInWallet(here())); }

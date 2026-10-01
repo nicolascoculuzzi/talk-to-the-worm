@@ -131,6 +131,16 @@ test('SPAWN on pump.fun: shut until it has a rewards wallet; then every launch n
   assert.deepEqual(made.firstBuy, { coins: 12_345, minCoins: 12_000 });
   const meta = JSON.parse(fs.readFileSync(sp.metaFile(cc.uri.split('/').pop() + '.json')));
   assert.deepEqual([meta.name, meta.symbol, meta.showName], ['Good Coin', 'GOOD', true]);
+  assert.equal(meta.website, 'https://worm.example/spawn', 'without links of its own, the metadata points at SPAWN');
+  // description and links, like pump.fun's form: into the metadata pump.fun and wallets read, and onto its page
+  const withAll = await sp.create({ creator: CREATOR, name: 'Social Coin', symbol: 'SOC', image: 'worm', description: 'A coin  with a\nstory.', twitter: '@Soc_Coin', telegram: 'https://t.me/soccoin', website: 'soccoin.example/' });
+  const sc = f.calls.filter((x) => x[0] === 'create').at(-1)[1], sm = JSON.parse(fs.readFileSync(sp.metaFile(sc.uri.split('/').pop() + '.json')));
+  assert.ok(sm.description.startsWith('A coin with a story.\n\n$SOC was launched on SPAWN'), sm.description);
+  assert.deepEqual([sm.twitter, sm.telegram, sm.website], ['https://x.com/Soc_Coin', 'https://t.me/soccoin', 'https://soccoin.example']);
+  assert.ok(withAll.mint);
+  for (const [bad, why] of [[{ description: 'x'.repeat(301) }, /300 characters/], [{ description: 'buy at https://scam.example' }, /description/i], [{ description: 'total shit' }, /chat filter stops/], [{ twitter: 'https://evil.example/soc' }, /X link/], [{ twitter: 'way too long for a handle' }, /X link/], [{ telegram: 'https://evil.example/x' }, /Telegram link/], [{ website: 'ftp://x.example' }, /website/], [{ website: 'not a site' }, /website/]]) {
+    await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: 'GOOD2', image: 'worm', ...bad }), why, JSON.stringify(bad));
+  }
   assert.match(meta.image, /^https:\/\/worm\.example\/spawn\/meta\/[0-9a-f]{24}\.png$/);
   assert.ok(sp.metaFile(meta.image.split('/').pop()));
   assert.equal(sp.metaFile('../state.json'), null);

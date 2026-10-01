@@ -145,7 +145,19 @@ body.intro .brand{transform:translate(var(--ix,0px),var(--iy,0px)) scale(var(--i
 .dock[data-tab="launch"] .ledwrap{display:none}
 
 /* the launch form: in the dock, and larger on /spawn */
-.lf{display:grid;grid-template-columns:88px minmax(0,1fr) 136px;grid-template-areas:"pic name ticker" "pic buy go" "note note note";gap:8px;align-items:stretch}
+.lf{display:grid;grid-template-columns:88px minmax(0,1fr) 136px;grid-template-areas:"pic name ticker" "pic buy go" "more more more" "note note note";gap:8px;align-items:stretch}
+.lfmore{grid-area:more;min-width:0}
+.lfmore summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:4px 2px;font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);user-select:none}
+.lfmore summary::-webkit-details-marker{display:none}
+.lfmore summary::before{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .15s ease;margin-left:2px}
+.lfmore[open] summary::before{transform:rotate(45deg)}
+.lfmore summary span{color:var(--faint);text-transform:none;letter-spacing:0}
+.lfmore textarea{display:block;width:100%;box-sizing:border-box;margin-top:6px;resize:vertical;min-height:52px;background:rgba(2,4,6,.7);border:1px solid var(--rule2);border-radius:11px;color:var(--bright);font:500 13px/1.45 var(--mono);padding:9px 12px;transition:border-color .15s ease,box-shadow .15s ease}
+.lfmore textarea:focus{border-color:rgba(255,184,77,.7);outline:none;box-shadow:0 0 0 3px rgba(255,184,77,.14)}
+.lfmore textarea::placeholder{color:var(--faint)}
+.lflinks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.lflinks input[type=text]{padding:9px 12px;font-size:13px}
+@media (max-width:640px){.lflinks{grid-template-columns:1fr}}
 .lf input[type=text]{padding:9px 12px}
 .lf [data-lf=name]{grid-area:name}
 .lf [data-lf=ticker]{grid-area:ticker;letter-spacing:.06em}
@@ -454,7 +466,7 @@ code{font:400 12.5px var(--mono);color:var(--ink)}
   .count span{font-size:9px}
   .dock{bottom:max(10px,env(safe-area-inset-bottom));padding:10px;border-radius:18px;gap:8px}
   .tabs button{padding:8px 6px}
-  .lf{grid-template-columns:88px minmax(0,1fr) 112px;grid-template-areas:"pic name name" "pic ticker ticker" "buy buy go" "note note note"}
+  .lf{grid-template-columns:88px minmax(0,1fr) 112px;grid-template-areas:"pic name name" "pic ticker ticker" "buy buy go" "more more more" "note note note"}
   .lf input[type=text]{font-size:16px}
   .lf [data-lf=go]{padding:12px}
   .coach{max-width:calc(100vw - 40px);font-size:12.5px}
@@ -697,7 +709,7 @@ body.sp{min-height:100vh;background:radial-gradient(1200px 600px at 70% -10%,rgb
 .cf{display:flex;justify-content:space-between;align-items:center;gap:10px;font:400 11px var(--mono);color:var(--mute)}
 .cf .btn-amber{padding:8px 16px;font-size:13px;text-decoration:none}
 .spform .lf{max-width:760px;background:rgba(7,12,18,.96);border:1px solid var(--rule);border-radius:12px;padding:18px;gap:10px;
-  grid-template-columns:152px minmax(0,1fr) minmax(0,1fr);grid-template-areas:"pic name name" "pic ticker buy" "pic go go" "note note note"}
+  grid-template-columns:152px minmax(0,1fr) minmax(0,1fr);grid-template-areas:"pic name name" "pic ticker buy" "pic go go" "more more more" "note note note"}
 .spform .lf .btn-amber{padding:12px 18px}
 .spform .lf input[type=text]{padding:11px 13px}
 #spawnnote{max-width:760px;margin:12px 0 0}
@@ -743,7 +755,7 @@ body.sp{min-height:100vh;background:radial-gradient(1200px 600px at 70% -10%,rgb
   .spstats dd{font-size:22px}
   .spstats div{padding:12px}
   .squares{grid-template-columns:repeat(10,minmax(0,1fr))}
-  .spform .lf{grid-template-columns:88px minmax(0,1fr) 112px;grid-template-areas:"pic name name" "pic ticker ticker" "buy buy go" "note note note";padding:12px;gap:8px}
+  .spform .lf{grid-template-columns:88px minmax(0,1fr) 112px;grid-template-areas:"pic name name" "pic ticker ticker" "buy buy go" "more more more" "note note note";padding:12px;gap:8px}
   .spform .lf input[type=text]{padding:9px 12px}
   .movelist li{grid-template-columns:minmax(64px,90px) minmax(0,1fr);row-gap:4px}
   .movelist .n{grid-column:1/-1}
@@ -769,7 +781,8 @@ body.sp{min-height:100vh;background:radial-gradient(1200px 600px at 70% -10%,rgb
 .lceyebrow .pill{letter-spacing:.12em}
 .lctitle{margin:0;font:650 36px/1.02 var(--display);letter-spacing:-.04em;color:var(--bright);text-wrap:balance}
 .lctitle span{display:block;color:var(--amber);text-shadow:0 0 28px rgba(255,184,77,.25)}
-.lf.lfcard{grid-template-columns:88px minmax(0,1fr);grid-template-areas:"pic name" "pic ticker" "buy buy" "go go" "note note"}
+.lf.lfcard{grid-template-columns:88px minmax(0,1fr);grid-template-areas:"pic name" "pic ticker" "buy buy" "more more" "go go" "note note"}
+.lf.lfcard .lflinks{grid-template-columns:1fr}
 .lf.lfcard [data-lf=go]{padding:14px 18px;font-size:15px;border-radius:12px;box-shadow:0 8px 30px rgba(255,184,77,.18)}
 .lf.lfcard [data-lf=go]:disabled{box-shadow:none}
 .lcstats{margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:12px;overflow:hidden}
@@ -788,7 +801,7 @@ body.intro .launchcard{pointer-events:none}
   .lctitle{font-size:23px;letter-spacing:-.03em}
   .lctitle span{display:inline;margin-left:.25em}
   .lcstats,.lcfoot{display:none}
-  .lf.lfcard{grid-template-columns:88px minmax(0,1fr) 112px;grid-template-areas:"pic name name" "pic ticker ticker" "buy buy go" "note note note"}
+  .lf.lfcard{grid-template-columns:88px minmax(0,1fr) 112px;grid-template-areas:"pic name name" "pic ticker ticker" "buy buy go" "more more more" "note note note"}
   .lf.lfcard [data-lf=go]{padding:12px;font-size:14px}
   .dock{bottom:calc(var(--cardh,0px) + max(12px,env(safe-area-inset-bottom)) + 10px)}
 }

@@ -27,6 +27,7 @@ body.cpage{min-height:100vh;display:flex;flex-direction:column;
 .cpsub #name{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .cpwhen{flex:none;color:var(--faint)}
 .cpwhen:not(:empty)::before{content:"·";margin-right:8px}
+.cpdesc{margin:8px 0 0;max-width:640px;font:400 13.5px/1.5 var(--sans);color:var(--mute);white-space:pre-line;overflow-wrap:anywhere}
 .cpmeta{margin:8px 0 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cppump{font:500 11px/1 var(--mono);color:var(--mute);text-decoration:none;padding:6px 10px;border:1px solid var(--rule2);border-radius:999px;background:rgba(2,4,6,.55);transition:color .15s ease,border-color .15s ease}
 @media (hover:hover) and (pointer:fine){.cppump:hover{color:var(--bright);border-color:rgba(255,184,77,.5)}}

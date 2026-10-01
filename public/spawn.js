@@ -44,7 +44,7 @@ function render() {
   lbp.hidden = !lb;
   if (lb) lbp.replaceChildren(`Last burn: ${compact(lb.amount)} $WORM · `, link(lb.signature));
   const f = data.fee || {}, pct = (bps) => `${(bps / 100).toFixed(2)}%`;
-  if (f.protocolBps != null && $('spawnnote')) $('spawnnote').textContent = `Free to launch, apart from about 0.02 SOL of rent for its accounts and an optional first buy, made in the same transaction. It's a pump.fun coin: its bonding curve, pump.fun's fee (currently ${pct(f.protocolBps + f.creatorBps)} of each trade, ${pct(f.creatorBps)} of it the creator's), and its graduation to PumpSwap when the curve sells out. Its creator is SPAWN, so its creator rewards come here, not to whoever launched it: 64% of them buy $WORM, all of it burned, and the other 36% stays with the team. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.`;
+  if (f.protocolBps != null && $('spawnnote')) $('spawnnote').textContent = `Free to launch, apart from about 0.02 SOL of rent for its accounts and an optional dev buy, made in the same transaction. It's a pump.fun coin: its bonding curve, pump.fun's fee (currently ${pct(f.protocolBps + f.creatorBps)} of each trade, ${pct(f.creatorBps)} of it the creator's), and its graduation to PumpSwap when the curve sells out. Its creator is SPAWN, so its creator rewards come here, not to whoever launched it: 64% of them buy $WORM, all of it burned, and the other 36% stays with the team. It hatches its own worm, which feels every trade of it, and its buys poke the site's worm at its own spot.`;
   $('stpokes').textContent = fmt(data.pokesToday || 0);
   renderFee(data.fee);
   renderMovers(data.movers || []);

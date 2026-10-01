@@ -97,7 +97,16 @@
         </label>
         <input type="text" data-lf="name" id="lname" maxlength="32" placeholder="Coin name" aria-label="Coin name" enterkeyhint="next">
         <input type="text" data-lf="ticker" maxlength="10" placeholder="TICKER" aria-label="Ticker" autocapitalize="characters" spellcheck="false" enterkeyhint="next">
-        <label class="lfbuy"><input type="text" data-lf="buy" inputmode="decimal" placeholder="First buy" aria-label="First buy (optional)" enterkeyhint="go"><span data-lf="unit">SOL</span></label>
+        <label class="lfbuy"><input type="text" data-lf="buy" inputmode="decimal" placeholder="Dev buy" aria-label="Dev buy (optional)" enterkeyhint="go"><span data-lf="unit">SOL</span></label>
+        <details class="lfmore" data-lf="more">
+          <summary>Description &amp; links <span>optional</span></summary>
+          <textarea data-lf="desc" maxlength="300" rows="2" placeholder="What it is, in a line or two. No links here: they go below." aria-label="Description (optional)"></textarea>
+          <div class="lflinks">
+            <input type="text" data-lf="x" maxlength="80" placeholder="X: @handle" aria-label="X (Twitter) handle or link (optional)" autocapitalize="none" autocomplete="off" spellcheck="false">
+            <input type="text" data-lf="tg" maxlength="80" placeholder="Telegram: t.me/…" aria-label="Telegram link (optional)" autocapitalize="none" autocomplete="off" spellcheck="false">
+            <input type="text" data-lf="web" maxlength="200" placeholder="Website: https://…" aria-label="Website (optional)" autocapitalize="none" autocomplete="off" spellcheck="false" inputmode="url">
+          </div>
+        </details>
         <button class="btn-amber" type="submit" data-lf="go" disabled>Opening soon</button>
         <p class="lfnote" data-lf="note" role="status" aria-live="polite"></p>
       </form>
