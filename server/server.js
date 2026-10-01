@@ -644,6 +644,10 @@ export function createWormServer(overrides = {}) {
   function handleAdmin(req, res, p, q) {
     if (!isAdmin(req)) return json(res, 404, { error: 'not found' });
     if (p === '/admin/state' && req.method === 'GET') return json(res, 200, adminState());
+    if (p === '/admin/whoami' && req.method === 'GET') {   // what the proxy hands this server for the caller's address: to set TRUST_PROXY right
+      const h = req.headers;
+      return json(res, 200, { ip: clientIp(req), remoteAddress: req.socket.remoteAddress, xForwardedFor: h['x-forwarded-for'] || null, xRealIp: h['x-real-ip'] || null, envoyExternal: h['x-envoy-external-address'] || null, trustProxy: config.trustProxy });
+    }
     if (req.method !== 'POST') return json(res, 404, { error: 'not found' });
     const flag = (k) => (q.has(k) ? q.get(k) === '1' || q.get(k) === 'true' : null);
     switch (p) {
