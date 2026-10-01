@@ -383,9 +383,13 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
     const refused = (message) => Object.assign(new Error(message), { input: true });
     if (!canLaunch()) throw refused('The launchpad is not open yet.');
     if (!B58.test(creator || '')) throw refused('Connect a wallet first.');
-    const nm = moderate(String(name || '').trim()), sy = moderate(String(symbol || '').trim().toUpperCase());
+    const rawName = String(name || '').trim(), rawSym = String(symbol || '').trim().toUpperCase();
+    const nm = moderate(rawName), sy = moderate(rawSym);
     if (!nm.ok) throw refused(nm.message || 'That name is not allowed.');
     if (!sy.ok) throw refused(sy.message || 'That ticker is not allowed.');
+    // the chat filter stars a swear word; a coin's name and ticker go on chain, so one it would star is refused, not starred
+    if (sy.text !== rawSym) throw refused(`$${rawSym} is a word the chat filter stops. Pick another ticker.`);
+    if (nm.text !== rawName) throw refused('That name has a word the chat filter stops. Pick another.');
     if (!nm.text || Buffer.byteLength(nm.text) > 32) throw refused('Names are 1 to 32 characters.');
     if (!/^[A-Z0-9]{1,10}$/.test(sy.text)) throw refused('Tickers are 1 to 10 letters or digits.');
     if (passesForWorm(nm.text, sy.text)) throw refused('That name or ticker looks like the site\'s own coin, $WORM. Pick another.');

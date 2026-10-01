@@ -116,6 +116,9 @@ test('SPAWN on pump.fun: shut until it has a rewards wallet; then every launch n
   await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: 'no way!', image: PNG }), /Tickers/);
   await assert.rejects(sp.create({ creator: CREATOR, name: 'see https://scam.example', symbol: 'OK', image: PNG }));
   for (const t of ['WORM', 'BRAINWORM']) await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: t, image: PNG }), /looks like the site's own coin/);
+  // a swear word is refused in words, never starred onto the chain
+  await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: 'shit', image: PNG }), /\$SHIT is a word the chat filter stops/);
+  await assert.rejects(sp.create({ creator: CREATOR, name: 'Total shit coin', symbol: 'TSC', image: PNG }), /name has a word the chat filter stops/);
   await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: 'GOOD', image: 'data:text/html;base64,AAAA' }), /picture/);
   await assert.rejects(sp.create({ creator: CREATOR, name: 'Good', symbol: 'GOOD', image: 'data:image/png;base64,' + Buffer.from('<svg onload=x>').toString('base64') }), /not the picture/);
   f.balance = 0.01e9;
