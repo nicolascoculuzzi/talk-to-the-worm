@@ -967,7 +967,7 @@ function renderFeed(reset = false) {
 }
 
 /* ---------- SPAWN, the launchpad: the launch card, every coin, and the three busiest coins' own worms ---------- */
-const launchForm = mountLaunchForm($('launchform'), { onLaunched: () => setTimeout(loadSpawn, 4000) });
+const launchForm = mountLaunchForm($('launchform'), { onLaunched: () => setTimeout(loadSpawn, 4000), redirectTo: '/spawn' });
 let spawnData = null, homeSort = 'new';
 async function loadSpawn() {
   const j = await fetch('/spawn.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);

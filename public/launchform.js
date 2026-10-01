@@ -44,7 +44,7 @@ async function shrink(file) {
  * Wires up a launch form: elements marked data-lf="pic|picimg|picph|up|unpick|name|ticker|buy|unit|go|note".
  * Returns { update({ open, quote, reason }) } for the page to pass on what /spawn.json says.
  */
-export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
+export function mountLaunchForm(form, { onLaunched = () => {}, redirectTo = '' } = {}) {
   const $f = (k) => form.querySelector(`[data-lf="${k}"]`);
   const pic = $f('pic'), img = $f('picimg'), ph = $f('picph'), up = $f('up'), unpick = $f('unpick'), name = $f('name'), ticker = $f('ticker'), buy = $f('buy'), unit = $f('unit'), go = $f('go'), note = $f('note');
   // description and links, like pump.fun's form; a form without them still works
@@ -146,6 +146,8 @@ export function mountLaunchForm(form, { onLaunched = () => {} } = {}) {
     e.preventDefault();
     if (busy) return;
     if (!state.open) { bad(state.reason || 'Opening soon.'); return; }
+    // the main page's card hands what was typed to the launchpad page, which launches it (its form reads the same l* params)
+    if (redirectTo) { const u = new URL(here()); const to = new URL(redirectTo, location.origin); to.search = u.search; to.hash = to.hash || '#spawn'; location.href = to.href; return; }
     const nm = name.value.trim(), sym = ticker.value.trim();
     if (!nm) { bad('Give it a name.'); name.focus(); return; }
     if (!TICKER.test(sym)) { bad('A ticker is 1 to 10 letters or digits.'); ticker.focus(); return; }
