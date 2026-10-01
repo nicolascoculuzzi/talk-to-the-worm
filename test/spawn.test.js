@@ -196,7 +196,14 @@ test('trading: on the coin\'s curve, priced as it is now; through Jupiter once i
   // selling coins
   const qs = await sp.quote({ mint, side: 'sell', amount: 1000 });
   assert.equal(qs.out.symbol, 'SOL');
-  await sp.swap({ quoteId: qs.quoteId, user });
+  // a wallet that doesn't hold what it would sell is told so here, not by a transaction that fails in its wallet
+  await assert.rejects(sp.swap({ quoteId: qs.quoteId, user }), /holds no \$TRD/);
+  f.held.set(user, 500_000_000n);
+  const qs2 = await sp.quote({ mint, side: 'sell', amount: 1000 });
+  await assert.rejects(sp.swap({ quoteId: qs2.quoteId, user }), /holds 500 \$TRD, less than that/);
+  f.held.set(user, 1_000_000_000n);
+  const qs3 = await sp.quote({ mint, side: 'sell', amount: 1000 });
+  await sp.swap({ quoteId: qs3.quoteId, user });
   assert.equal(f.calls.find((x) => x[0] === 'sell')[1].amount, 1_000_000_000n);
   await assert.rejects(sp.quote({ mint: addr(), side: 'buy', amount: 1 }), /Not a SPAWN coin/);
   await assert.rejects(sp.quote({ mint, side: 'buy', amount: 0 }), /amount/);

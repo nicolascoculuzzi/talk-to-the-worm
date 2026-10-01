@@ -214,3 +214,18 @@ test('a request line that is not a URL (bots send them) gets a 400 and the worm 
     assert.equal(h.ok, true);
   } finally { await app.close(); fs.rmSync(logDir, { recursive: true, force: true }); }
 });
+
+test('behind a trusted proxy the real address is the last X-Forwarded-For entry: a bot cannot spend another address\'s budget or dodge its own', async () => {
+  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'worm-'));
+  const app = createWormServer({ logDir, speed: 10, ots: false, lab: false, pow: { bits: 0 }, trustProxy: true });
+  const { port } = await app.listen(0, '127.0.0.1');
+  try {
+    // /spawn/quote has a budget of 12 per address; the launchpad is shut here, so every call is a cheap 400
+    const quote = (xff) => fetch(`http://127.0.0.1:${port}/spawn/quote`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': xff }, body: '{"mint":"x","side":"buy","amount":1}' }).then((r) => r.status);
+    const statuses = [];
+    for (let i = 0; i < 14; i++) statuses.push(await quote(`1.1.1.1, 9.9.9.9`));
+    assert.equal(statuses.filter((s) => s === 429).length, 2, 'the 13th and 14th from the real address 9.9.9.9 are refused');
+    assert.equal(await quote('2.2.2.2, 9.9.9.9'), 429, 'a made-up first entry does not buy a new budget: the real address is still 9.9.9.9');
+    assert.equal(await quote('1.1.1.1, 8.8.8.8'), 400, 'another real address has its own budget, whatever a bot wrote before it');
+  } finally { await app.close(); fs.rmSync(logDir, { recursive: true, force: true }); }
+});

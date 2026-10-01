@@ -478,10 +478,13 @@ export function createWormServer(overrides = {}) {
 
   /* ---------- live connections ---------- */
   const connsPerIp = new Map();
+  // Behind one trusted proxy (Railway, Render, Fly), the proxy appends the real address to X-Forwarded-For, so the
+  // real one is the LAST entry. The first can be anything the client wrote in: taking it would let one bot spend every
+  // other address's budget, or dodge its own by writing a new one each time.
   function clientIp(req) {
     if (config.trustProxy) {
-      const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-      if (xf) return xf;
+      const xf = String(req.headers['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+      if (xf.length) return xf[xf.length - 1];
     }
     return req.socket.remoteAddress || 'unknown';
   }

@@ -299,6 +299,11 @@ export function createSpawn({ dir, pump = pumpLib, rootMint, moderate = (t) => (
         // priced again now: a trade that would come in under the quote's floor could only fail on chain
         const now = leg.side === 'buy' ? pump.quoteBuy(c, st.fees, leg.amountIn).out : pump.quoteSell(c, st.fees, leg.amountIn).out;
         if (now < leg.min) throw new Error('The price moved. Get a new quote.');
+        if (leg.side === 'sell') {   // said here, in words, rather than by the wallet showing a transaction that would fail
+          const sym = cache.coins.find((x) => x.mint === leg.mint)?.symbol || '';
+          const held = await pump.fetchTokenBalance({ owner: user, mint: leg.mint, ...chain }).then((b) => b.atoms, () => null);
+          if (held != null && held < BigInt(leg.amountIn)) throw new Error(held === 0n ? `This wallet holds no $${sym}.` : `This wallet holds ${round(Number(held) / 10 ** DECIMALS, 2)} $${sym}, less than that.`);
+        }
         tx = leg.side === 'buy'
           ? await pump.buildBuy({ mint: leg.mint, user, creator: c.creator, lamports: leg.amountIn, minTokens: leg.min, global: st.global, ...chain })
           : await pump.buildSell({ mint: leg.mint, user, creator: c.creator, amount: leg.amountIn, minSol: leg.min, global: st.global, ...chain });
