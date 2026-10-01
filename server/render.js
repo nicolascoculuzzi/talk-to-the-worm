@@ -323,6 +323,34 @@ const LAYOUTS = {
       }
     },
   },
+  // social header (X, 1500x500): the og picture made wide, larva on the right, title and lines on the left
+  banner: {
+    w: 1500, h: 500, level: 9,
+    cam: { roll: -0.25, yaw: 0.35, tilt: 0.2, persp: 0.35, flip: -1, spin: -0.08 },
+    size: { core: 2, halo: 11, bloom: 44, bloomA: 0.026, line: 1.2, haze: 18, hazeA: 0.005, dof: 4, rest: 1 },
+    plan: () => ({ box: [790, 10, 1480, 490] }),
+    text(cv, o, X, Y, k) {
+      const top = 72;
+      if (o.badge) {
+        splat(cv, X(76), Y(top + 13), 4.5 * k, hex(CORAL), 1.6);
+        const b = fit(o.badge, 2 * k, X(440));
+        text(cv, b.s, X(92), Y(top), b.sc, CORAL);
+      }
+      o.title.forEach((part, i) => {
+        const t = fit(part, 7 * k, X(640)), c = titleColor(o, i);
+        text(cv, t.s, X(64), Y(top + 26 + i * 100), t.sc, c, { glow: c === AMBER ? 0.03 : 0.005, gap: t.sc >= 5 ? 1 : 0 });
+      });
+      const y0 = top + 26 + o.title.length * 100 + 30;
+      o.lines.forEach((l, i) => {
+        const { s, color } = lineSpec(l, i), t = fit(s, 2 * k, X(700));
+        text(cv, t.s, X(64), Y(y0 + i * 34), t.sc, color);
+      });
+      if (o.footnote) {
+        const t = fit(o.footnote, k, X(700));
+        text(cv, t.s, X(64), Y(462), t.sc, FAINT);
+      }
+    },
+  },
   // home-screen icon: larva upright, head up, seen from its back (its left on screen-left), no text
   icon: {
     w: 180, h: 180, level: 9,
@@ -339,7 +367,7 @@ export const LAYOUT_NAMES = Object.keys(LAYOUTS);
  * @param {object} o
  * @param {{n: any[], e: number[]}} o.D wiring data (data/wiring.json)
  * @param {ArrayLike<number>} o.act per-cell activity indexed like D.n: 0..1, or 0..255 for a Uint8Array
- * @param {'square'|'og'|'icon'} [o.layout='square'] square 1000x1000 token image, og 1200x630 link preview, icon 180x180
+ * @param {'square'|'og'|'banner'|'icon'} [o.layout='square'] square 1000x1000 token image, og 1200x630 link preview, banner 1500x500 social header, icon 180x180
  * @param {number} [o.width] output size; defaults to the layout's own, other sizes scale the layout
  * @param {number} [o.height]
  * @param {string[]} [o.title=['BRAIN','WORM']] title parts, alternately ink and amber
