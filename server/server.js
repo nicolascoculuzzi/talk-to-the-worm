@@ -781,9 +781,9 @@ export function createWormServer(overrides = {}) {
   function handleHttp(req, res) {
     securityHeaders(res);
     if (!httpLimiter.take(clientIp(req))) { res.writeHead(429, { 'Retry-After': '5', 'Content-Type': MIME['.txt'] }); return res.end('Too many requests'); }
-    const url = new URL(req.url, 'http://x');
-    let p;
-    try { p = decodeURIComponent(url.pathname); } catch { res.writeHead(400); return res.end(); }
+    // a request line that isn't a URL (bots send them) is answered, never thrown: a throw here would take the worm down
+    let url, p;
+    try { url = new URL(req.url, 'http://x'); p = decodeURIComponent(url.pathname); } catch { res.writeHead(400); return res.end(); }
 
     if (p.startsWith('/admin/')) return handleAdmin(req, res, p, url.searchParams);
     if (p.startsWith('/spawn/') && req.method === 'POST') return handleSpawnPost(req, res, p);

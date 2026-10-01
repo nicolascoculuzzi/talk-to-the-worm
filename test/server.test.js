@@ -195,3 +195,22 @@ test('two viewers share one worm; tugs, mods, leaderboard, and every chunk of th
     prev = e.chainSha256;
   }
 });
+
+test('a request line that is not a URL (bots send them) gets a 400 and the worm keeps running', async () => {
+  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'worm-'));
+  const app = createWormServer({ logDir, speed: 10, ots: false, lab: false, pow: { bits: 0 } });
+  const { port } = await app.listen(0, '127.0.0.1');
+  try {
+    const net = await import('node:net');
+    const status = await new Promise((resolve, reject) => {
+      const s = net.connect(port, '127.0.0.1', () => s.write('GET //[::1 HTTP/1.1\r\nHost: x\r\n\r\n'));
+      let got = '';
+      s.on('data', (d) => { got += d; if (/\r\n\r\n/.test(got)) { s.destroy(); resolve(got.split(' ')[1]); } });
+      s.on('error', reject);
+      setTimeout(() => { s.destroy(); reject(new Error('no answer: did the server die?')); }, 5000);
+    });
+    assert.equal(status, '400');
+    const h = await fetch(`http://127.0.0.1:${port}/healthz`).then((r) => r.json());
+    assert.equal(h.ok, true);
+  } finally { await app.close(); fs.rmSync(logDir, { recursive: true, force: true }); }
+});
