@@ -376,9 +376,11 @@ export const LAYOUT_NAMES = Object.keys(LAYOUTS);
  *   color: 'ink' | 'mute' | 'faint' | 'amber' | 'coral' | '#RRGGBB'); the square shows up to 3
  * @param {string} [o.footnote=''] tiny line at the bottom
  * @param {string} [o.badge=''] e.g. 'LIVE': coral dot and label above the title
+ * @param {object} [o.cam] camera overrides on the layout's own ({roll, yaw, tilt, persp, flip, spin}); for art, not the token image
+ * @param {number[]} [o.box] where the larva is drawn, [x0, y0, x1, y1] in the layout's own coordinates (bigger than the canvas: a close-up)
  * @returns {Buffer} PNG, 8-bit RGB
  */
-export function renderActivityPNG({ D, act, layout = 'square', width, height, title = ['BRAIN', 'WORM'], titleColors = [], lines = [], footnote = '', badge = '' } = {}) {
+export function renderActivityPNG({ D, act, layout = 'square', width, height, title = ['BRAIN', 'WORM'], titleColors = [], lines = [], footnote = '', badge = '', cam: camOverride = null, box: boxOverride = null } = {}) {
   const L = LAYOUTS[layout];
   if (!L) throw new Error(`unknown layout "${layout}" (use ${LAYOUT_NAMES.join(', ')})`);
   if (!D || !Array.isArray(D.n) || !D.e) throw new Error('D must be the wiring data {n, e}');
@@ -392,9 +394,9 @@ export function renderActivityPNG({ D, act, layout = 'square', width, height, ti
   const size = {};
   for (const [key, v] of Object.entries(L.size)) size[key] = /A$|^line$|^dof$|^rest$|^lowres$/.test(key) ? v : v * k;
   const words = { title: [].concat(title ?? []).map(String).filter(Boolean), titleColors: [].concat(titleColors ?? []), lines: [].concat(lines ?? []), footnote: footnote ? String(footnote) : '', badge: badge ? String(badge) : '' };
-  const plan = L.plan(words), { box, scrim } = plan;
+  const plan = L.plan(words), { scrim } = plan, box = boxOverride || plan.box, cam = camOverride ? { ...L.cam, ...camOverride } : L.cam;
   const cv = canvas(W, H);
-  const glow = drawLarva(cv, D, a, L.cam, [box[0] * sx, box[1] * sy, box[2] * sx, box[3] * sy], size);
+  const glow = drawLarva(cv, D, a, cam, [box[0] * sx, box[1] * sy, box[2] * sx, box[3] * sy], size);
   if (scrim) shade(cv, scrim[0] * sy, scrim[1] * sy, scrim[2]);
   L.text(cv, words, X, Y, k, plan);
   return encodePNG(W, H, finish(cv, glow), L.level);
