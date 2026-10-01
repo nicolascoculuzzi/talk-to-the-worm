@@ -478,13 +478,16 @@ export function createWormServer(overrides = {}) {
 
   /* ---------- live connections ---------- */
   const connsPerIp = new Map();
-  // Behind one trusted proxy (Railway, Render, Fly), the proxy appends the real address to X-Forwarded-For, so the
-  // real one is the LAST entry. The first can be anything the client wrote in: taking it would let one bot spend every
-  // other address's budget, or dodge its own by writing a new one each time.
+  // Behind a trusted proxy (TRUST_PROXY=1). Railway, Render, Fly and Cloudflare each hand the caller's address in a
+  // header of their own that they set themselves, replacing anything the caller sent: those come first. Railway's
+  // X-Forwarded-For is "caller, railway-edge" (the edge last, so the last entry would budget by edge, not caller), and
+  // Railway drops a caller's own X-Forwarded-For, so its first entry is the caller too. /admin/whoami shows what arrives.
   function clientIp(req) {
     if (config.trustProxy) {
-      const xf = String(req.headers['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
-      if (xf.length) return xf[xf.length - 1];
+      const h = req.headers;
+      for (const k of ['x-real-ip', 'fly-client-ip', 'true-client-ip', 'cf-connecting-ip']) { const v = String(h[k] || '').trim(); if (v) return v; }
+      const xf = String(h['x-forwarded-for'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+      if (xf.length) return xf[0];
     }
     return req.socket.remoteAddress || 'unknown';
   }

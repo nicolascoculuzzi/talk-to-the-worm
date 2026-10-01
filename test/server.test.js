@@ -215,17 +215,20 @@ test('a request line that is not a URL (bots send them) gets a 400 and the worm 
   } finally { await app.close(); fs.rmSync(logDir, { recursive: true, force: true }); }
 });
 
-test('behind a trusted proxy the real address is the last X-Forwarded-For entry: a bot cannot spend another address\'s budget or dodge its own', async () => {
+test('behind a trusted proxy the caller is what the proxy says (X-Real-IP, else the first X-Forwarded-For entry), and budgets follow it', async () => {
   const logDir = fs.mkdtempSync(path.join(os.tmpdir(), 'worm-'));
   const app = createWormServer({ logDir, speed: 10, ots: false, lab: false, pow: { bits: 0 }, trustProxy: true });
   const { port } = await app.listen(0, '127.0.0.1');
   try {
     // /spawn/quote has a budget of 12 per address; the launchpad is shut here, so every call is a cheap 400
-    const quote = (xff) => fetch(`http://127.0.0.1:${port}/spawn/quote`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': xff }, body: '{"mint":"x","side":"buy","amount":1}' }).then((r) => r.status);
+    const quote = (headers) => fetch(`http://127.0.0.1:${port}/spawn/quote`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: '{"mint":"x","side":"buy","amount":1}' }).then((r) => r.status);
     const statuses = [];
-    for (let i = 0; i < 14; i++) statuses.push(await quote(`1.1.1.1, 9.9.9.9`));
-    assert.equal(statuses.filter((s) => s === 429).length, 2, 'the 13th and 14th from the real address 9.9.9.9 are refused');
-    assert.equal(await quote('2.2.2.2, 9.9.9.9'), 429, 'a made-up first entry does not buy a new budget: the real address is still 9.9.9.9');
-    assert.equal(await quote('1.1.1.1, 8.8.8.8'), 400, 'another real address has its own budget, whatever a bot wrote before it');
+    for (let i = 0; i < 14; i++) statuses.push(await quote({ 'X-Real-IP': '9.9.9.9', 'X-Forwarded-For': '9.9.9.9, 152.233.47.65' }));
+    assert.equal(statuses.filter((s) => s === 429).length, 2, 'the 13th and 14th from 9.9.9.9 are refused');
+    assert.equal(await quote({ 'X-Real-IP': '9.9.9.9', 'X-Forwarded-For': '9.9.9.9, 152.233.47.66' }), 429, 'a different proxy edge at the end changes nothing: the caller is still 9.9.9.9');
+    assert.equal(await quote({ 'X-Forwarded-For': '9.9.9.9, 152.233.47.66' }), 429, 'without X-Real-IP the first entry is the caller');
+    assert.equal(await quote({ 'X-Real-IP': '8.8.8.8', 'X-Forwarded-For': '8.8.8.8, 152.233.47.65' }), 400, 'another caller has its own budget');
+    const who = await fetch(`http://127.0.0.1:${port}/admin/whoami`).then((r) => r.status);
+    assert.equal(who, 404, 'whoami is for the admin token only');
   } finally { await app.close(); fs.rmSync(logDir, { recursive: true, force: true }); }
 });
